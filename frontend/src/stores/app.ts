@@ -37,6 +37,9 @@ export const useAppStore = defineStore('app', () => {
   const versionLoaded = ref<boolean>(false)
   const versionLoading = ref<boolean>(false)
   const currentVersion = ref<string>('')
+  const baseVersion = ref<string>('')
+  const displayVersion = ref<string>('')
+  const buildLabel = ref<string>('')
   const latestVersion = ref<string>('')
   const hasUpdate = ref<boolean>(false)
   const buildType = ref<string>('source')
@@ -243,6 +246,9 @@ export const useAppStore = defineStore('app', () => {
     if (versionLoaded.value && !force) {
       return {
         current_version: currentVersion.value,
+        base_version: baseVersion.value || currentVersion.value,
+        display_version: displayVersion.value || currentVersion.value,
+        build_label: buildLabel.value || undefined,
         latest_version: latestVersion.value,
         has_update: hasUpdate.value,
         build_type: buildType.value,
@@ -260,6 +266,9 @@ export const useAppStore = defineStore('app', () => {
     try {
       const data = await checkUpdatesAPI(force)
       currentVersion.value = data.current_version
+      baseVersion.value = data.base_version || data.current_version
+      buildLabel.value = data.build_label || ''
+      displayVersion.value = data.display_version || data.build_label || data.current_version
       latestVersion.value = data.latest_version
       hasUpdate.value = data.has_update
       buildType.value = data.build_type || 'source'
@@ -280,6 +289,8 @@ export const useAppStore = defineStore('app', () => {
   function clearVersionCache(): void {
     versionLoaded.value = false
     hasUpdate.value = false
+    displayVersion.value = ''
+    buildLabel.value = ''
   }
 
   // ==================== Public Settings Management ====================
@@ -424,6 +435,9 @@ export const useAppStore = defineStore('app', () => {
     versionLoaded,
     versionLoading,
     currentVersion,
+    baseVersion,
+    displayVersion,
+    buildLabel,
     latestVersion,
     hasUpdate,
     buildType,

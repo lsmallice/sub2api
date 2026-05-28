@@ -50,28 +50,33 @@ type UpdateService struct {
 	cache          UpdateCache
 	githubClient   GitHubReleaseClient
 	currentVersion string
-	buildType      string // "source" for manual builds, "release" for CI builds
+	buildLabel     string
+	buildType      string // "source" for manual builds, "release" for CI builds, "custom" for customized builds
 }
 
 // NewUpdateService creates a new UpdateService
-func NewUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, version, buildType string) *UpdateService {
+func NewUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, version, buildLabel, buildType string) *UpdateService {
 	return &UpdateService{
 		cache:          cache,
 		githubClient:   githubClient,
-		currentVersion: version,
-		buildType:      buildType,
+		currentVersion: strings.TrimSpace(version),
+		buildLabel:     strings.TrimSpace(buildLabel),
+		buildType:      strings.TrimSpace(buildType),
 	}
 }
 
 // UpdateInfo contains update information
 type UpdateInfo struct {
 	CurrentVersion string       `json:"current_version"`
+	BaseVersion    string       `json:"base_version"`
+	DisplayVersion string       `json:"display_version"`
+	BuildLabel     string       `json:"build_label,omitempty"`
 	LatestVersion  string       `json:"latest_version"`
 	HasUpdate      bool         `json:"has_update"`
 	ReleaseInfo    *ReleaseInfo `json:"release_info,omitempty"`
 	Cached         bool         `json:"cached"`
 	Warning        string       `json:"warning,omitempty"`
-	BuildType      string       `json:"build_type"` // "source" or "release"
+	BuildType      string       `json:"build_type"` // "source", "release", or "custom"
 }
 
 // ReleaseInfo contains GitHub release details
@@ -125,6 +130,9 @@ func (s *UpdateService) CheckUpdate(ctx context.Context, force bool) (*UpdateInf
 		}
 		return &UpdateInfo{
 			CurrentVersion: s.currentVersion,
+			BaseVersion:    s.currentVersion,
+			DisplayVersion: s.displayVersion(),
+			BuildLabel:     s.buildLabel,
 			LatestVersion:  s.currentVersion,
 			HasUpdate:      false,
 			Warning:        err.Error(),
@@ -292,8 +300,11 @@ func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, er
 
 	return &UpdateInfo{
 		CurrentVersion: s.currentVersion,
+		BaseVersion:    s.currentVersion,
+		DisplayVersion: s.displayVersion(),
+		BuildLabel:     s.buildLabel,
 		LatestVersion:  latestVersion,
-		HasUpdate:      compareVersions(s.currentVersion, latestVersion) < 0,
+		HasUpdate:      s.hasUpdate(latestVersion),
 		ReleaseInfo: &ReleaseInfo{
 			Name:        release.Name,
 			Body:        release.Body,
@@ -488,8 +499,11 @@ func (s *UpdateService) getFromCache(ctx context.Context) (*UpdateInfo, error) {
 
 	return &UpdateInfo{
 		CurrentVersion: s.currentVersion,
+		BaseVersion:    s.currentVersion,
+		DisplayVersion: s.displayVersion(),
+		BuildLabel:     s.buildLabel,
 		LatestVersion:  cached.Latest,
-		HasUpdate:      compareVersions(s.currentVersion, cached.Latest) < 0,
+		HasUpdate:      s.hasUpdate(cached.Latest),
 		ReleaseInfo:    cached.ReleaseInfo,
 		Cached:         true,
 		BuildType:      s.buildType,
@@ -509,6 +523,17 @@ func (s *UpdateService) saveToCache(ctx context.Context, info *UpdateInfo) {
 
 	data, _ := json.Marshal(cacheData)
 	_ = s.cache.SetUpdateInfo(ctx, string(data), time.Duration(updateCacheTTL)*time.Second)
+}
+
+func (s *UpdateService) displayVersion() string {
+	if s.buildLabel != "" {
+		return s.buildLabel
+	}
+	return s.currentVersion
+}
+
+func (s *UpdateService) hasUpdate(latestVersion string) bool {
+	return compareVersions(s.currentVersion, latestVersion) < 0
 }
 
 // compareVersions compares two semantic versions

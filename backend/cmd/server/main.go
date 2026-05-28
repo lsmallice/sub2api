@@ -31,10 +31,11 @@ var embeddedVersion string
 
 // Build-time variables (can be set by ldflags)
 var (
-	Version   = ""
-	Commit    = "unknown"
-	Date      = "unknown"
-	BuildType = "source" // "source" for manual builds, "release" for CI builds (set by ldflags)
+	Version    = ""
+	Commit     = "unknown"
+	Date       = "unknown"
+	BuildLabel = ""
+	BuildType  = "source" // "source" for manual builds, "release" for CI builds (set by ldflags)
 )
 
 func init() {
@@ -144,8 +145,9 @@ func runMainServer() {
 	}
 
 	buildInfo := handler.BuildInfo{
-		Version:   Version,
-		BuildType: BuildType,
+		Version:    Version,
+		BuildLabel: strings.TrimSpace(BuildLabel),
+		BuildType:  BuildType,
 	}
 
 	app, err := initializeApplication(buildInfo)

@@ -81,9 +81,16 @@ func ProvideSystemHandler(updateService *service.UpdateService, lockService *ser
 
 // ProvideSettingHandler creates SettingHandler with version from BuildInfo
 func ProvideSettingHandler(settingService *service.SettingService, buildInfo BuildInfo, notificationEmailService *service.NotificationEmailService) *SettingHandler {
-	h := NewSettingHandler(settingService, buildInfo.Version)
+	h := NewSettingHandler(settingService, displayBuildVersion(buildInfo))
 	h.SetNotificationEmailService(notificationEmailService)
 	return h
+}
+
+func displayBuildVersion(buildInfo BuildInfo) string {
+	if buildInfo.BuildLabel != "" {
+		return buildInfo.BuildLabel
+	}
+	return buildInfo.Version
 }
 
 // ProvideAdminSettingHandler creates admin.SettingHandler with notification template APIs.

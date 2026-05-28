@@ -13,19 +13,31 @@ export interface ReleaseInfo {
 
 export interface VersionInfo {
   current_version: string
+  base_version?: string
+  display_version?: string
+  build_label?: string
   latest_version: string
   has_update: boolean
   release_info?: ReleaseInfo
   cached: boolean
   warning?: string
-  build_type: string // "source" for manual builds, "release" for CI builds
+  build_type: string // "source" for manual builds, "release" for CI builds, "custom" for customized builds
+}
+
+export interface SystemVersion {
+  version: string
+  current_version?: string
+  base_version?: string
+  display_version?: string
+  build_label?: string
+  build_type?: string
 }
 
 /**
  * Get current version
  */
-export async function getVersion(): Promise<{ version: string }> {
-  const { data } = await apiClient.get<{ version: string }>('/admin/system/version')
+export async function getVersion(): Promise<SystemVersion> {
+  const { data } = await apiClient.get<SystemVersion>('/admin/system/version')
   return data
 }
 

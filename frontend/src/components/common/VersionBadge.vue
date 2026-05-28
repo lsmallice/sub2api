@@ -12,7 +12,7 @@
         ]"
         :title="hasUpdate ? t('version.updateAvailable') : t('version.upToDate')"
       >
-        <span v-if="currentVersion" class="font-medium">v{{ currentVersion }}</span>
+        <span v-if="displayVersionLabel" class="font-medium">{{ displayVersionLabel }}</span>
         <span
           v-else
           class="h-3 w-12 animate-pulse rounded bg-gray-200 font-medium dark:bg-dark-600"
@@ -81,9 +81,9 @@
               <div class="mb-4 text-center">
                 <div class="inline-flex items-center gap-2">
                   <span
-                    v-if="currentVersion"
+                    v-if="displayVersionLabel"
                     class="text-2xl font-bold text-gray-900 dark:text-white"
-                    >v{{ currentVersion }}</span
+                    >{{ displayVersionLabel }}</span
                   >
                   <span v-else class="text-2xl font-bold text-gray-400 dark:text-dark-500">--</span>
                   <!-- Show check mark when up to date -->
@@ -107,9 +107,15 @@
                 <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">
                   {{
                     hasUpdate
-                      ? t('version.latestVersion') + ': v' + latestVersion
+                      ? t('version.latestVersion') + ': ' + latestVersionLabel
                       : t('version.upToDate')
                   }}
+                </p>
+                <p
+                  v-if="showBaseVersion"
+                  class="mt-1 text-xs text-gray-400 dark:text-dark-500"
+                >
+                  {{ t('version.basedOnVersion', { version: baseVersionLabel }) }}
                 </p>
               </div>
 
@@ -226,7 +232,7 @@
                 </button>
               </div>
 
-              <!-- Priority 3: Update available for source build - show git pull hint -->
+              <!-- Priority 3: Update available for non-release builds - show manual update hint -->
               <div v-else-if="hasUpdate && !isReleaseBuild" class="space-y-2">
                 <a
                   v-if="releaseInfo?.html_url && releaseInfo.html_url !== '#'"
@@ -250,7 +256,7 @@
                       {{ t('version.updateAvailable') }}
                     </p>
                     <p class="text-xs text-amber-600/70 dark:text-amber-400/70">
-                      v{{ latestVersion }}
+                      {{ latestVersionLabel }}
                     </p>
                   </div>
                   <svg
@@ -263,7 +269,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                 </a>
-                <!-- Source build hint -->
+                <!-- Non-release build hint -->
                 <div
                   class="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-2 dark:border-blue-800/50 dark:bg-blue-900/20"
                 >
@@ -281,7 +287,7 @@
                     />
                   </svg>
                   <p class="text-xs text-blue-600 dark:text-blue-400">
-                    {{ t('version.sourceModeHint') }}
+                    {{ nonReleaseModeHint }}
                   </p>
                 </div>
               </div>
@@ -307,7 +313,7 @@
                       {{ t('version.updateAvailable') }}
                     </p>
                     <p class="text-xs text-amber-600/70 dark:text-amber-400/70">
-                      v{{ latestVersion }}
+                      {{ latestVersionLabel }}
                     </p>
                   </div>
                 </div>
@@ -375,7 +381,7 @@
 
     <!-- Non-admin: Simple static version text -->
     <span v-else-if="version" class="text-xs text-gray-500 dark:text-dark-400">
-      v{{ version }}
+      {{ formatVersionLabel(version || '') }}
     </span>
   </div>
 </template>
@@ -404,10 +410,25 @@ const dropdownRef = ref<HTMLElement | null>(null)
 // Use store's cached version state
 const loading = computed(() => appStore.versionLoading)
 const currentVersion = computed(() => appStore.currentVersion || props.version || '')
+const baseVersion = computed(() => appStore.baseVersion || appStore.currentVersion || '')
+const displayVersion = computed(
+  () => appStore.displayVersion || appStore.buildLabel || props.version || appStore.currentVersion || ''
+)
 const latestVersion = computed(() => appStore.latestVersion)
 const hasUpdate = computed(() => appStore.hasUpdate)
 const releaseInfo = computed(() => appStore.releaseInfo)
 const buildType = computed(() => appStore.buildType)
+const buildLabel = computed(() => appStore.buildLabel)
+
+const displayVersionLabel = computed(() => formatVersionLabel(displayVersion.value))
+const baseVersionLabel = computed(() => formatVersionLabel(baseVersion.value || currentVersion.value))
+const latestVersionLabel = computed(() => formatVersionLabel(latestVersion.value))
+const showBaseVersion = computed(
+  () => !!buildLabel.value && !!baseVersionLabel.value && buildLabel.value !== baseVersion.value
+)
+const nonReleaseModeHint = computed(() =>
+  buildType.value === 'custom' ? t('version.customModeHint') : t('version.sourceModeHint')
+)
 
 // Update process states (local to this component)
 const updating = ref(false)
@@ -419,6 +440,18 @@ const restartCountdown = ref(0)
 
 // Only show update check for release builds (binary/docker deployment)
 const isReleaseBuild = computed(() => buildType.value === 'release')
+
+function formatVersionLabel(version: string): string {
+  const value = version.trim()
+  if (!value) return ''
+
+  const unprefixed = value.replace(/^v/, '')
+  if (/^\d+\.\d+\.\d+(?:[-+].*)?$/.test(unprefixed)) {
+    return `v${unprefixed}`
+  }
+
+  return value
+}
 
 function toggleDropdown() {
   dropdownOpen.value = !dropdownOpen.value

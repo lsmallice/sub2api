@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAppStore } from '@/stores/app'
 import { getPublicSettings } from '@/api/auth'
+import { checkUpdates } from '@/api/admin/system'
 
 // Mock API 模块
 vi.mock('@/api/admin/system', () => ({
@@ -331,6 +332,31 @@ describe('useAppStore', () => {
       expect((window as any).__APP_CONFIG__.table_page_size_options).toEqual([20, 100, 1000])
       expect(localStorage.getItem('table-page-size')).toBeNull()
       expect(localStorage.getItem('table-page-size-source')).toBeNull()
+    })
+  })
+
+  describe('版本管理', () => {
+    it('fetchVersion 会保存 base_version 和 display_version', async () => {
+      vi.mocked(checkUpdates).mockResolvedValue({
+        current_version: '0.1.132',
+        base_version: '0.1.132',
+        display_version: 'imgcap-0.1.132',
+        build_label: 'imgcap-0.1.132',
+        latest_version: '0.1.132',
+        has_update: false,
+        cached: false,
+        build_type: 'custom'
+      })
+
+      const store = useAppStore()
+      const result = await store.fetchVersion(true)
+
+      expect(result?.current_version).toBe('0.1.132')
+      expect(store.currentVersion).toBe('0.1.132')
+      expect(store.baseVersion).toBe('0.1.132')
+      expect(store.displayVersion).toBe('imgcap-0.1.132')
+      expect(store.buildLabel).toBe('imgcap-0.1.132')
+      expect(store.hasUpdate).toBe(false)
     })
   })
 })

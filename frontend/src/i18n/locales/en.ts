@@ -6455,6 +6455,8 @@ export default {
     refresh: 'Refresh',
     sourceMode: 'Source Build',
     sourceModeHint: 'Source build, use git pull to update',
+    customModeHint: 'Custom build, merge upstream into image-capability and redeploy',
+    basedOnVersion: 'Based on {version}',
     updateNow: 'Update Now',
     updating: 'Updating...',
     updateComplete: 'Update Complete',
