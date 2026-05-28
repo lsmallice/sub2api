@@ -110,6 +110,11 @@ func (Account) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(1.0),
 
+		// supports_image_generation: 是否允许该账号承接 OpenAI 生图请求
+		field.Bool("supports_image_generation").
+			Default(false).
+			Comment("Whether this OpenAI account can handle image generation requests."),
+
 		// status: 账户状态，如 "active", "error", "disabled"
 		field.String("status").
 			MaxLen(20).

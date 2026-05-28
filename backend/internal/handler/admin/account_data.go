@@ -47,18 +47,19 @@ type DataProxy struct {
 // Credentials 原文返回。这是"管理员备份"这一显式行为的一部分；如未来需要导出脱敏版本，
 // 应新增独立结构而非修改这里。
 type DataAccount struct {
-	Name               string         `json:"name"`
-	Notes              *string        `json:"notes,omitempty"`
-	Platform           string         `json:"platform"`
-	Type               string         `json:"type"`
-	Credentials        map[string]any `json:"credentials"`
-	Extra              map[string]any `json:"extra,omitempty"`
-	ProxyKey           *string        `json:"proxy_key,omitempty"`
-	Concurrency        int            `json:"concurrency"`
-	Priority           int            `json:"priority"`
-	RateMultiplier     *float64       `json:"rate_multiplier,omitempty"`
-	ExpiresAt          *int64         `json:"expires_at,omitempty"`
-	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired,omitempty"`
+	Name                    string         `json:"name"`
+	Notes                   *string        `json:"notes,omitempty"`
+	Platform                string         `json:"platform"`
+	Type                    string         `json:"type"`
+	Credentials             map[string]any `json:"credentials"`
+	Extra                   map[string]any `json:"extra,omitempty"`
+	ProxyKey                *string        `json:"proxy_key,omitempty"`
+	Concurrency             int            `json:"concurrency"`
+	Priority                int            `json:"priority"`
+	RateMultiplier          *float64       `json:"rate_multiplier,omitempty"`
+	SupportsImageGeneration *bool          `json:"supports_image_generation,omitempty"`
+	ExpiresAt               *int64         `json:"expires_at,omitempty"`
+	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired,omitempty"`
 }
 
 type DataImportRequest struct {
@@ -151,18 +152,19 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 			expiresAt = &v
 		}
 		dataAccounts = append(dataAccounts, DataAccount{
-			Name:               acc.Name,
-			Notes:              acc.Notes,
-			Platform:           acc.Platform,
-			Type:               acc.Type,
-			Credentials:        acc.Credentials,
-			Extra:              acc.Extra,
-			ProxyKey:           proxyKey,
-			Concurrency:        acc.Concurrency,
-			Priority:           acc.Priority,
-			RateMultiplier:     acc.RateMultiplier,
-			ExpiresAt:          expiresAt,
-			AutoPauseOnExpired: &acc.AutoPauseOnExpired,
+			Name:                    acc.Name,
+			Notes:                   acc.Notes,
+			Platform:                acc.Platform,
+			Type:                    acc.Type,
+			Credentials:             acc.Credentials,
+			Extra:                   acc.Extra,
+			ProxyKey:                proxyKey,
+			Concurrency:             acc.Concurrency,
+			Priority:                acc.Priority,
+			RateMultiplier:          acc.RateMultiplier,
+			SupportsImageGeneration: &acc.SupportsImageGeneration,
+			ExpiresAt:               expiresAt,
+			AutoPauseOnExpired:      &acc.AutoPauseOnExpired,
 		})
 	}
 
@@ -305,20 +307,21 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 		enrichCredentialsFromIDToken(&item)
 
 		accountInput := &service.CreateAccountInput{
-			Name:                 item.Name,
-			Notes:                item.Notes,
-			Platform:             item.Platform,
-			Type:                 item.Type,
-			Credentials:          item.Credentials,
-			Extra:                item.Extra,
-			ProxyID:              proxyID,
-			Concurrency:          item.Concurrency,
-			Priority:             item.Priority,
-			RateMultiplier:       item.RateMultiplier,
-			GroupIDs:             nil,
-			ExpiresAt:            item.ExpiresAt,
-			AutoPauseOnExpired:   item.AutoPauseOnExpired,
-			SkipDefaultGroupBind: skipDefaultGroupBind,
+			Name:                    item.Name,
+			Notes:                   item.Notes,
+			Platform:                item.Platform,
+			Type:                    item.Type,
+			Credentials:             item.Credentials,
+			Extra:                   item.Extra,
+			ProxyID:                 proxyID,
+			Concurrency:             item.Concurrency,
+			Priority:                item.Priority,
+			RateMultiplier:          item.RateMultiplier,
+			SupportsImageGeneration: item.SupportsImageGeneration != nil && *item.SupportsImageGeneration,
+			GroupIDs:                nil,
+			ExpiresAt:               item.ExpiresAt,
+			AutoPauseOnExpired:      item.AutoPauseOnExpired,
+			SkipDefaultGroupBind:    skipDefaultGroupBind,
 		}
 
 		created, err := h.adminService.CreateAccount(ctx, accountInput)

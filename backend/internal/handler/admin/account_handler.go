@@ -106,6 +106,7 @@ type CreateAccountRequest struct {
 	Priority                int            `json:"priority"`
 	RateMultiplier          *float64       `json:"rate_multiplier"`
 	LoadFactor              *int           `json:"load_factor"`
+	SupportsImageGeneration *bool          `json:"supports_image_generation"`
 	GroupIDs                []int64        `json:"group_ids"`
 	ExpiresAt               *int64         `json:"expires_at"`
 	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
@@ -125,6 +126,7 @@ type UpdateAccountRequest struct {
 	Priority                *int           `json:"priority"`
 	RateMultiplier          *float64       `json:"rate_multiplier"`
 	LoadFactor              *int           `json:"load_factor"`
+	SupportsImageGeneration *bool          `json:"supports_image_generation"`
 	Status                  string         `json:"status" binding:"omitempty,oneof=active inactive error"`
 	GroupIDs                *[]int64       `json:"group_ids"`
 	ExpiresAt               *int64         `json:"expires_at"`
@@ -142,6 +144,7 @@ type BulkUpdateAccountsRequest struct {
 	Priority                *int                      `json:"priority"`
 	RateMultiplier          *float64                  `json:"rate_multiplier"`
 	LoadFactor              *int                      `json:"load_factor"`
+	SupportsImageGeneration *bool                     `json:"supports_image_generation"`
 	Status                  string                    `json:"status" binding:"omitempty,oneof=active inactive error"`
 	Schedulable             *bool                     `json:"schedulable"`
 	GroupIDs                *[]int64                  `json:"group_ids"`
@@ -151,12 +154,13 @@ type BulkUpdateAccountsRequest struct {
 }
 
 type BulkUpdateAccountFilters struct {
-	Platform    string `json:"platform"`
-	Type        string `json:"type"`
-	Status      string `json:"status"`
-	Group       string `json:"group"`
-	Search      string `json:"search"`
-	PrivacyMode string `json:"privacy_mode"`
+	Platform                string `json:"platform"`
+	Type                    string `json:"type"`
+	Status                  string `json:"status"`
+	Group                   string `json:"group"`
+	Search                  string `json:"search"`
+	PrivacyMode             string `json:"privacy_mode"`
+	SupportsImageGeneration string `json:"supports_image_generation"`
 }
 
 // CheckMixedChannelRequest represents check mixed channel risk request
@@ -231,6 +235,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 	status := c.Query("status")
 	search := c.Query("search")
 	privacyMode := strings.TrimSpace(c.Query("privacy_mode"))
+	supportsImageGenerationRaw := strings.TrimSpace(c.Query("supports_image_generation"))
 	sortBy := c.DefaultQuery("sort_by", "name")
 	sortOrder := c.DefaultQuery("sort_order", "asc")
 	// 标准化和验证 search 参数
@@ -258,7 +263,11 @@ func (h *AccountHandler) List(c *gin.Context) {
 		}
 	}
 
-	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder)
+	ctx := c.Request.Context()
+	if supportsImageGenerationRaw != "" {
+		ctx = service.ContextWithAccountListSupportsImageGenerationFilter(ctx, parseBoolQueryWithDefault(supportsImageGenerationRaw, false))
+	}
+	accounts, total, err := h.adminService.ListAccounts(ctx, page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -534,21 +543,22 @@ func (h *AccountHandler) Create(c *gin.Context) {
 
 	result, err := executeAdminIdempotent(c, "admin.accounts.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		account, execErr := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-			Name:                  req.Name,
-			Notes:                 req.Notes,
-			Platform:              req.Platform,
-			Type:                  req.Type,
-			Credentials:           req.Credentials,
-			Extra:                 req.Extra,
-			ProxyID:               req.ProxyID,
-			Concurrency:           req.Concurrency,
-			Priority:              req.Priority,
-			RateMultiplier:        req.RateMultiplier,
-			LoadFactor:            req.LoadFactor,
-			GroupIDs:              req.GroupIDs,
-			ExpiresAt:             req.ExpiresAt,
-			AutoPauseOnExpired:    req.AutoPauseOnExpired,
-			SkipMixedChannelCheck: skipCheck,
+			Name:                    req.Name,
+			Notes:                   req.Notes,
+			Platform:                req.Platform,
+			Type:                    req.Type,
+			Credentials:             req.Credentials,
+			Extra:                   req.Extra,
+			ProxyID:                 req.ProxyID,
+			Concurrency:             req.Concurrency,
+			Priority:                req.Priority,
+			RateMultiplier:          req.RateMultiplier,
+			LoadFactor:              req.LoadFactor,
+			SupportsImageGeneration: req.SupportsImageGeneration != nil && *req.SupportsImageGeneration,
+			GroupIDs:                req.GroupIDs,
+			ExpiresAt:               req.ExpiresAt,
+			AutoPauseOnExpired:      req.AutoPauseOnExpired,
+			SkipMixedChannelCheck:   skipCheck,
 		})
 		if execErr != nil {
 			return nil, execErr
@@ -613,21 +623,22 @@ func (h *AccountHandler) Update(c *gin.Context) {
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
 
 	account, err := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
-		Name:                  req.Name,
-		Notes:                 req.Notes,
-		Type:                  req.Type,
-		Credentials:           req.Credentials,
-		Extra:                 req.Extra,
-		ProxyID:               req.ProxyID,
-		Concurrency:           req.Concurrency, // 指针类型，nil 表示未提供
-		Priority:              req.Priority,    // 指针类型，nil 表示未提供
-		RateMultiplier:        req.RateMultiplier,
-		LoadFactor:            req.LoadFactor,
-		Status:                req.Status,
-		GroupIDs:              req.GroupIDs,
-		ExpiresAt:             req.ExpiresAt,
-		AutoPauseOnExpired:    req.AutoPauseOnExpired,
-		SkipMixedChannelCheck: skipCheck,
+		Name:                    req.Name,
+		Notes:                   req.Notes,
+		Type:                    req.Type,
+		Credentials:             req.Credentials,
+		Extra:                   req.Extra,
+		ProxyID:                 req.ProxyID,
+		Concurrency:             req.Concurrency, // 指针类型，nil 表示未提供
+		Priority:                req.Priority,    // 指针类型，nil 表示未提供
+		RateMultiplier:          req.RateMultiplier,
+		LoadFactor:              req.LoadFactor,
+		SupportsImageGeneration: req.SupportsImageGeneration,
+		Status:                  req.Status,
+		GroupIDs:                req.GroupIDs,
+		ExpiresAt:               req.ExpiresAt,
+		AutoPauseOnExpired:      req.AutoPauseOnExpired,
+		SkipMixedChannelCheck:   skipCheck,
 	})
 	if err != nil {
 		// 检查是否为混合渠道错误
@@ -1330,20 +1341,21 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 			skipCheck := item.ConfirmMixedChannelRisk != nil && *item.ConfirmMixedChannelRisk
 
 			account, err := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-				Name:                  item.Name,
-				Notes:                 item.Notes,
-				Platform:              item.Platform,
-				Type:                  item.Type,
-				Credentials:           item.Credentials,
-				Extra:                 item.Extra,
-				ProxyID:               item.ProxyID,
-				Concurrency:           item.Concurrency,
-				Priority:              item.Priority,
-				RateMultiplier:        item.RateMultiplier,
-				GroupIDs:              item.GroupIDs,
-				ExpiresAt:             item.ExpiresAt,
-				AutoPauseOnExpired:    item.AutoPauseOnExpired,
-				SkipMixedChannelCheck: skipCheck,
+				Name:                    item.Name,
+				Notes:                   item.Notes,
+				Platform:                item.Platform,
+				Type:                    item.Type,
+				Credentials:             item.Credentials,
+				Extra:                   item.Extra,
+				ProxyID:                 item.ProxyID,
+				Concurrency:             item.Concurrency,
+				Priority:                item.Priority,
+				RateMultiplier:          item.RateMultiplier,
+				SupportsImageGeneration: item.SupportsImageGeneration != nil && *item.SupportsImageGeneration,
+				GroupIDs:                item.GroupIDs,
+				ExpiresAt:               item.ExpiresAt,
+				AutoPauseOnExpired:      item.AutoPauseOnExpired,
+				SkipMixedChannelCheck:   skipCheck,
 			})
 			if err != nil {
 				failed++
@@ -1529,6 +1541,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		req.Priority != nil ||
 		req.RateMultiplier != nil ||
 		req.LoadFactor != nil ||
+		req.SupportsImageGeneration != nil ||
 		req.Status != "" ||
 		req.Schedulable != nil ||
 		req.GroupIDs != nil ||
@@ -1541,20 +1554,21 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 	}
 
 	result, err := h.adminService.BulkUpdateAccounts(c.Request.Context(), &service.BulkUpdateAccountsInput{
-		AccountIDs:            req.AccountIDs,
-		Filters:               toServiceBulkUpdateAccountFilters(req.Filters),
-		Name:                  req.Name,
-		ProxyID:               req.ProxyID,
-		Concurrency:           req.Concurrency,
-		Priority:              req.Priority,
-		RateMultiplier:        req.RateMultiplier,
-		LoadFactor:            req.LoadFactor,
-		Status:                req.Status,
-		Schedulable:           req.Schedulable,
-		GroupIDs:              req.GroupIDs,
-		Credentials:           req.Credentials,
-		Extra:                 req.Extra,
-		SkipMixedChannelCheck: skipCheck,
+		AccountIDs:              req.AccountIDs,
+		Filters:                 toServiceBulkUpdateAccountFilters(req.Filters),
+		Name:                    req.Name,
+		ProxyID:                 req.ProxyID,
+		Concurrency:             req.Concurrency,
+		Priority:                req.Priority,
+		RateMultiplier:          req.RateMultiplier,
+		LoadFactor:              req.LoadFactor,
+		SupportsImageGeneration: req.SupportsImageGeneration,
+		Status:                  req.Status,
+		Schedulable:             req.Schedulable,
+		GroupIDs:                req.GroupIDs,
+		Credentials:             req.Credentials,
+		Extra:                   req.Extra,
+		SkipMixedChannelCheck:   skipCheck,
 	})
 	if err != nil {
 		var mixedErr *service.MixedChannelError
@@ -1583,12 +1597,13 @@ func toServiceBulkUpdateAccountFilters(filters *BulkUpdateAccountFilters) *servi
 		return nil
 	}
 	return &service.BulkUpdateAccountFilters{
-		Platform:    filters.Platform,
-		Type:        filters.Type,
-		Status:      filters.Status,
-		Group:       filters.Group,
-		Search:      filters.Search,
-		PrivacyMode: filters.PrivacyMode,
+		Platform:                filters.Platform,
+		Type:                    filters.Type,
+		Status:                  filters.Status,
+		Group:                   filters.Group,
+		Search:                  filters.Search,
+		PrivacyMode:             filters.PrivacyMode,
+		SupportsImageGeneration: filters.SupportsImageGeneration,
 	}
 }
 

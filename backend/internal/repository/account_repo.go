@@ -93,6 +93,7 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(account.Schedulable).
+		SetSupportsImageGeneration(account.SupportsImageGeneration).
 		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
 
 	if account.RateMultiplier != nil {
@@ -334,6 +335,7 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(schedulable).
+		SetSupportsImageGeneration(account.SupportsImageGeneration).
 		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
 
 	if account.RateMultiplier != nil {
@@ -473,6 +475,9 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 	}
 	if accountType != "" {
 		q = q.Where(dbaccount.TypeEQ(accountType))
+	}
+	if supportsImageGeneration, ok := service.AccountListSupportsImageGenerationFilterFromContext(ctx); ok {
+		q = q.Where(dbaccount.SupportsImageGenerationEQ(supportsImageGeneration))
 	}
 	if status != "" {
 		switch status {
@@ -1442,6 +1447,11 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		args = append(args, *updates.Schedulable)
 		idx++
 	}
+	if updates.SupportsImageGeneration != nil {
+		setClauses = append(setClauses, "supports_image_generation = $"+itoa(idx))
+		args = append(args, *updates.SupportsImageGeneration)
+		idx++
+	}
 	// JSONB 需要合并而非覆盖，使用 raw SQL 保持旧行为。
 	if len(updates.Credentials) > 0 {
 		payload, err := json.Marshal(updates.Credentials)
@@ -1760,6 +1770,7 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		LastUsedAt:              m.LastUsedAt,
 		ExpiresAt:               m.ExpiresAt,
 		AutoPauseOnExpired:      m.AutoPauseOnExpired,
+		SupportsImageGeneration: m.SupportsImageGeneration,
 		CreatedAt:               m.CreatedAt,
 		UpdatedAt:               m.UpdatedAt,
 		Schedulable:             m.Schedulable,

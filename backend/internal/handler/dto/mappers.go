@@ -219,6 +219,7 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		LastUsedAt:              a.LastUsedAt,
 		ExpiresAt:               timeToUnixSeconds(a.ExpiresAt),
 		AutoPauseOnExpired:      a.AutoPauseOnExpired,
+		SupportsImageGeneration: a.SupportsImageGeneration,
 		CreatedAt:               a.CreatedAt,
 		UpdatedAt:               a.UpdatedAt,
 		Schedulable:             a.Schedulable,

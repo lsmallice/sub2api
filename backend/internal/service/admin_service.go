@@ -269,20 +269,21 @@ type UpdateGroupInput struct {
 }
 
 type CreateAccountInput struct {
-	Name               string
-	Notes              *string
-	Platform           string
-	Type               string
-	Credentials        map[string]any
-	Extra              map[string]any
-	ProxyID            *int64
-	Concurrency        int
-	Priority           int
-	RateMultiplier     *float64 // 账号计费倍率（>=0，允许 0）
-	LoadFactor         *int
-	GroupIDs           []int64
-	ExpiresAt          *int64
-	AutoPauseOnExpired *bool
+	Name                    string
+	Notes                   *string
+	Platform                string
+	Type                    string
+	Credentials             map[string]any
+	Extra                   map[string]any
+	ProxyID                 *int64
+	Concurrency             int
+	Priority                int
+	RateMultiplier          *float64 // 账号计费倍率（>=0，允许 0）
+	LoadFactor              *int
+	SupportsImageGeneration bool
+	GroupIDs                []int64
+	ExpiresAt               *int64
+	AutoPauseOnExpired      *bool
 	// SkipDefaultGroupBind prevents auto-binding to platform default group when GroupIDs is empty.
 	SkipDefaultGroupBind bool
 	// SkipMixedChannelCheck skips the mixed channel risk check when binding groups.
@@ -291,50 +292,53 @@ type CreateAccountInput struct {
 }
 
 type UpdateAccountInput struct {
-	Name                  string
-	Notes                 *string
-	Type                  string // Account type: oauth, setup-token, apikey
-	Credentials           map[string]any
-	Extra                 map[string]any
-	ProxyID               *int64
-	Concurrency           *int     // 使用指针区分"未提供"和"设置为0"
-	Priority              *int     // 使用指针区分"未提供"和"设置为0"
-	RateMultiplier        *float64 // 账号计费倍率（>=0，允许 0）
-	LoadFactor            *int
-	Status                string
-	GroupIDs              *[]int64
-	ExpiresAt             *int64
-	AutoPauseOnExpired    *bool
-	SkipMixedChannelCheck bool // 跳过混合渠道检查（用户已确认风险）
+	Name                    string
+	Notes                   *string
+	Type                    string // Account type: oauth, setup-token, apikey
+	Credentials             map[string]any
+	Extra                   map[string]any
+	ProxyID                 *int64
+	Concurrency             *int     // 使用指针区分"未提供"和"设置为0"
+	Priority                *int     // 使用指针区分"未提供"和"设置为0"
+	RateMultiplier          *float64 // 账号计费倍率（>=0，允许 0）
+	LoadFactor              *int
+	SupportsImageGeneration *bool
+	Status                  string
+	GroupIDs                *[]int64
+	ExpiresAt               *int64
+	AutoPauseOnExpired      *bool
+	SkipMixedChannelCheck   bool // 跳过混合渠道检查（用户已确认风险）
 }
 
 // BulkUpdateAccountsInput describes the payload for bulk updating accounts.
 type BulkUpdateAccountsInput struct {
-	AccountIDs     []int64
-	Filters        *BulkUpdateAccountFilters
-	Name           string
-	ProxyID        *int64
-	Concurrency    *int
-	Priority       *int
-	RateMultiplier *float64 // 账号计费倍率（>=0，允许 0）
-	LoadFactor     *int
-	Status         string
-	Schedulable    *bool
-	GroupIDs       *[]int64
-	Credentials    map[string]any
-	Extra          map[string]any
+	AccountIDs              []int64
+	Filters                 *BulkUpdateAccountFilters
+	Name                    string
+	ProxyID                 *int64
+	Concurrency             *int
+	Priority                *int
+	RateMultiplier          *float64 // 账号计费倍率（>=0，允许 0）
+	LoadFactor              *int
+	SupportsImageGeneration *bool
+	Status                  string
+	Schedulable             *bool
+	GroupIDs                *[]int64
+	Credentials             map[string]any
+	Extra                   map[string]any
 	// SkipMixedChannelCheck skips the mixed channel risk check when binding groups.
 	// This should only be set when the caller has explicitly confirmed the risk.
 	SkipMixedChannelCheck bool
 }
 
 type BulkUpdateAccountFilters struct {
-	Platform    string
-	Type        string
-	Status      string
-	Group       string
-	Search      string
-	PrivacyMode string
+	Platform                string
+	Type                    string
+	Status                  string
+	Group                   string
+	Search                  string
+	PrivacyMode             string
+	SupportsImageGeneration string
 }
 
 // BulkUpdateAccountResult captures the result for a single account update.
@@ -2468,17 +2472,18 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	}
 
 	account := &Account{
-		Name:        input.Name,
-		Notes:       normalizeAccountNotes(input.Notes),
-		Platform:    input.Platform,
-		Type:        input.Type,
-		Credentials: input.Credentials,
-		Extra:       input.Extra,
-		ProxyID:     input.ProxyID,
-		Concurrency: input.Concurrency,
-		Priority:    input.Priority,
-		Status:      StatusActive,
-		Schedulable: true,
+		Name:                    input.Name,
+		Notes:                   normalizeAccountNotes(input.Notes),
+		Platform:                input.Platform,
+		Type:                    input.Type,
+		Credentials:             input.Credentials,
+		Extra:                   input.Extra,
+		ProxyID:                 input.ProxyID,
+		Concurrency:             input.Concurrency,
+		Priority:                input.Priority,
+		Status:                  StatusActive,
+		Schedulable:             true,
+		SupportsImageGeneration: input.SupportsImageGeneration,
 	}
 	// 预计算固定时间重置的下次重置时间
 	if account.Extra != nil {
@@ -2626,6 +2631,9 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		} else {
 			account.LoadFactor = input.LoadFactor
 		}
+	}
+	if input.SupportsImageGeneration != nil {
+		account.SupportsImageGeneration = *input.SupportsImageGeneration
 	}
 	if input.Status != "" {
 		account.Status = input.Status
@@ -2780,6 +2788,9 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	if input.Schedulable != nil {
 		repoUpdates.Schedulable = input.Schedulable
 	}
+	if input.SupportsImageGeneration != nil {
+		repoUpdates.SupportsImageGeneration = input.SupportsImageGeneration
+	}
 
 	// Run bulk update for column/jsonb fields first.
 	if _, err := s.accountRepo.BulkUpdate(ctx, input.AccountIDs, repoUpdates); err != nil {
@@ -2831,10 +2842,17 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 	const pageSize = 500
 	page := 1
 	accountIDs := make([]int64, 0, pageSize)
+	listCtx := ctx
+	if raw := strings.TrimSpace(filters.SupportsImageGeneration); raw != "" {
+		listCtx = ContextWithAccountListSupportsImageGenerationFilter(
+			listCtx,
+			raw == "1" || strings.EqualFold(raw, "true") || strings.EqualFold(raw, "yes") || strings.EqualFold(raw, "on"),
+		)
+	}
 
 	for {
 		accounts, total, err := s.ListAccounts(
-			ctx,
+			listCtx,
 			page,
 			pageSize,
 			filters.Platform,

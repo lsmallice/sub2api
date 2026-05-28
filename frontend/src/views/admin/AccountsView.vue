@@ -236,6 +236,12 @@
                 >
                   {{ getAntigravityTierLabel(row) }}
                 </span>
+                <span
+                  v-if="row.platform === 'openai' && row.supports_image_generation"
+                  class="inline-block rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 ring-1 ring-sky-100 dark:bg-sky-900/20 dark:text-sky-300 dark:ring-sky-800"
+                >
+                  {{ t('admin.accounts.supportsImageGeneration') }}
+                </span>
               </div>
               <div
                 v-if="getOpenAICompactMeta(row)"
@@ -440,6 +446,7 @@ type AccountBulkEditTarget =
         group?: string
         search?: string
         privacy_mode?: string
+        supports_image_generation?: string
         sort_by?: string
         sort_order?: AccountSortOrder
       }
@@ -730,6 +737,7 @@ const {
     type: '',
     status: '',
     privacy_mode: '',
+    supports_image_generation: '',
     group: '',
     search: '',
     sort_by: sortState.sort_by,
@@ -934,6 +942,7 @@ const refreshAccountsIncrementally = async () => {
         type?: string
         status?: string
         privacy_mode?: string
+        supports_image_generation?: string
         group?: string
         search?: string
         sort_by?: string
@@ -1352,6 +1361,7 @@ const buildBulkEditFilterSnapshot = () => {
     group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
+    supports_image_generation: typeof rawParams.supports_image_generation === 'string' ? rawParams.supports_image_generation : '',
     sort_by: typeof rawParams.sort_by === 'string' ? rawParams.sort_by : '',
     sort_order: sortOrder
   }
@@ -1402,6 +1412,7 @@ const buildAccountQueryFilters = () => ({
   status: params.status || '',
   group: params.group || '',
   privacy_mode: params.privacy_mode || '',
+  supports_image_generation: params.supports_image_generation || '',
   search: params.search || '',
   sort_by: sortState.sort_by,
   sort_order: sortState.sort_order
@@ -1444,6 +1455,10 @@ const accountMatchesCurrentFilters = (account: Account) => {
     } else if (privacyMode !== filters.privacy_mode) {
       return false
     }
+  }
+  if (filters.supports_image_generation) {
+    const expected = filters.supports_image_generation === 'true'
+    if (account.supports_image_generation !== expected) return false
   }
   const search = String(filters.search || '').trim().toLowerCase()
   if (search && !account.name.toLowerCase().includes(search)) return false

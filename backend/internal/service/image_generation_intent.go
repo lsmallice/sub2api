@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"github.com/tidwall/gjson"
@@ -11,11 +12,30 @@ const (
 	openAIResponsesEndpoint          = "/v1/responses"
 	openAIResponsesCompactEndpoint   = "/v1/responses/compact"
 	imageGenerationPermissionMessage = "Image generation is not enabled for this group"
+	noImageCapableAccountMessage     = "No image-capable OpenAI account is configured for this group"
+
+	ImageGenerationSourceNone           = "none"
+	ImageGenerationSourceImagesAPI      = "images_api"
+	ImageGenerationSourceResponsesTool  = "responses_tool"
+	ImageGenerationSourceChatImageModel = "chat_image_model"
+	ImageGenerationSourceChatModalities = "chat_image_modalities"
+	ImageGenerationSourceGenericModel   = "image_model"
 )
+
+var ErrNoImageCapableAccount = errors.New("no image-capable OpenAI account configured")
+
+type RequestCapabilityClassification struct {
+	IsImageGeneration     bool
+	ImageGenerationSource string
+}
 
 // ImageGenerationPermissionMessage returns the stable end-user error text for disabled groups.
 func ImageGenerationPermissionMessage() string {
 	return imageGenerationPermissionMessage
+}
+
+func NoImageCapableAccountMessage() string {
+	return noImageCapableAccountMessage
 }
 
 // GroupAllowsImageGeneration preserves ungrouped-key behavior and enforces the flag when a group is present.
@@ -25,42 +45,89 @@ func GroupAllowsImageGeneration(group *Group) bool {
 
 // IsImageGenerationIntent classifies requests that can produce generated images.
 func IsImageGenerationIntent(endpoint string, requestedModel string, body []byte) bool {
+	return ClassifyRequestCapability(endpoint, requestedModel, body).IsImageGeneration
+}
+
+func ClassifyRequestCapability(endpoint string, requestedModel string, body []byte) RequestCapabilityClassification {
 	if IsImageGenerationEndpoint(endpoint) {
-		return true
+		return imageGenerationClassification(ImageGenerationSourceImagesAPI)
 	}
+	isChatCompletions := isOpenAIChatCompletionsEndpoint(endpoint)
 	if isOpenAIImageGenerationModel(requestedModel) {
-		return true
+		return imageGenerationClassification(imageModelGenerationSource(isChatCompletions))
 	}
 	if len(body) == 0 || !gjson.ValidBytes(body) {
-		return false
+		return noImageGenerationClassification()
 	}
 	if model := strings.TrimSpace(gjson.GetBytes(body, "model").String()); isOpenAIImageGenerationModel(model) {
-		return true
+		return imageGenerationClassification(imageModelGenerationSource(isChatCompletions))
 	}
 	if openAIJSONToolsContainImageGeneration(gjson.GetBytes(body, "tools")) {
-		return true
+		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
 	}
-	return openAIJSONToolChoiceSelectsImageGeneration(gjson.GetBytes(body, "tool_choice"))
+	if isChatCompletions && openAIJSONModalitiesContainImage(gjson.GetBytes(body, "modalities")) {
+		return imageGenerationClassification(ImageGenerationSourceChatModalities)
+	}
+	if openAIJSONToolChoiceSelectsImageGeneration(gjson.GetBytes(body, "tool_choice")) {
+		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
+	}
+	return noImageGenerationClassification()
 }
 
 // IsImageGenerationIntentMap is the map-backed variant used after service-side request mutation.
 func IsImageGenerationIntentMap(endpoint string, requestedModel string, reqBody map[string]any) bool {
+	return ClassifyRequestCapabilityMap(endpoint, requestedModel, reqBody).IsImageGeneration
+}
+
+func ClassifyRequestCapabilityMap(endpoint string, requestedModel string, reqBody map[string]any) RequestCapabilityClassification {
 	if IsImageGenerationEndpoint(endpoint) {
-		return true
+		return imageGenerationClassification(ImageGenerationSourceImagesAPI)
 	}
+	isChatCompletions := isOpenAIChatCompletionsEndpoint(endpoint)
 	if isOpenAIImageGenerationModel(requestedModel) {
-		return true
+		return imageGenerationClassification(imageModelGenerationSource(isChatCompletions))
 	}
 	if reqBody == nil {
-		return false
+		return noImageGenerationClassification()
 	}
 	if isOpenAIImageGenerationModel(firstNonEmptyString(reqBody["model"])) {
-		return true
+		return imageGenerationClassification(imageModelGenerationSource(isChatCompletions))
 	}
 	if hasOpenAIImageGenerationTool(reqBody) {
-		return true
+		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
 	}
-	return openAIAnyToolChoiceSelectsImageGeneration(reqBody["tool_choice"])
+	if isChatCompletions && openAIAnyModalitiesContainImage(reqBody["modalities"]) {
+		return imageGenerationClassification(ImageGenerationSourceChatModalities)
+	}
+	if openAIAnyToolChoiceSelectsImageGeneration(reqBody["tool_choice"]) {
+		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
+	}
+	return noImageGenerationClassification()
+}
+
+func imageGenerationClassification(source string) RequestCapabilityClassification {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		source = ImageGenerationSourceNone
+	}
+	return RequestCapabilityClassification{
+		IsImageGeneration:     true,
+		ImageGenerationSource: source,
+	}
+}
+
+func noImageGenerationClassification() RequestCapabilityClassification {
+	return RequestCapabilityClassification{
+		IsImageGeneration:     false,
+		ImageGenerationSource: ImageGenerationSourceNone,
+	}
+}
+
+func imageModelGenerationSource(isChatCompletions bool) string {
+	if isChatCompletions {
+		return ImageGenerationSourceChatImageModel
+	}
+	return ImageGenerationSourceGenericModel
 }
 
 // IsImageGenerationEndpoint identifies dedicated generated-image endpoints.
@@ -71,6 +138,39 @@ func IsImageGenerationEndpoint(endpoint string) bool {
 	default:
 		return false
 	}
+}
+
+func isOpenAIChatCompletionsEndpoint(endpoint string) bool {
+	normalized := normalizeImageGenerationEndpoint(endpoint)
+	return normalized == "/v1/chat/completions" || normalized == "/chat/completions"
+}
+
+func openAIJSONModalitiesContainImage(modalities gjson.Result) bool {
+	if !modalities.IsArray() {
+		return false
+	}
+	found := false
+	modalities.ForEach(func(_, item gjson.Result) bool {
+		if strings.EqualFold(strings.TrimSpace(item.String()), "image") {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func openAIAnyModalitiesContainImage(modalities any) bool {
+	values, ok := modalities.([]any)
+	if !ok {
+		return false
+	}
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(firstNonEmptyString(value)), "image") {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeImageGenerationEndpoint(endpoint string) string {

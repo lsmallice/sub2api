@@ -2294,6 +2294,7 @@ type AccountMutation struct {
 	addpriority               *int
 	rate_multiplier           *float64
 	addrate_multiplier        *float64
+	supports_image_generation *bool
 	status                    *string
 	error_message             *string
 	last_used_at              *time.Time
@@ -3055,6 +3056,42 @@ func (m *AccountMutation) AddedRateMultiplier() (r float64, exists bool) {
 func (m *AccountMutation) ResetRateMultiplier() {
 	m.rate_multiplier = nil
 	m.addrate_multiplier = nil
+}
+
+// SetSupportsImageGeneration sets the "supports_image_generation" field.
+func (m *AccountMutation) SetSupportsImageGeneration(b bool) {
+	m.supports_image_generation = &b
+}
+
+// SupportsImageGeneration returns the value of the "supports_image_generation" field in the mutation.
+func (m *AccountMutation) SupportsImageGeneration() (r bool, exists bool) {
+	v := m.supports_image_generation
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSupportsImageGeneration returns the old "supports_image_generation" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldSupportsImageGeneration(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSupportsImageGeneration is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSupportsImageGeneration requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSupportsImageGeneration: %w", err)
+	}
+	return oldValue.SupportsImageGeneration, nil
+}
+
+// ResetSupportsImageGeneration resets all changes to the "supports_image_generation" field.
+func (m *AccountMutation) ResetSupportsImageGeneration() {
+	m.supports_image_generation = nil
 }
 
 // SetStatus sets the "status" field.
@@ -3873,7 +3910,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 28)
+	fields := make([]string, 0, 29)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -3915,6 +3952,9 @@ func (m *AccountMutation) Fields() []string {
 	}
 	if m.rate_multiplier != nil {
 		fields = append(fields, account.FieldRateMultiplier)
+	}
+	if m.supports_image_generation != nil {
+		fields = append(fields, account.FieldSupportsImageGeneration)
 	}
 	if m.status != nil {
 		fields = append(fields, account.FieldStatus)
@@ -3994,6 +4034,8 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.Priority()
 	case account.FieldRateMultiplier:
 		return m.RateMultiplier()
+	case account.FieldSupportsImageGeneration:
+		return m.SupportsImageGeneration()
 	case account.FieldStatus:
 		return m.Status()
 	case account.FieldErrorMessage:
@@ -4059,6 +4101,8 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldPriority(ctx)
 	case account.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
+	case account.FieldSupportsImageGeneration:
+		return m.OldSupportsImageGeneration(ctx)
 	case account.FieldStatus:
 		return m.OldStatus(ctx)
 	case account.FieldErrorMessage:
@@ -4193,6 +4237,13 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRateMultiplier(v)
+		return nil
+	case account.FieldSupportsImageGeneration:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSupportsImageGeneration(v)
 		return nil
 	case account.FieldStatus:
 		v, ok := value.(string)
@@ -4526,6 +4577,9 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldRateMultiplier:
 		m.ResetRateMultiplier()
+		return nil
+	case account.FieldSupportsImageGeneration:
+		m.ResetSupportsImageGeneration()
 		return nil
 	case account.FieldStatus:
 		m.ResetStatus()

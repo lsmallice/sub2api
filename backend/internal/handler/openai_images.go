@@ -80,6 +80,10 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		zap.Bool("multipart", parsed.Multipart),
 		zap.String("capability", string(parsed.RequiredCapability)),
 	)
+	requestCapability := service.ClassifyRequestCapability(parsed.Endpoint, parsed.Model, body)
+	if requestCapability.IsImageGeneration {
+		reqLog = reqLog.With(imageGenerationRequestLogFields(requestCapability)...)
+	}
 
 	if !service.GroupAllowsImageGeneration(apiKey.Group) {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
@@ -157,6 +161,10 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
 			if len(failedAccountIDs) == 0 {
+				if errors.Is(err, service.ErrNoImageCapableAccount) {
+					h.handleStreamingAwareError(c, http.StatusForbidden, "no_image_capable_account", service.NoImageCapableAccountMessage(), streamStarted)
+					return
+				}
 				markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available compatible accounts", streamStarted)
 				return
@@ -185,7 +193,12 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 
 		account := selection.Account
 		sessionHash = ensureOpenAIPoolModeSessionHash(sessionHash, account)
-		reqLog.Debug("openai.images.account_selected", zap.Int64("account_id", account.ID), zap.String("account_name", account.Name))
+		accountSelectedFields := []zap.Field{
+			zap.Int64("account_id", account.ID),
+			zap.String("account_name", account.Name),
+		}
+		accountSelectedFields = append(accountSelectedFields, selectedImageGenerationAccountLogFields(account, requestCapability)...)
+		reqLog.Debug("openai.images.account_selected", accountSelectedFields...)
 		setOpsSelectedAccount(c, account.ID, account.Platform)
 
 		accountReleaseFunc, acquired := h.acquireResponsesAccountSlot(c, apiKey.GroupID, sessionHash, selection, parsed.Stream, &streamStarted, reqLog)

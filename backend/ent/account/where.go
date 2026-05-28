@@ -115,6 +115,11 @@ func RateMultiplier(v float64) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldRateMultiplier, v))
 }
 
+// SupportsImageGeneration applies equality check predicate on the "supports_image_generation" field. It's identical to SupportsImageGenerationEQ.
+func SupportsImageGeneration(v bool) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldSupportsImageGeneration, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldStatus, v))
@@ -783,6 +788,16 @@ func RateMultiplierLT(v float64) predicate.Account {
 // RateMultiplierLTE applies the LTE predicate on the "rate_multiplier" field.
 func RateMultiplierLTE(v float64) predicate.Account {
 	return predicate.Account(sql.FieldLTE(FieldRateMultiplier, v))
+}
+
+// SupportsImageGenerationEQ applies the EQ predicate on the "supports_image_generation" field.
+func SupportsImageGenerationEQ(v bool) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldSupportsImageGeneration, v))
+}
+
+// SupportsImageGenerationNEQ applies the NEQ predicate on the "supports_image_generation" field.
+func SupportsImageGenerationNEQ(v bool) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldSupportsImageGeneration, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.

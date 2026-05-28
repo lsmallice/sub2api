@@ -42,6 +42,13 @@ func TestIsImageGenerationIntent(t *testing.T) {
 			want:     true,
 		},
 		{
+			name:     "chat completions image modality",
+			endpoint: "/v1/chat/completions",
+			model:    "gpt-5.4",
+			body:     []byte(`{"model":"gpt-5.4","modalities":["text","image"]}`),
+			want:     true,
+		},
+		{
 			name:     "required tool choice alone is text",
 			endpoint: "/v1/responses",
 			model:    "gpt-5.4",
@@ -60,6 +67,62 @@ func TestIsImageGenerationIntent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.want, IsImageGenerationIntent(tt.endpoint, tt.model, tt.body))
+		})
+	}
+}
+
+func TestClassifyRequestCapabilityImageGenerationSource(t *testing.T) {
+	tests := []struct {
+		name       string
+		endpoint   string
+		model      string
+		body       []byte
+		wantIntent bool
+		wantSource string
+	}{
+		{
+			name:       "images api",
+			endpoint:   "/v1/images/edits",
+			body:       []byte(`{"model":"gpt-image-2"}`),
+			wantIntent: true,
+			wantSource: ImageGenerationSourceImagesAPI,
+		},
+		{
+			name:       "responses tool",
+			endpoint:   "/v1/responses",
+			body:       []byte(`{"model":"gpt-5.4","tools":[{"type":"image_generation"}]}`),
+			wantIntent: true,
+			wantSource: ImageGenerationSourceResponsesTool,
+		},
+		{
+			name:       "chat image model",
+			endpoint:   "/v1/chat/completions",
+			model:      "gpt-image-2",
+			body:       []byte(`{"model":"gpt-image-2"}`),
+			wantIntent: true,
+			wantSource: ImageGenerationSourceChatImageModel,
+		},
+		{
+			name:       "chat image modalities",
+			endpoint:   "/v1/chat/completions",
+			body:       []byte(`{"model":"gpt-5.4","modalities":["text","image"]}`),
+			wantIntent: true,
+			wantSource: ImageGenerationSourceChatModalities,
+		},
+		{
+			name:       "text only",
+			endpoint:   "/v1/responses",
+			body:       []byte(`{"model":"gpt-5.4","input":"write code"}`),
+			wantIntent: false,
+			wantSource: ImageGenerationSourceNone,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ClassifyRequestCapability(tt.endpoint, tt.model, tt.body)
+			require.Equal(t, tt.wantIntent, got.IsImageGeneration)
+			require.Equal(t, tt.wantSource, got.ImageGenerationSource)
 		})
 	}
 }

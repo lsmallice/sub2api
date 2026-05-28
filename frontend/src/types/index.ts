@@ -838,6 +838,7 @@ export interface Account {
   last_used_at: string | null
   expires_at: number | null
   auto_pause_on_expired: boolean
+  supports_image_generation: boolean
   created_at: string
   updated_at: string
   proxy?: Proxy
@@ -1023,6 +1024,7 @@ export interface CreateAccountRequest {
   load_factor?: number | null
   priority?: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
+  supports_image_generation?: boolean
   group_ids?: number[]
   expires_at?: number | null
   auto_pause_on_expired?: boolean
@@ -1040,6 +1042,7 @@ export interface UpdateAccountRequest {
   load_factor?: number | null
   priority?: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
+  supports_image_generation?: boolean
   schedulable?: boolean
   status?: 'active' | 'inactive' | 'error'
   group_ids?: number[]
@@ -1148,6 +1151,7 @@ export interface CodexSessionImportRequest {
   priority?: number
   rate_multiplier?: number
   load_factor?: number | null
+  supports_image_generation?: boolean
   expires_at?: number | null
   auto_pause_on_expired?: boolean
   credential_extras?: Record<string, unknown>
