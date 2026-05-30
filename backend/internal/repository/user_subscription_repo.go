@@ -72,6 +72,21 @@ func (r *userSubscriptionRepository) GetByID(ctx context.Context, id int64) (*se
 	return userSubscriptionEntityToService(m), nil
 }
 
+func (r *userSubscriptionRepository) GetByIDForUpdate(ctx context.Context, id int64) (*service.UserSubscription, error) {
+	client := clientFromContext(ctx, r.client)
+	m, err := client.UserSubscription.Query().
+		Where(usersubscription.IDEQ(id)).
+		WithUser().
+		WithGroup().
+		WithAssignedByUser().
+		ForUpdate().
+		Only(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
+	}
+	return userSubscriptionEntityToService(m), nil
+}
+
 func (r *userSubscriptionRepository) GetByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
 	client := clientFromContext(ctx, r.client)
 	m, err := client.UserSubscription.Query().
@@ -334,6 +349,84 @@ func (r *userSubscriptionRepository) ResetMonthlyUsage(ctx context.Context, id i
 		SetMonthlyWindowStart(newWindowStart).
 		Save(ctx)
 	return translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
+}
+
+func (r *userSubscriptionRepository) RefreshQuotaWindow(ctx context.Context, input *service.SubscriptionQuotaRefreshPersistInput) (*service.UserSubscription, error) {
+	if input == nil {
+		return nil, service.ErrSubscriptionNilInput
+	}
+	client := clientFromContext(ctx, r.client)
+	builder := client.UserSubscription.UpdateOneID(input.SubscriptionID).
+		SetExpiresAt(input.NewExpiresAt)
+	switch input.Window {
+	case service.SubscriptionQuotaRefreshWindowDaily:
+		builder.SetDailyUsageUsd(0).SetDailyWindowStart(input.NewWindowStart)
+	case service.SubscriptionQuotaRefreshWindowWeekly:
+		builder.SetWeeklyUsageUsd(0).SetWeeklyWindowStart(input.NewWindowStart)
+	case service.SubscriptionQuotaRefreshWindowMonthly:
+		builder.SetMonthlyUsageUsd(0).SetMonthlyWindowStart(input.NewWindowStart)
+	default:
+		return nil, service.ErrQuotaRefreshInvalidWindow
+	}
+	if _, err := builder.Save(ctx); err != nil {
+		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
+	}
+	if input.Event != nil {
+		if err := insertSubscriptionQuotaRefreshEvent(ctx, client, input.Event); err != nil {
+			return nil, err
+		}
+	}
+	return r.GetByID(ctx, input.SubscriptionID)
+}
+
+func insertSubscriptionQuotaRefreshEvent(ctx context.Context, client *dbent.Client, event *service.SubscriptionQuotaRefreshEvent) error {
+	var actorID any
+	if event.ActorID != nil {
+		actorID = *event.ActorID
+	}
+	var oldWindowStart any
+	if event.OldWindowStart != nil {
+		oldWindowStart = *event.OldWindowStart
+	}
+	_, err := client.ExecContext(ctx, `
+		INSERT INTO subscription_quota_refresh_events (
+			subscription_id,
+			user_id,
+			group_id,
+			actor_type,
+			actor_id,
+			quota_window,
+			deducted_seconds,
+			old_expires_at,
+			new_expires_at,
+			old_window_start,
+			new_window_start,
+			old_usage_usd,
+			limit_usd,
+			idempotency_key_hash,
+			created_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+			$11, $12, $13, $14, $15
+		)
+	`,
+		event.SubscriptionID,
+		event.UserID,
+		event.GroupID,
+		event.ActorType,
+		actorID,
+		string(event.Window),
+		event.DeductedSeconds,
+		event.OldExpiresAt,
+		event.NewExpiresAt,
+		oldWindowStart,
+		event.NewWindowStart,
+		event.OldUsageUSD,
+		event.LimitUSD,
+		event.IdempotencyKeyHash,
+		event.CreatedAt,
+	)
+	return err
 }
 
 // IncrementUsage 原子性地累加订阅用量。

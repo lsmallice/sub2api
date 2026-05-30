@@ -29,6 +29,8 @@ type UserSubscription struct {
 	User           *User
 	Group          *Group
 	AssignedByUser *User
+
+	QuotaRefresh *SubscriptionQuotaRefreshSummary
 }
 
 func (s *UserSubscription) IsActive() bool {

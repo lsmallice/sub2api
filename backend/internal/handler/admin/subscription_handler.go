@@ -224,6 +224,10 @@ type ResetSubscriptionQuotaRequest struct {
 	Monthly bool `json:"monthly"`
 }
 
+type RefreshSubscriptionQuotaRequest struct {
+	Window string `json:"window" binding:"required"`
+}
+
 // ResetQuota resets daily, weekly, and/or monthly usage for a subscription.
 // POST /api/v1/admin/subscriptions/:id/reset-quota
 func (h *SubscriptionHandler) ResetQuota(c *gin.Context) {
@@ -247,6 +251,53 @@ func (h *SubscriptionHandler) ResetQuota(c *gin.Context) {
 		return
 	}
 	response.Success(c, dto.UserSubscriptionFromServiceAdmin(sub))
+}
+
+// RefreshQuota refreshes one exhausted quota window by deducting subscription validity.
+// POST /api/v1/admin/subscriptions/:id/refresh-quota
+func (h *SubscriptionHandler) RefreshQuota(c *gin.Context) {
+	subscriptionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid subscription ID")
+		return
+	}
+	var req RefreshSubscriptionQuotaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	adminID := getAdminIDFromContext(c)
+	payload := struct {
+		SubscriptionID int64  `json:"subscription_id"`
+		Window         string `json:"window"`
+	}{
+		SubscriptionID: subscriptionID,
+		Window:         req.Window,
+	}
+	idempotencyKey, err := service.NormalizeIdempotencyKey(c.GetHeader("Idempotency-Key"))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if idempotencyKey == "" {
+		response.ErrorFrom(c, service.ErrIdempotencyKeyRequired)
+		return
+	}
+
+	executeAdminIdempotentJSON(c, "admin.subscriptions.refresh_quota", payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		result, execErr := h.subscriptionService.RefreshSubscriptionQuota(ctx, service.RefreshSubscriptionQuotaInput{
+			SubscriptionID:     subscriptionID,
+			Window:             service.SubscriptionQuotaRefreshWindow(req.Window),
+			ActorType:          service.SubscriptionQuotaRefreshActorAdmin,
+			ActorID:            &adminID,
+			IdempotencyKeyHash: service.HashIdempotencyKey(idempotencyKey),
+		})
+		if execErr != nil {
+			return nil, execErr
+		}
+		return dto.SubscriptionQuotaRefreshResultFromService(result), nil
+	})
 }
 
 // Revoke handles revoking a subscription

@@ -73,6 +73,9 @@ func (userSubRepoNoop) Create(context.Context, *UserSubscription) error {
 func (userSubRepoNoop) GetByID(context.Context, int64) (*UserSubscription, error) {
 	panic("unexpected GetByID call")
 }
+func (userSubRepoNoop) GetByIDForUpdate(context.Context, int64) (*UserSubscription, error) {
+	panic("unexpected GetByIDForUpdate call")
+}
 func (userSubRepoNoop) GetByUserIDAndGroupID(context.Context, int64, int64) (*UserSubscription, error) {
 	panic("unexpected GetByUserIDAndGroupID call")
 }
@@ -118,6 +121,9 @@ func (userSubRepoNoop) ResetWeeklyUsage(context.Context, int64, time.Time) error
 }
 func (userSubRepoNoop) ResetMonthlyUsage(context.Context, int64, time.Time) error {
 	panic("unexpected ResetMonthlyUsage call")
+}
+func (userSubRepoNoop) RefreshQuotaWindow(context.Context, *SubscriptionQuotaRefreshPersistInput) (*UserSubscription, error) {
+	panic("unexpected RefreshQuotaWindow call")
 }
 func (userSubRepoNoop) IncrementUsage(context.Context, int64, float64) error {
 	panic("unexpected IncrementUsage call")

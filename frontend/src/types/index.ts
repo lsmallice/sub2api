@@ -1551,6 +1551,43 @@ export interface UserSubscription {
   expires_at: string | null
   user?: User
   group?: Group
+  quota_refresh?: SubscriptionQuotaRefreshSummary | null
+}
+
+export type SubscriptionQuotaRefreshWindow = 'daily' | 'weekly' | 'monthly'
+
+export interface SubscriptionQuotaRefreshWindowInfo {
+  window: SubscriptionQuotaRefreshWindow
+  eligible: boolean
+  reason?: string
+  deducted_seconds: number
+  current_usage_usd: number
+  limit_usd?: number | null
+  current_window_start?: string | null
+  next_reset_at?: string | null
+  projected_expires_at?: string | null
+}
+
+export interface SubscriptionQuotaRefreshSummary {
+  daily: SubscriptionQuotaRefreshWindowInfo
+  weekly: SubscriptionQuotaRefreshWindowInfo
+  monthly: SubscriptionQuotaRefreshWindowInfo
+}
+
+export interface SubscriptionQuotaRefreshRequest {
+  window: SubscriptionQuotaRefreshWindow
+}
+
+export interface SubscriptionQuotaRefreshResult {
+  window: SubscriptionQuotaRefreshWindow
+  deducted_seconds: number
+  old_expires_at: string
+  new_expires_at: string
+  old_window_start?: string | null
+  new_window_start: string
+  old_usage_usd: number
+  limit_usd: number
+  subscription: UserSubscription
 }
 
 export interface SubscriptionProgress {

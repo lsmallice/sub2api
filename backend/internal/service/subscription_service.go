@@ -53,6 +53,8 @@ type SubscriptionService struct {
 	subCacheJitter int // 抖动百分比
 
 	maintenanceQueue *SubscriptionMaintenanceQueue
+
+	quotaRefreshEnabled bool
 }
 
 // NewSubscriptionService 创建订阅服务
@@ -62,6 +64,10 @@ func NewSubscriptionService(groupRepo GroupRepository, userSubRepo UserSubscript
 		userSubRepo:         userSubRepo,
 		billingCacheService: billingCacheService,
 		entClient:           entClient,
+		quotaRefreshEnabled: true,
+	}
+	if cfg != nil {
+		svc.quotaRefreshEnabled = cfg.SubscriptionQuotaRefresh.Enabled
 	}
 	svc.initSubCache(cfg)
 	svc.initMaintenanceQueue(cfg)
@@ -611,7 +617,12 @@ func (s *SubscriptionService) ExtendSubscription(ctx context.Context, subscripti
 
 // GetByID 根据ID获取订阅
 func (s *SubscriptionService) GetByID(ctx context.Context, id int64) (*UserSubscription, error) {
-	return s.userSubRepo.GetByID(ctx, id)
+	sub, err := s.userSubRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	s.attachQuotaRefreshSummary(sub)
+	return sub, nil
 }
 
 // GetActiveSubscription 获取用户对特定分组的有效订阅
@@ -660,6 +671,7 @@ func (s *SubscriptionService) ListUserSubscriptions(ctx context.Context, userID 
 	if err != nil {
 		return nil, err
 	}
+	s.attachQuotaRefreshSummaries(subs)
 	normalizeExpiredWindows(subs)
 	normalizeSubscriptionStatus(subs)
 	return subs, nil
@@ -671,6 +683,7 @@ func (s *SubscriptionService) ListActiveUserSubscriptions(ctx context.Context, u
 	if err != nil {
 		return nil, err
 	}
+	s.attachQuotaRefreshSummaries(subs)
 	normalizeExpiredWindows(subs)
 	return subs, nil
 }
@@ -682,6 +695,7 @@ func (s *SubscriptionService) ListGroupSubscriptions(ctx context.Context, groupI
 	if err != nil {
 		return nil, nil, err
 	}
+	s.attachQuotaRefreshSummaries(subs)
 	normalizeExpiredWindows(subs)
 	normalizeSubscriptionStatus(subs)
 	return subs, pag, nil
@@ -694,6 +708,7 @@ func (s *SubscriptionService) List(ctx context.Context, page, pageSize int, user
 	if err != nil {
 		return nil, nil, err
 	}
+	s.attachQuotaRefreshSummaries(subs)
 	normalizeExpiredWindows(subs)
 	normalizeSubscriptionStatus(subs)
 	return subs, pag, nil

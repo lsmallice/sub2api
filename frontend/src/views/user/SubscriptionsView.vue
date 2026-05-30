@@ -100,11 +100,26 @@
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {{ t('userSubscriptions.daily') }}
                 </span>
-                <span class="text-sm text-gray-500 dark:text-dark-400">
-                  ${{ (subscription.daily_usage_usd || 0).toFixed(2) }} / ${{
-                    subscription.group.daily_limit_usd.toFixed(2)
-                  }}
-                </span>
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                  <span class="text-sm text-gray-500 dark:text-dark-400">
+                    ${{ (subscription.daily_usage_usd || 0).toFixed(2) }} / ${{
+                      subscription.group.daily_limit_usd.toFixed(2)
+                    }}
+                  </span>
+                  <button
+                    v-if="canRefreshQuota(subscription, 'daily')"
+                    type="button"
+                    :disabled="refreshingQuota"
+                    class="inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/20"
+                    @click="openRefreshQuotaDialog(subscription, 'daily')"
+                  >
+                    <Icon name="clock" size="xs" />
+                    {{ t('userSubscriptions.refreshQuota') }}
+                  </button>
+                  <span v-else-if="quotaRefreshReason(subscription, 'daily')" class="text-xs text-gray-400 dark:text-dark-500">
+                    {{ quotaRefreshReason(subscription, 'daily') }}
+                  </span>
+                </div>
               </div>
               <div class="relative h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                 <div
@@ -137,11 +152,26 @@
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {{ t('userSubscriptions.weekly') }}
                 </span>
-                <span class="text-sm text-gray-500 dark:text-dark-400">
-                  ${{ (subscription.weekly_usage_usd || 0).toFixed(2) }} / ${{
-                    subscription.group.weekly_limit_usd.toFixed(2)
-                  }}
-                </span>
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                  <span class="text-sm text-gray-500 dark:text-dark-400">
+                    ${{ (subscription.weekly_usage_usd || 0).toFixed(2) }} / ${{
+                      subscription.group.weekly_limit_usd.toFixed(2)
+                    }}
+                  </span>
+                  <button
+                    v-if="canRefreshQuota(subscription, 'weekly')"
+                    type="button"
+                    :disabled="refreshingQuota"
+                    class="inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/20"
+                    @click="openRefreshQuotaDialog(subscription, 'weekly')"
+                  >
+                    <Icon name="clock" size="xs" />
+                    {{ t('userSubscriptions.refreshQuota') }}
+                  </button>
+                  <span v-else-if="quotaRefreshReason(subscription, 'weekly')" class="text-xs text-gray-400 dark:text-dark-500">
+                    {{ quotaRefreshReason(subscription, 'weekly') }}
+                  </span>
+                </div>
               </div>
               <div class="relative h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                 <div
@@ -178,11 +208,26 @@
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {{ t('userSubscriptions.monthly') }}
                 </span>
-                <span class="text-sm text-gray-500 dark:text-dark-400">
-                  ${{ (subscription.monthly_usage_usd || 0).toFixed(2) }} / ${{
-                    subscription.group.monthly_limit_usd.toFixed(2)
-                  }}
-                </span>
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                  <span class="text-sm text-gray-500 dark:text-dark-400">
+                    ${{ (subscription.monthly_usage_usd || 0).toFixed(2) }} / ${{
+                      subscription.group.monthly_limit_usd.toFixed(2)
+                    }}
+                  </span>
+                  <button
+                    v-if="canRefreshQuota(subscription, 'monthly')"
+                    type="button"
+                    :disabled="refreshingQuota"
+                    class="inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/20"
+                    @click="openRefreshQuotaDialog(subscription, 'monthly')"
+                  >
+                    <Icon name="clock" size="xs" />
+                    {{ t('userSubscriptions.refreshQuota') }}
+                  </button>
+                  <span v-else-if="quotaRefreshReason(subscription, 'monthly')" class="text-xs text-gray-400 dark:text-dark-500">
+                    {{ quotaRefreshReason(subscription, 'monthly') }}
+                  </span>
+                </div>
               </div>
               <div class="relative h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                 <div
@@ -238,19 +283,46 @@
         </div>
       </div>
     </div>
+
+    <ConfirmDialog
+      :show="!!quotaRefreshTarget"
+      :title="t('userSubscriptions.refreshQuotaTitle')"
+      :message="quotaRefreshConfirmMessage"
+      :confirm-text="refreshingQuota ? t('userSubscriptions.refreshingQuota') : t('userSubscriptions.confirmRefreshQuota')"
+      :cancel-text="t('common.cancel')"
+      @confirm="confirmRefreshQuota"
+      @cancel="closeRefreshQuotaDialog"
+    >
+      <div v-if="quotaRefreshTargetInfo" class="rounded-lg bg-gray-50 p-3 text-sm text-gray-600 dark:bg-dark-700 dark:text-gray-300">
+        <div class="flex justify-between gap-3">
+          <span>{{ t('userSubscriptions.deductValidity') }}</span>
+          <span class="font-medium text-gray-900 dark:text-white">{{ formatDeductedSeconds(quotaRefreshTargetInfo.deducted_seconds) }}</span>
+        </div>
+        <div v-if="quotaRefreshTargetInfo.projected_expires_at" class="mt-2 flex justify-between gap-3">
+          <span>{{ t('userSubscriptions.newExpiration') }}</span>
+          <span class="font-medium text-gray-900 dark:text-white">{{ formatDateTime(quotaRefreshTargetInfo.projected_expires_at) }}</span>
+        </div>
+      </div>
+    </ConfirmDialog>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
+import { useSubscriptionStore } from '@/stores/subscriptions'
 import subscriptionsAPI from '@/api/subscriptions'
-import type { UserSubscription } from '@/types'
+import type {
+  SubscriptionQuotaRefreshWindow,
+  SubscriptionQuotaRefreshWindowInfo,
+  UserSubscription
+} from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { formatDateOnly } from '@/utils/format'
+import { formatDateOnly, formatDateTime } from '@/utils/format'
 import { platformBorderClass, platformBadgeClass, platformButtonClass, platformLabel } from '@/utils/platformColors'
 import { getRemainingDurationParts, isOneTimeDailyQuota, type RemainingDurationParts } from '@/utils/subscriptionQuota'
 
@@ -267,9 +339,30 @@ function platformAccentDotClass(p: string): string {
 const { t } = useI18n()
 const router = useRouter()
 const appStore = useAppStore()
+const subscriptionStore = useSubscriptionStore()
 
 const subscriptions = ref<UserSubscription[]>([])
 const loading = ref(true)
+const refreshingQuota = ref(false)
+const quotaRefreshTarget = ref<{
+  subscription: UserSubscription
+  window: SubscriptionQuotaRefreshWindow
+} | null>(null)
+
+const quotaRefreshTargetInfo = computed(() => {
+  if (!quotaRefreshTarget.value) return null
+  return getQuotaRefreshInfo(
+    quotaRefreshTarget.value.subscription,
+    quotaRefreshTarget.value.window
+  )
+})
+
+const quotaRefreshConfirmMessage = computed(() => {
+  if (!quotaRefreshTarget.value) return ''
+  return t('userSubscriptions.refreshQuotaConfirm', {
+    window: quotaWindowLabel(quotaRefreshTarget.value.window)
+  })
+})
 
 async function loadSubscriptions() {
   try {
@@ -353,6 +446,77 @@ function formatDailyUsageWindow(subscription: UserSubscription): string {
   return t('userSubscriptions.resetIn', {
     time: formatResetTime(subscription.daily_window_start, 24)
   })
+}
+
+function getQuotaRefreshInfo(
+  subscription: UserSubscription,
+  window: SubscriptionQuotaRefreshWindow
+): SubscriptionQuotaRefreshWindowInfo | null {
+  return subscription.quota_refresh?.[window] ?? null
+}
+
+function canRefreshQuota(subscription: UserSubscription, window: SubscriptionQuotaRefreshWindow): boolean {
+  return getQuotaRefreshInfo(subscription, window)?.eligible === true
+}
+
+function quotaRefreshReason(subscription: UserSubscription, window: SubscriptionQuotaRefreshWindow): string {
+  const info = getQuotaRefreshInfo(subscription, window)
+  if (!info || info.eligible || !info.reason) return ''
+  return t(`userSubscriptions.refreshReasons.${info.reason}`)
+}
+
+function quotaWindowLabel(window: SubscriptionQuotaRefreshWindow): string {
+  return t(`userSubscriptions.${window}`)
+}
+
+function formatDeductedSeconds(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
+  const days = Math.floor(hours / 24)
+  const remainingHours = hours % 24
+  if (days > 0 && remainingHours > 0) {
+    return t('userSubscriptions.durationDaysHours', { days, hours: remainingHours })
+  }
+  if (days > 0) {
+    return t('userSubscriptions.durationDays', { days })
+  }
+  return t('userSubscriptions.durationHours', { hours })
+}
+
+function openRefreshQuotaDialog(
+  subscription: UserSubscription,
+  window: SubscriptionQuotaRefreshWindow
+) {
+  if (!canRefreshQuota(subscription, window)) return
+  quotaRefreshTarget.value = { subscription, window }
+}
+
+function closeRefreshQuotaDialog() {
+  if (refreshingQuota.value) return
+  quotaRefreshTarget.value = null
+}
+
+function apiErrorMessage(error: any, fallback: string): string {
+  return error?.message || error?.response?.data?.message || error?.response?.data?.detail || fallback
+}
+
+async function confirmRefreshQuota() {
+  if (!quotaRefreshTarget.value || refreshingQuota.value) return
+  refreshingQuota.value = true
+  const target = quotaRefreshTarget.value
+  try {
+    await subscriptionsAPI.refreshQuota(target.subscription.id, { window: target.window })
+    appStore.showSuccess(t('userSubscriptions.refreshQuotaSuccess'))
+    quotaRefreshTarget.value = null
+    subscriptionStore.invalidateCache()
+    await Promise.all([
+      loadSubscriptions(),
+      subscriptionStore.fetchActiveSubscriptions(true).catch(() => [])
+    ])
+  } catch (error: any) {
+    appStore.showError(apiErrorMessage(error, t('userSubscriptions.refreshQuotaFailed')))
+  } finally {
+    refreshingQuota.value = false
+  }
 }
 
 function formatResetTime(windowStart: string | null, windowHours: number): string {

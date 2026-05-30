@@ -397,6 +397,15 @@
                 <span class="text-xs">{{ t('admin.subscriptions.resetQuota') }}</span>
               </button>
               <button
+                v-if="row.status === 'active' && hasEligibleQuotaRefresh(row)"
+                @click="handleRefreshQuota(row)"
+                :disabled="refreshingQuotaByValidity && refreshingSubscription?.id === row.id"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Icon name="clock" size="sm" />
+                <span class="text-xs">{{ t('admin.subscriptions.refreshQuotaByValidity') }}</span>
+              </button>
+              <button
                 v-if="row.status === 'active'"
                 @click="handleRevoke(row)"
                 class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
@@ -655,6 +664,43 @@
       @confirm="confirmResetQuota"
       @cancel="showResetQuotaConfirm = false"
     />
+
+    <!-- Paid Quota Refresh Confirmation Dialog -->
+    <ConfirmDialog
+      :show="showRefreshQuotaConfirm"
+      :title="t('admin.subscriptions.refreshQuotaByValidityTitle')"
+      :message="t('admin.subscriptions.refreshQuotaByValidityConfirm', { user: refreshingSubscription?.user?.email || refreshingSubscription?.user?.username || '-' })"
+      :confirm-text="refreshingQuotaByValidity ? t('admin.subscriptions.refreshingQuotaByValidity') : t('admin.subscriptions.refreshQuotaByValidity')"
+      :cancel-text="t('common.cancel')"
+      @confirm="confirmRefreshQuotaByValidity"
+      @cancel="closeRefreshQuotaDialog"
+    >
+      <div v-if="refreshingSubscription" class="space-y-3">
+        <div>
+          <label class="input-label">{{ t('admin.subscriptions.refreshWindow') }}</label>
+          <select v-model="refreshQuotaWindow" class="input">
+            <option
+              v-for="option in quotaRefreshWindowOptions"
+              :key="option.value"
+              :value="option.value"
+              :disabled="!getQuotaRefreshInfo(refreshingSubscription, option.value)?.eligible"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+        <div v-if="selectedRefreshQuotaInfo" class="rounded-lg bg-gray-50 p-3 text-sm text-gray-600 dark:bg-dark-700 dark:text-gray-300">
+          <div class="flex justify-between gap-3">
+            <span>{{ t('admin.subscriptions.deductValidity') }}</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{ formatDeductedSeconds(selectedRefreshQuotaInfo.deducted_seconds) }}</span>
+          </div>
+          <div v-if="selectedRefreshQuotaInfo.projected_expires_at" class="mt-2 flex justify-between gap-3">
+            <span>{{ t('admin.subscriptions.newExpiration') }}</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{ formatDateTime(selectedRefreshQuotaInfo.projected_expires_at) }}</span>
+          </div>
+        </div>
+      </div>
+    </ConfirmDialog>
     <!-- Subscription Guide Modal -->
     <teleport to="body">
       <transition name="modal">
@@ -742,10 +788,17 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
-import type { UserSubscription, Group, GroupPlatform, SubscriptionType } from '@/types'
+import type {
+  UserSubscription,
+  Group,
+  GroupPlatform,
+  SubscriptionType,
+  SubscriptionQuotaRefreshWindow,
+  SubscriptionQuotaRefreshWindowInfo
+} from '@/types'
 import type { SimpleUser } from '@/api/admin/usage'
 import type { Column } from '@/components/common/types'
-import { formatDateOnly } from '@/utils/format'
+import { formatDateOnly, formatDateTime } from '@/utils/format'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -941,9 +994,13 @@ const showAssignModal = ref(false)
 const showExtendModal = ref(false)
 const showRevokeDialog = ref(false)
 const showResetQuotaConfirm = ref(false)
+const showRefreshQuotaConfirm = ref(false)
 const submitting = ref(false)
 const resettingSubscription = ref<UserSubscription | null>(null)
 const resettingQuota = ref(false)
+const refreshingSubscription = ref<UserSubscription | null>(null)
+const refreshingQuotaByValidity = ref(false)
+const refreshQuotaWindow = ref<SubscriptionQuotaRefreshWindow>('daily')
 const extendingSubscription = ref<UserSubscription | null>(null)
 const revokingSubscription = ref<UserSubscription | null>(null)
 
@@ -955,6 +1012,17 @@ const assignForm = reactive({
 
 const extendForm = reactive({
   days: 30
+})
+
+const quotaRefreshWindowOptions = computed(() => [
+  { value: 'daily' as const, label: t('admin.subscriptions.daily') },
+  { value: 'weekly' as const, label: t('admin.subscriptions.weekly') },
+  { value: 'monthly' as const, label: t('admin.subscriptions.monthly') }
+])
+
+const selectedRefreshQuotaInfo = computed(() => {
+  if (!refreshingSubscription.value) return null
+  return getQuotaRefreshInfo(refreshingSubscription.value, refreshQuotaWindow.value)
 })
 
 // Group options for filter (all groups)
@@ -1284,6 +1352,70 @@ const confirmResetQuota = async () => {
   }
 }
 
+const getQuotaRefreshInfo = (
+  subscription: UserSubscription,
+  window: SubscriptionQuotaRefreshWindow
+): SubscriptionQuotaRefreshWindowInfo | null => {
+  return subscription.quota_refresh?.[window] ?? null
+}
+
+const hasEligibleQuotaRefresh = (subscription: UserSubscription): boolean => {
+  return quotaRefreshWindowOptions.value.some((option) =>
+    getQuotaRefreshInfo(subscription, option.value)?.eligible
+  )
+}
+
+const firstEligibleQuotaRefreshWindow = (
+  subscription: UserSubscription
+): SubscriptionQuotaRefreshWindow => {
+  return (
+    quotaRefreshWindowOptions.value.find((option) =>
+      getQuotaRefreshInfo(subscription, option.value)?.eligible
+    )?.value ?? 'daily'
+  )
+}
+
+const handleRefreshQuota = (subscription: UserSubscription) => {
+  refreshingSubscription.value = subscription
+  refreshQuotaWindow.value = firstEligibleQuotaRefreshWindow(subscription)
+  showRefreshQuotaConfirm.value = true
+}
+
+const closeRefreshQuotaDialog = () => {
+  if (refreshingQuotaByValidity.value) return
+  showRefreshQuotaConfirm.value = false
+  refreshingSubscription.value = null
+}
+
+const apiErrorMessage = (error: any, fallback: string): string => {
+  return error?.message || error?.response?.data?.message || error?.response?.data?.detail || fallback
+}
+
+const confirmRefreshQuotaByValidity = async () => {
+  if (!refreshingSubscription.value || refreshingQuotaByValidity.value) return
+  const info = getQuotaRefreshInfo(refreshingSubscription.value, refreshQuotaWindow.value)
+  if (!info?.eligible) {
+    appStore.showError(t('admin.subscriptions.refreshQuotaNotEligible'))
+    return
+  }
+
+  refreshingQuotaByValidity.value = true
+  try {
+    await adminAPI.subscriptions.refreshQuota(refreshingSubscription.value.id, {
+      window: refreshQuotaWindow.value
+    })
+    appStore.showSuccess(t('admin.subscriptions.refreshQuotaByValiditySuccess'))
+    showRefreshQuotaConfirm.value = false
+    refreshingSubscription.value = null
+    await loadSubscriptions()
+  } catch (error: any) {
+    appStore.showError(apiErrorMessage(error, t('admin.subscriptions.refreshQuotaByValidityFailed')))
+    console.error('Error refreshing quota by validity:', error)
+  } finally {
+    refreshingQuotaByValidity.value = false
+  }
+}
+
 // Helper functions
 const getDaysRemaining = (expiresAt: string): number | null => {
   const now = new Date()
@@ -1324,6 +1456,19 @@ const formatResetDuration = (parts: RemainingDurationParts): string => {
   }
 
   return t('admin.subscriptions.resetInMinutes', { minutes: parts.minutes })
+}
+
+const formatDeductedSeconds = (seconds: number): string => {
+  const hours = Math.floor(seconds / 3600)
+  const days = Math.floor(hours / 24)
+  const remainingHours = hours % 24
+  if (days > 0 && remainingHours > 0) {
+    return t('admin.subscriptions.durationDaysHours', { days, hours: remainingHours })
+  }
+  if (days > 0) {
+    return t('admin.subscriptions.durationDays', { days })
+  }
+  return t('admin.subscriptions.durationHours', { hours })
 }
 
 const formatQuotaEndDuration = (parts: RemainingDurationParts): string => {

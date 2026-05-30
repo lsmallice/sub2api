@@ -4,7 +4,12 @@
  */
 
 import { apiClient } from './client'
-import type { UserSubscription, SubscriptionProgress } from '@/types'
+import type {
+  UserSubscription,
+  SubscriptionProgress,
+  SubscriptionQuotaRefreshRequest,
+  SubscriptionQuotaRefreshResult
+} from '@/types'
 
 /**
  * Subscription summary for user dashboard
@@ -67,10 +72,30 @@ export async function getSubscriptionProgress(
   return response.data
 }
 
+export function createQuotaRefreshIdempotencyKey(): string {
+  const random = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)
+  return `quota-refresh-${Date.now()}-${random}`
+}
+
+export async function refreshQuota(
+  subscriptionId: number,
+  request: SubscriptionQuotaRefreshRequest,
+  idempotencyKey: string = createQuotaRefreshIdempotencyKey()
+): Promise<SubscriptionQuotaRefreshResult> {
+  const response = await apiClient.post<SubscriptionQuotaRefreshResult>(
+    `/subscriptions/${subscriptionId}/refresh-quota`,
+    request,
+    { headers: { 'Idempotency-Key': idempotencyKey } }
+  )
+  return response.data
+}
+
 export default {
   getMySubscriptions,
   getActiveSubscriptions,
   getSubscriptionsProgress,
   getSubscriptionSummary,
-  getSubscriptionProgress
+  getSubscriptionProgress,
+  refreshQuota,
+  createQuotaRefreshIdempotencyKey
 }

@@ -232,6 +232,23 @@ func TestLoadDefaultIdempotencyConfig(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultSubscriptionQuotaRefreshConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.True(t, cfg.SubscriptionQuotaRefresh.Enabled)
+}
+
+func TestLoadSubscriptionQuotaRefreshDisabledFromEnv(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SUBSCRIPTION_QUOTA_REFRESH_ENABLED", "false")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.False(t, cfg.SubscriptionQuotaRefresh.Enabled)
+}
+
 func TestLoadIdempotencyConfigFromEnv(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	t.Setenv("IDEMPOTENCY_OBSERVE_ONLY", "false")

@@ -577,6 +577,38 @@ type UserSubscription struct {
 
 	User  *User  `json:"user,omitempty"`
 	Group *Group `json:"group,omitempty"`
+
+	QuotaRefresh *SubscriptionQuotaRefreshSummary `json:"quota_refresh,omitempty"`
+}
+
+type SubscriptionQuotaRefreshWindowInfo struct {
+	Window             string     `json:"window"`
+	Eligible           bool       `json:"eligible"`
+	Reason             string     `json:"reason,omitempty"`
+	DeductedSeconds    int64      `json:"deducted_seconds"`
+	CurrentUsageUSD    float64    `json:"current_usage_usd"`
+	LimitUSD           *float64   `json:"limit_usd,omitempty"`
+	CurrentWindowStart *time.Time `json:"current_window_start,omitempty"`
+	NextResetAt        *time.Time `json:"next_reset_at,omitempty"`
+	ProjectedExpiresAt *time.Time `json:"projected_expires_at,omitempty"`
+}
+
+type SubscriptionQuotaRefreshSummary struct {
+	Daily   SubscriptionQuotaRefreshWindowInfo `json:"daily"`
+	Weekly  SubscriptionQuotaRefreshWindowInfo `json:"weekly"`
+	Monthly SubscriptionQuotaRefreshWindowInfo `json:"monthly"`
+}
+
+type SubscriptionQuotaRefreshResult struct {
+	Window          string            `json:"window"`
+	DeductedSeconds int64             `json:"deducted_seconds"`
+	OldExpiresAt    time.Time         `json:"old_expires_at"`
+	NewExpiresAt    time.Time         `json:"new_expires_at"`
+	OldWindowStart  *time.Time        `json:"old_window_start,omitempty"`
+	NewWindowStart  time.Time         `json:"new_window_start"`
+	OldUsageUSD     float64           `json:"old_usage_usd"`
+	LimitUSD        float64           `json:"limit_usd"`
+	Subscription    *UserSubscription `json:"subscription"`
 }
 
 // AdminUserSubscription 是管理员接口使用的订阅 DTO（包含分配信息/备注等字段）。

@@ -10,8 +10,11 @@ import type {
   AssignSubscriptionRequest,
   BulkAssignSubscriptionRequest,
   ExtendSubscriptionRequest,
+  SubscriptionQuotaRefreshRequest,
+  SubscriptionQuotaRefreshResult,
   PaginatedResponse
 } from '@/types'
+import { createQuotaRefreshIdempotencyKey } from '@/api/subscriptions'
 
 /**
  * List all subscriptions with pagination
@@ -138,6 +141,19 @@ export async function resetQuota(
   return data
 }
 
+export async function refreshQuota(
+  id: number,
+  request: SubscriptionQuotaRefreshRequest,
+  idempotencyKey: string = createQuotaRefreshIdempotencyKey()
+): Promise<SubscriptionQuotaRefreshResult> {
+  const { data } = await apiClient.post<SubscriptionQuotaRefreshResult>(
+    `/admin/subscriptions/${id}/refresh-quota`,
+    request,
+    { headers: { 'Idempotency-Key': idempotencyKey } }
+  )
+  return data
+}
+
 /**
  * List subscriptions by group
  * @param groupId - Group ID
@@ -189,6 +205,7 @@ export const subscriptionsAPI = {
   extend,
   revoke,
   resetQuota,
+  refreshQuota,
   listByGroup,
   listByUser
 }

@@ -745,6 +745,49 @@ func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscrip
 		UpdatedAt:          sub.UpdatedAt,
 		User:               UserFromServiceShallow(sub.User),
 		Group:              GroupFromServiceShallow(sub.Group),
+		QuotaRefresh:       SubscriptionQuotaRefreshSummaryFromService(sub.QuotaRefresh),
+	}
+}
+
+func SubscriptionQuotaRefreshSummaryFromService(in *service.SubscriptionQuotaRefreshSummary) *SubscriptionQuotaRefreshSummary {
+	if in == nil {
+		return nil
+	}
+	return &SubscriptionQuotaRefreshSummary{
+		Daily:   subscriptionQuotaRefreshWindowInfoFromService(in.Daily),
+		Weekly:  subscriptionQuotaRefreshWindowInfoFromService(in.Weekly),
+		Monthly: subscriptionQuotaRefreshWindowInfoFromService(in.Monthly),
+	}
+}
+
+func subscriptionQuotaRefreshWindowInfoFromService(in service.SubscriptionQuotaRefreshWindowInfo) SubscriptionQuotaRefreshWindowInfo {
+	return SubscriptionQuotaRefreshWindowInfo{
+		Window:             string(in.Window),
+		Eligible:           in.Eligible,
+		Reason:             in.Reason,
+		DeductedSeconds:    in.DeductedSeconds,
+		CurrentUsageUSD:    in.CurrentUsageUSD,
+		LimitUSD:           in.LimitUSD,
+		CurrentWindowStart: in.CurrentWindowStart,
+		NextResetAt:        in.NextResetAt,
+		ProjectedExpiresAt: in.ProjectedExpiresAt,
+	}
+}
+
+func SubscriptionQuotaRefreshResultFromService(in *service.SubscriptionQuotaRefreshResult) *SubscriptionQuotaRefreshResult {
+	if in == nil {
+		return nil
+	}
+	return &SubscriptionQuotaRefreshResult{
+		Window:          string(in.Window),
+		DeductedSeconds: in.DeductedSeconds,
+		OldExpiresAt:    in.OldExpiresAt,
+		NewExpiresAt:    in.NewExpiresAt,
+		OldWindowStart:  in.OldWindowStart,
+		NewWindowStart:  in.NewWindowStart,
+		OldUsageUSD:     in.OldUsageUSD,
+		LimitUSD:        in.LimitUSD,
+		Subscription:    UserSubscriptionFromService(in.Subscription),
 	}
 }
 

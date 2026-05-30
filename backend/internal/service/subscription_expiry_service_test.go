@@ -22,6 +22,10 @@ func (r *subscriptionExpiryRepoStub) GetByID(context.Context, int64) (*UserSubsc
 	return nil, ErrSubscriptionNotFound
 }
 
+func (r *subscriptionExpiryRepoStub) GetByIDForUpdate(context.Context, int64) (*UserSubscription, error) {
+	return nil, ErrSubscriptionNotFound
+}
+
 func (r *subscriptionExpiryRepoStub) GetByUserIDAndGroupID(context.Context, int64, int64) (*UserSubscription, error) {
 	return nil, ErrSubscriptionNotFound
 }
@@ -85,6 +89,10 @@ func (r *subscriptionExpiryRepoStub) ResetWeeklyUsage(context.Context, int64, ti
 
 func (r *subscriptionExpiryRepoStub) ResetMonthlyUsage(context.Context, int64, time.Time) error {
 	return nil
+}
+
+func (r *subscriptionExpiryRepoStub) RefreshQuotaWindow(context.Context, *SubscriptionQuotaRefreshPersistInput) (*UserSubscription, error) {
+	return nil, ErrSubscriptionNotFound
 }
 
 func (r *subscriptionExpiryRepoStub) IncrementUsage(context.Context, int64, float64) error {

@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"context"
+	"strconv"
+
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -28,6 +31,10 @@ type SubscriptionSummaryItem struct {
 type SubscriptionProgressInfo struct {
 	Subscription *dto.UserSubscription         `json:"subscription"`
 	Progress     *service.SubscriptionProgress `json:"progress"`
+}
+
+type RefreshSubscriptionQuotaRequest struct {
+	Window string `json:"window" binding:"required"`
 }
 
 // SubscriptionHandler handles user subscription operations
@@ -185,4 +192,62 @@ func (h *SubscriptionHandler) GetSummary(c *gin.Context) {
 	}
 
 	response.Success(c, summary)
+}
+
+// RefreshQuota handles early quota refresh by deducting subscription validity.
+// POST /api/v1/subscriptions/:id/refresh-quota
+func (h *SubscriptionHandler) RefreshQuota(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+
+	subscriptionID, err := parseSubscriptionID(c.Param("id"))
+	if err != nil {
+		response.BadRequest(c, "Invalid subscription ID")
+		return
+	}
+
+	var req RefreshSubscriptionQuotaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	payload := struct {
+		SubscriptionID int64  `json:"subscription_id"`
+		Window         string `json:"window"`
+	}{
+		SubscriptionID: subscriptionID,
+		Window:         req.Window,
+	}
+	idempotencyKey, err := service.NormalizeIdempotencyKey(c.GetHeader("Idempotency-Key"))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if idempotencyKey == "" {
+		response.ErrorFrom(c, service.ErrIdempotencyKeyRequired)
+		return
+	}
+
+	executeUserIdempotentJSON(c, "user.subscriptions.refresh_quota", payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		result, err := h.subscriptionService.RefreshSubscriptionQuota(ctx, service.RefreshSubscriptionQuotaInput{
+			SubscriptionID:     subscriptionID,
+			Window:             service.SubscriptionQuotaRefreshWindow(req.Window),
+			RequireUserID:      &subject.UserID,
+			ActorType:          service.SubscriptionQuotaRefreshActorUser,
+			ActorID:            &subject.UserID,
+			IdempotencyKeyHash: service.HashIdempotencyKey(idempotencyKey),
+		})
+		if err != nil {
+			return nil, err
+		}
+		return dto.SubscriptionQuotaRefreshResultFromService(result), nil
+	})
+}
+
+func parseSubscriptionID(raw string) (int64, error) {
+	return strconv.ParseInt(raw, 10, 64)
 }

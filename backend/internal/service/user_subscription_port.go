@@ -10,6 +10,7 @@ import (
 type UserSubscriptionRepository interface {
 	Create(ctx context.Context, sub *UserSubscription) error
 	GetByID(ctx context.Context, id int64) (*UserSubscription, error)
+	GetByIDForUpdate(ctx context.Context, id int64) (*UserSubscription, error)
 	GetByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*UserSubscription, error)
 	GetActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*UserSubscription, error)
 	Update(ctx context.Context, sub *UserSubscription) error
@@ -29,6 +30,7 @@ type UserSubscriptionRepository interface {
 	ResetDailyUsage(ctx context.Context, id int64, newWindowStart time.Time) error
 	ResetWeeklyUsage(ctx context.Context, id int64, newWindowStart time.Time) error
 	ResetMonthlyUsage(ctx context.Context, id int64, newWindowStart time.Time) error
+	RefreshQuotaWindow(ctx context.Context, input *SubscriptionQuotaRefreshPersistInput) (*UserSubscription, error)
 	IncrementUsage(ctx context.Context, id int64, costUSD float64) error
 
 	BatchUpdateExpiredStatus(ctx context.Context) (int64, error)
