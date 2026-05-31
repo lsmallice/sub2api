@@ -22,6 +22,10 @@ This directory records all Sub2API custom features maintained on top of official
 - [Image Capability](image-capability.md): routes OpenAI image-generation requests only to accounts marked `supports_image_generation=true`, while group `allow_image_generation` remains the permission and billing source.
 - [Subscription Quota Refresh](subscription-quota-refresh.md): lets exhausted daily, weekly, or monthly subscription quota windows refresh early by deducting validity, with idempotent user/admin APIs and an audit trail.
 
+## Custom Release And Deployment Workflows
+
+- [imgcap Systemd Installer](imgcap-systemd-installer.md): documents the custom binary release assets and one-click systemd installer for servers that already have PostgreSQL and Redis, such as 1Panel-managed hosts.
+
 ## Upstream Merge Rule
 
 During every upstream merge:

@@ -1,0 +1,182 @@
+name: imgcap Binary Release
+
+on:
+  push:
+    tags:
+      - 'imgcap-*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, for example imgcap-0.1.133'
+        required: false
+        type: string
+      base_version:
+        description: 'Upstream base version, for example 0.1.133. Defaults to backend/cmd/server/VERSION.'
+        required: false
+        type: string
+      prerelease:
+        description: 'Mark the GitHub Release as prerelease'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -n "${{ inputs.base_version }}" ]; then
+            BASE_VERSION="${{ inputs.base_version }}"
+          else
+            BASE_VERSION="$(tr -d '\r\n' < backend/cmd/server/VERSION)"
+          fi
+          BASE_VERSION="${BASE_VERSION#v}"
+
+          if ! [[ "$BASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "Invalid base version: $BASE_VERSION" >&2
+            exit 2
+          fi
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            TAG_NAME="${{ inputs.tag }}"
+          else
+            TAG_NAME="imgcap-${BASE_VERSION}"
+          fi
+
+          BUILD_LABEL="imgcap-${BASE_VERSION}"
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "build_label=$BUILD_LABEL" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: frontend
+
+      - name: Build frontend
+        run: pnpm run build
+        working-directory: frontend
+
+      - name: Build linux assets
+        shell: bash
+        env:
+          BASE_VERSION: ${{ steps.meta.outputs.base_version }}
+          BUILD_LABEL: ${{ steps.meta.outputs.build_label }}
+          SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
+          BUILD_DATE: ${{ steps.meta.outputs.build_date }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          for arch in amd64 arm64; do
+            workdir="$(mktemp -d)"
+            (
+              cd backend
+              CGO_ENABLED=0 GOOS=linux GOARCH="$arch" \
+                go build -tags embed -trimpath \
+                  -ldflags="-s -w -X main.Version=${BASE_VERSION} -X main.BuildLabel=${BUILD_LABEL} -X main.BuildType=custom -X main.Commit=${SHORT_SHA} -X main.Date=${BUILD_DATE}" \
+                  -o "$workdir/sub2api" ./cmd/server
+            )
+
+            cp LICENSE "$workdir/"
+            cp README.md "$workdir/" 2>/dev/null || true
+            mkdir -p "$workdir/deploy"
+            cp deploy/install.sh deploy/install-imgcap.sh deploy/sub2api.service "$workdir/deploy/" 2>/dev/null || true
+
+            tar -C "$workdir" -czf "dist/sub2api_${BASE_VERSION}_linux_${arch}.tar.gz" .
+            rm -rf "$workdir"
+          done
+
+          (cd dist && sha256sum *.tar.gz > checksums.txt)
+
+      - name: Verify asset contents
+        shell: bash
+        env:
+          BASE_VERSION: ${{ steps.meta.outputs.base_version }}
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            tar -tzf "dist/sub2api_${BASE_VERSION}_linux_${arch}.tar.gz" | grep -E '(^|/)sub2api$'
+          done
+          cat dist/checksums.txt
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.meta.outputs.tag_name }}
+          BASE_VERSION: ${{ steps.meta.outputs.base_version }}
+          BUILD_LABEL: ${{ steps.meta.outputs.build_label }}
+          SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          NOTES="$(mktemp)"
+          cat > "$NOTES" <<EOF
+          Custom Sub2API imgcap binary release.
+
+          - Base version: ${BASE_VERSION}
+          - Display label: ${BUILD_LABEL}
+          - Build type: custom
+          - Commit: ${SHORT_SHA}
+
+          Install:
+
+          \`\`\`bash
+          curl -sSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/image-capability/deploy/install-imgcap.sh | sudo bash -s -- --version ${TAG_NAME}
+          \`\`\`
+          EOF
+
+          release_flags=()
+          if [ "$PRERELEASE" = "true" ]; then
+            release_flags+=(--prerelease)
+          fi
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" dist/*.tar.gz dist/checksums.txt --clobber
+            gh release edit "$TAG_NAME" --title "Sub2API ${BUILD_LABEL}" --notes-file "$NOTES" "${release_flags[@]}"
+          else
+            gh release create "$TAG_NAME" dist/*.tar.gz dist/checksums.txt \
+              --target "$GITHUB_SHA" \
+              --title "Sub2API ${BUILD_LABEL}" \
+              --notes-file "$NOTES" \
+              "${release_flags[@]}"
+          fi
