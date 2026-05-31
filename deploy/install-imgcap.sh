@@ -549,7 +549,7 @@ create_user() {
   fi
 
   print_info "Creating system user: $SERVICE_USER"
-  useradd -r -s /bin/sh -d "$INSTALL_DIR" "$SERVICE_USER"
+  useradd -r -g "$SERVICE_GROUP" -s /bin/sh -d "$INSTALL_DIR" "$SERVICE_USER"
 }
 
 setup_directories() {
