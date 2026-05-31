@@ -306,9 +306,13 @@ check_dependencies() {
 
 normalize_version() {
   local version="$1"
-  if [[ -n "$version" && "$version" != v* ]]; then
-    version="v$version"
-  fi
+  case "$version" in
+    ""|v*|imgcap-*)
+      ;;
+    [0-9]*)
+      version="v$version"
+      ;;
+  esac
   printf '%s' "$version"
 }
 
@@ -319,8 +323,9 @@ derive_asset_version() {
   if [[ -z "$version" ]]; then
     version="$release_tag"
     version="${version#refs/tags/}"
-    version="${version#imgcap-}"
+    version="${version#v}"
     version="${version#imgcap-v}"
+    version="${version#imgcap-}"
     version="${version#v}"
   fi
 
