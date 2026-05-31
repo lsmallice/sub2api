@@ -48,18 +48,21 @@ REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 ```
 
-Set the 1Panel database and Redis credentials through environment variables when running the script:
+Set the 1Panel database and Redis credentials in the web setup wizard. In default wizard mode, `deploy/install-imgcap.sh` intentionally does not persist `DATABASE_*` or `REDIS_*` into `/etc/sub2api/sub2api.env`, because those environment variables override `DATA_DIR/config.yaml` at runtime.
+
+For unattended setup only, pass the 1Panel database and Redis credentials through environment variables when running the script:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/lsmallice/sub2api/image-capability/deploy/install-imgcap.sh \
-  | sudo DATABASE_USER=sub2api \
+  | sudo AUTO_SETUP=true \
+      DATABASE_USER=sub2api \
       DATABASE_PASSWORD='***' \
       DATABASE_DBNAME=sub2api \
       REDIS_PASSWORD='***' \
       bash
 ```
 
-The generated `/etc/sub2api/sub2api.env` stores these values with mode `0600`. Do not print this file in logs or chat.
+When `AUTO_SETUP=true`, the generated `/etc/sub2api/sub2api.env` stores these values with mode `0600`. Do not print this file in logs or chat.
 
 ## Setup Modes
 
