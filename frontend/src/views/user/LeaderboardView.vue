@@ -187,6 +187,14 @@ type MetricTone =
   | 'championsMid'
   | 'championsHigh'
   | 'championsUltra'
+  | 'silverLow'
+  | 'silverMid'
+  | 'silverHigh'
+  | 'silverUltra'
+  | 'bronzeLow'
+  | 'bronzeMid'
+  | 'bronzeHigh'
+  | 'bronzeUltra'
 
 const METRIC_CHIP_STYLES: Record<MetricTone, { shellClass: string; dotClass: string }> = {
   tokensLow: {
@@ -269,6 +277,46 @@ const METRIC_CHIP_STYLES: Record<MetricTone, { shellClass: string; dotClass: str
       'border-pink-200/90 bg-gradient-to-br from-pink-50 via-fuchsia-50 to-amber-50 text-pink-700 shadow-[0_10px_22px_-15px_rgba(236,72,153,0.8)] dark:border-pink-400/30 dark:from-pink-500/15 dark:via-fuchsia-500/10 dark:to-amber-500/15 dark:text-pink-100',
     dotClass: 'bg-gradient-to-br from-pink-500 to-amber-400 dark:from-pink-300 dark:to-amber-300',
   },
+  silverLow: {
+    shellClass:
+      'border-slate-200/90 bg-gradient-to-br from-slate-50 via-white to-sky-50 text-slate-700 shadow-[0_8px_18px_-16px_rgba(100,116,139,0.72)] dark:border-slate-400/25 dark:from-slate-500/10 dark:via-dark-700/70 dark:to-sky-500/10 dark:text-slate-100',
+    dotClass: 'bg-slate-400 dark:bg-slate-300',
+  },
+  silverMid: {
+    shellClass:
+      'border-slate-300/90 bg-gradient-to-br from-slate-100 via-white to-indigo-50 text-slate-800 shadow-[0_8px_18px_-16px_rgba(71,85,105,0.76)] dark:border-slate-400/30 dark:from-slate-400/15 dark:via-dark-700/70 dark:to-indigo-500/10 dark:text-slate-100',
+    dotClass: 'bg-gradient-to-br from-slate-300 to-indigo-400 dark:from-slate-200 dark:to-indigo-300',
+  },
+  silverHigh: {
+    shellClass:
+      'border-indigo-200/90 bg-gradient-to-br from-indigo-50 via-slate-50 to-cyan-50 text-indigo-700 shadow-[0_10px_22px_-15px_rgba(99,102,241,0.78)] dark:border-indigo-400/30 dark:from-indigo-500/15 dark:via-slate-500/10 dark:to-cyan-500/10 dark:text-indigo-100',
+    dotClass: 'bg-gradient-to-br from-indigo-500 to-slate-400 dark:from-indigo-300 dark:to-slate-200',
+  },
+  silverUltra: {
+    shellClass:
+      'border-cyan-200/90 bg-gradient-to-br from-cyan-50 via-slate-50 to-violet-50 text-cyan-700 shadow-[0_10px_24px_-15px_rgba(6,182,212,0.82)] dark:border-cyan-400/30 dark:from-cyan-500/15 dark:via-slate-500/10 dark:to-violet-500/15 dark:text-cyan-100',
+    dotClass: 'bg-gradient-to-br from-cyan-500 to-violet-500 dark:from-cyan-300 dark:to-violet-300',
+  },
+  bronzeLow: {
+    shellClass:
+      'border-orange-200/90 bg-gradient-to-br from-orange-50 via-white to-amber-50 text-orange-700 shadow-[0_8px_18px_-16px_rgba(249,115,22,0.72)] dark:border-orange-400/25 dark:from-orange-500/10 dark:via-dark-700/70 dark:to-amber-500/10 dark:text-orange-100',
+    dotClass: 'bg-orange-500 dark:bg-orange-300',
+  },
+  bronzeMid: {
+    shellClass:
+      'border-yellow-200/90 bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50 text-yellow-800 shadow-[0_8px_18px_-16px_rgba(234,179,8,0.76)] dark:border-yellow-400/30 dark:from-yellow-500/15 dark:via-orange-500/10 dark:to-amber-500/10 dark:text-yellow-100',
+    dotClass: 'bg-gradient-to-br from-yellow-500 to-orange-500 dark:from-yellow-300 dark:to-orange-300',
+  },
+  bronzeHigh: {
+    shellClass:
+      'border-amber-200/90 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 text-amber-800 shadow-[0_10px_22px_-15px_rgba(245,158,11,0.78)] dark:border-amber-400/30 dark:from-amber-500/15 dark:via-orange-500/10 dark:to-rose-500/10 dark:text-amber-100',
+    dotClass: 'bg-gradient-to-br from-amber-500 to-rose-500 dark:from-amber-300 dark:to-rose-300',
+  },
+  bronzeUltra: {
+    shellClass:
+      'border-rose-200/90 bg-gradient-to-br from-rose-50 via-orange-50 to-fuchsia-50 text-rose-700 shadow-[0_10px_24px_-15px_rgba(244,63,94,0.82)] dark:border-rose-400/30 dark:from-rose-500/15 dark:via-orange-500/10 dark:to-fuchsia-500/15 dark:text-rose-100',
+    dotClass: 'bg-gradient-to-br from-rose-500 to-fuchsia-500 dark:from-rose-300 dark:to-fuchsia-300',
+  },
 }
 
 function getTokenMetricTone(tokens: number): MetricTone {
@@ -299,6 +347,20 @@ function getChampionMetricTone(champions: number): MetricTone {
   return 'championsLow'
 }
 
+function getSilverMetricTone(count: number): MetricTone {
+  if (count >= 200) return 'silverUltra'
+  if (count >= 50) return 'silverHigh'
+  if (count >= 10) return 'silverMid'
+  return 'silverLow'
+}
+
+function getBronzeMetricTone(count: number): MetricTone {
+  if (count >= 200) return 'bronzeUltra'
+  if (count >= 50) return 'bronzeHigh'
+  if (count >= 10) return 'bronzeMid'
+  return 'bronzeLow'
+}
+
 function renderMetricChip(content: string, tone: MetricTone) {
   const style = METRIC_CHIP_STYLES[tone]
   return h(
@@ -314,6 +376,74 @@ function renderMetricChip(content: string, tone: MetricTone) {
       h('span', { class: 'tabular-nums tracking-normal' }, content),
     ]
   )
+}
+
+type MedalKind = 'gold' | 'silver' | 'bronze'
+
+const MEDAL_STYLES: Record<MedalKind, { labelClass: string; crownClass: string; tone: (count: number) => MetricTone }> = {
+  gold: {
+    labelClass: 'text-amber-700 dark:text-amber-100',
+    crownClass: 'text-amber-500',
+    tone: getChampionMetricTone,
+  },
+  silver: {
+    labelClass: 'text-slate-700 dark:text-slate-100',
+    crownClass: 'text-slate-400 dark:text-slate-200',
+    tone: getSilverMetricTone,
+  },
+  bronze: {
+    labelClass: 'text-orange-700 dark:text-orange-100',
+    crownClass: 'text-orange-500',
+    tone: getBronzeMetricTone,
+  },
+}
+
+function renderMedalCrowns(kind: MedalKind, count: number) {
+  if (!count || count <= 0) return null
+  const style = MEDAL_STYLES[kind]
+  const tone = style.tone(count)
+  const crownCount = Math.min(count, 10)
+  const children = []
+  if (count > 10) {
+    children.push(h('span', { class: ['text-[11px] font-black leading-none tracking-normal tabular-nums', style.labelClass] }, '10x'))
+  }
+  for (let i = 0; i < crownCount; i += 1) {
+    children.push(renderCrownIcon(style.crownClass))
+  }
+  return h(
+    'div',
+    {
+      class: [
+        'inline-flex min-h-[28px] items-center gap-1 rounded-full border px-2.5 py-1 shadow-sm',
+        METRIC_CHIP_STYLES[tone].shellClass,
+      ],
+      title: t(`leaderboard.${kind}Count`, { n: count }),
+    },
+    children
+  )
+}
+
+function renderHonorWall(entry: LeaderboardEntry) {
+  const medals = [
+    renderMedalCrowns('gold', entry.champion_count || 0),
+    renderMedalCrowns('silver', entry.runner_up_count || 0),
+    renderMedalCrowns('bronze', entry.third_place_count || 0),
+  ].filter(Boolean)
+  const streak = entry.current_streak && entry.current_streak > 1
+    ? renderMetricChip(t('leaderboard.streak', { n: entry.current_streak }), getStreakMetricTone(entry.current_streak))
+    : null
+  const runnerUpStreakCount = entry.longest_runner_up_streak || 0
+  const hasRunnerUpStreak = runnerUpStreakCount > 1
+  const runnerUpTitle = entry.perennial_runner_up && hasRunnerUpStreak
+    ? renderMetricChip(t('leaderboard.perennialRunnerUp'), getSilverMetricTone(runnerUpStreakCount))
+    : null
+  const runnerUpStreak =
+    !entry.perennial_runner_up && hasRunnerUpStreak
+      ? renderMetricChip(t('leaderboard.runnerUpStreak', { n: runnerUpStreakCount }), getSilverMetricTone(runnerUpStreakCount))
+      : null
+  const items = [...medals, streak, runnerUpTitle, runnerUpStreak].filter(Boolean)
+  if (!items.length) return null
+  return h('div', { class: 'mt-2 flex flex-wrap items-center gap-1.5' }, items)
 }
 
 type RankStyle = {
@@ -512,21 +642,8 @@ const LeaderboardPanel = defineComponent({
               h('div', { class: 'mt-1.5 flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400' }, [
                 renderMetricChip(formatTokens(entry.tokens), getTokenMetricTone(entry.tokens)),
                 renderMetricChip(t('leaderboard.requests', { n: entry.requests }), getRequestMetricTone(entry.requests)),
-                entry.current_streak
-                  ? h(
-                      'div',
-                      { class: 'inline-flex' },
-                      renderMetricChip(t('leaderboard.streak', { n: entry.current_streak }), getStreakMetricTone(entry.current_streak))
-                    )
-                  : null,
-                entry.champion_count
-                  ? h(
-                      'div',
-                      { class: 'inline-flex' },
-                      renderMetricChip(t('leaderboard.champions', { n: entry.champion_count }), getChampionMetricTone(entry.champion_count))
-                    )
-                  : null,
               ]),
+              renderHonorWall(entry),
             ]),
             h('div', { class: 'ml-auto flex shrink-0 flex-col items-end gap-1 text-right text-xs text-gray-500 dark:text-gray-400' }, [
               entry.best_rank ? h('div', t('leaderboard.bestRank', { n: entry.best_rank })) : null,

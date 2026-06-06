@@ -42,8 +42,12 @@ export interface LeaderboardEntry {
   requests: number
   current_streak?: number
   champion_count?: number
+  runner_up_count?: number
+  third_place_count?: number
   top_appearances?: number
   best_rank?: number
+  longest_runner_up_streak?: number
+  perennial_runner_up?: boolean
   is_me?: boolean
 }
 

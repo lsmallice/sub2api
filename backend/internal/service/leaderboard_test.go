@@ -124,9 +124,14 @@ func TestLeaderboardOverviewRedactsUserIdentityAndHighlightsMe(t *testing.T) {
 		honors: map[int64]map[string]LeaderboardHonorStats{
 			42: {
 				LeaderboardWindowDaily: {
-					TopAppearances: 3,
-					ChampionCount:  1,
-					BestRank:       1,
+					TopAppearances:        3,
+					ChampionCount:         1,
+					RunnerUpCount:         2,
+					ThirdPlaceCount:       1,
+					BestRank:              1,
+					CurrentStreak:         1,
+					LongestRunnerUpStreak: 2,
+					PerennialRunnerUp:     true,
 					ChampionStarts: map[string][]time.Time{},
 				},
 				LeaderboardWindowWeekly: {
@@ -153,7 +158,12 @@ func TestLeaderboardOverviewRedactsUserIdentityAndHighlightsMe(t *testing.T) {
 	require.Equal(t, int64(100), overview.Daily.Me.Tokens)
 	require.Equal(t, "https://cdn.example.com/alice.png", overview.Daily.Me.AvatarURL)
 	require.Equal(t, 1, overview.Daily.Me.ChampionCount)
+	require.Equal(t, 2, overview.Daily.Me.RunnerUpCount)
+	require.Equal(t, 1, overview.Daily.Me.ThirdPlaceCount)
 	require.Equal(t, 3, overview.Daily.Me.TopAppearances)
+	require.Equal(t, 0, overview.Daily.Me.CurrentStreak)
+	require.Equal(t, 2, overview.Daily.Me.LongestRunnerUpStreak)
+	require.True(t, overview.Daily.Me.PerennialRunnerUp)
 	require.NotNil(t, overview.Weekly.Me)
 	require.Equal(t, 5, overview.Weekly.Me.ChampionCount)
 	require.Equal(t, 7, overview.Weekly.Me.TopAppearances)
@@ -179,6 +189,41 @@ func TestLeaderboardOverviewHidesMeWhenOptedOut(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, overview.Participant.IsOptedIn)
 	require.Nil(t, overview.Daily.Me)
+}
+
+func TestLeaderboardOverviewOnlyExposesStreakHonorsAboveOne(t *testing.T) {
+	repo := &leaderboardRepoStub{
+		participant: &LeaderboardParticipant{
+			UserID:      42,
+			IsOptedIn:   true,
+			DisplayCode: "A83F",
+		},
+		top: map[string][]LeaderboardRankRow{
+			LeaderboardWindowDaily: {{UserID: 42, Rank: 1, DisplayCode: "A83F", Tokens: 100, Requests: 1}},
+		},
+		me: map[string]*LeaderboardRankRow{
+			LeaderboardWindowDaily: {UserID: 42, Rank: 1, DisplayCode: "A83F", Tokens: 100, Requests: 1},
+		},
+		honors: map[int64]map[string]LeaderboardHonorStats{
+			42: {
+				LeaderboardWindowDaily: {
+					ChampionCount:         1,
+					BestRank:              1,
+					CurrentStreak:         1,
+					LongestRunnerUpStreak: 1,
+					PerennialRunnerUp:     true,
+					ChampionStarts:        map[string][]time.Time{},
+				},
+			},
+		},
+	}
+
+	overview, err := NewLeaderboardService(repo).GetOverview(context.Background(), 42, "UTC")
+	require.NoError(t, err)
+	require.NotNil(t, overview.Daily.Me)
+	require.Equal(t, 0, overview.Daily.Me.CurrentStreak)
+	require.Equal(t, 0, overview.Daily.Me.LongestRunnerUpStreak)
+	require.False(t, overview.Daily.Me.PerennialRunnerUp)
 }
 
 func TestLeaderboardUpdateParticipantValidatesDisplayName(t *testing.T) {

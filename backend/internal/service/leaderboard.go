@@ -97,11 +97,15 @@ type LeaderboardRankRow struct {
 }
 
 type LeaderboardHonorStats struct {
-	TopAppearances int
-	ChampionCount  int
-	BestRank       int
-	CurrentStreak  int
-	ChampionStarts map[string][]time.Time
+	TopAppearances        int
+	ChampionCount         int
+	RunnerUpCount         int
+	ThirdPlaceCount       int
+	BestRank              int
+	CurrentStreak         int
+	LongestRunnerUpStreak int
+	PerennialRunnerUp     bool
+	ChampionStarts        map[string][]time.Time
 }
 
 type LeaderboardOverview struct {
@@ -137,16 +141,20 @@ type LeaderboardWindowOverview struct {
 }
 
 type LeaderboardPublicEntry struct {
-	Rank           int    `json:"rank,omitempty"`
-	DisplayName    string `json:"display_name"`
-	AvatarURL      string `json:"avatar_url,omitempty"`
-	Tokens         int64  `json:"tokens"`
-	Requests       int64  `json:"requests"`
-	CurrentStreak  int    `json:"current_streak,omitempty"`
-	ChampionCount  int    `json:"champion_count,omitempty"`
-	TopAppearances int    `json:"top_appearances,omitempty"`
-	BestRank       int    `json:"best_rank,omitempty"`
-	IsMe           bool   `json:"is_me,omitempty"`
+	Rank                  int    `json:"rank,omitempty"`
+	DisplayName           string `json:"display_name"`
+	AvatarURL             string `json:"avatar_url,omitempty"`
+	Tokens                int64  `json:"tokens"`
+	Requests              int64  `json:"requests"`
+	CurrentStreak         int    `json:"current_streak,omitempty"`
+	ChampionCount         int    `json:"champion_count,omitempty"`
+	RunnerUpCount         int    `json:"runner_up_count,omitempty"`
+	ThirdPlaceCount       int    `json:"third_place_count,omitempty"`
+	TopAppearances        int    `json:"top_appearances,omitempty"`
+	BestRank              int    `json:"best_rank,omitempty"`
+	LongestRunnerUpStreak int    `json:"longest_runner_up_streak,omitempty"`
+	PerennialRunnerUp     bool   `json:"perennial_runner_up,omitempty"`
+	IsMe                  bool   `json:"is_me,omitempty"`
 }
 
 type UpdateLeaderboardParticipantRequest struct {
@@ -520,17 +528,30 @@ func (s *LeaderboardService) participantStatus(p *LeaderboardParticipant) Leader
 }
 
 func (s *LeaderboardService) publicEntry(row LeaderboardRankRow, currentUserID int64, honors LeaderboardHonorStats) LeaderboardPublicEntry {
+	currentStreak := honors.CurrentStreak
+	if currentStreak <= 1 {
+		currentStreak = 0
+	}
+	longestRunnerUpStreak := honors.LongestRunnerUpStreak
+	if longestRunnerUpStreak <= 1 {
+		longestRunnerUpStreak = 0
+	}
+	perennialRunnerUp := honors.PerennialRunnerUp && longestRunnerUpStreak > 1
 	return LeaderboardPublicEntry{
-		Rank:           row.Rank,
-		DisplayName:    publicLeaderboardName(row.DisplayName, row.DisplayCode),
-		AvatarURL:      row.AvatarURL,
-		Tokens:         row.Tokens,
-		Requests:       row.Requests,
-		CurrentStreak:  honors.CurrentStreak,
-		ChampionCount:  honors.ChampionCount,
-		TopAppearances: honors.TopAppearances,
-		BestRank:       honors.BestRank,
-		IsMe:           row.UserID == currentUserID,
+		Rank:                  row.Rank,
+		DisplayName:           publicLeaderboardName(row.DisplayName, row.DisplayCode),
+		AvatarURL:             row.AvatarURL,
+		Tokens:                row.Tokens,
+		Requests:              row.Requests,
+		CurrentStreak:         currentStreak,
+		ChampionCount:         honors.ChampionCount,
+		RunnerUpCount:         honors.RunnerUpCount,
+		ThirdPlaceCount:       honors.ThirdPlaceCount,
+		TopAppearances:        honors.TopAppearances,
+		BestRank:              honors.BestRank,
+		LongestRunnerUpStreak: longestRunnerUpStreak,
+		PerennialRunnerUp:     perennialRunnerUp,
+		IsMe:                  row.UserID == currentUserID,
 	}
 }
 

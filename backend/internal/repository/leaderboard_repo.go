@@ -231,7 +231,17 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 	}
 
 	rows, err := r.sql.QueryContext(ctx, `
-		SELECT user_id, period_window, top_appearances, champion_count, best_rank, current_streak
+		SELECT
+			user_id,
+			period_window,
+			top_appearances,
+			champion_count,
+			runner_up_count,
+			third_place_count,
+			best_rank,
+			current_streak,
+			longest_runner_up_streak,
+			perennial_runner_up
 		FROM leaderboard_user_honors
 		WHERE user_id = ANY($1)
 	`, pq.Array(userIDs))
@@ -244,7 +254,18 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 		var periodWindow string
 		var stats service.LeaderboardHonorStats
 		stats.ChampionStarts = map[string][]time.Time{}
-		if err := rows.Scan(&userID, &periodWindow, &stats.TopAppearances, &stats.ChampionCount, &stats.BestRank, &stats.CurrentStreak); err != nil {
+		if err := rows.Scan(
+			&userID,
+			&periodWindow,
+			&stats.TopAppearances,
+			&stats.ChampionCount,
+			&stats.RunnerUpCount,
+			&stats.ThirdPlaceCount,
+			&stats.BestRank,
+			&stats.CurrentStreak,
+			&stats.LongestRunnerUpStreak,
+			&stats.PerennialRunnerUp,
+		); err != nil {
 			return nil, err
 		}
 		if result[userID] == nil {
@@ -320,6 +341,8 @@ func (r *leaderboardRepository) rebuildHonorStatsWithExecutor(ctx context.Contex
 				period_window,
 				COUNT(*) FILTER (WHERE visible_rank <= 10)::int AS top_appearances,
 				COUNT(*) FILTER (WHERE visible_rank = 1)::int AS champion_count,
+				COUNT(*) FILTER (WHERE visible_rank = 2)::int AS runner_up_count,
+				COUNT(*) FILTER (WHERE visible_rank = 3)::int AS third_place_count,
 				MIN(visible_rank) FILTER (WHERE visible_rank <= 10)::int AS best_rank
 			FROM visible_ranked
 			WHERE visible_rank <= 10
@@ -329,6 +352,11 @@ func (r *leaderboardRepository) rebuildHonorStatsWithExecutor(ctx context.Contex
 			SELECT user_id, period_window, period_start
 			FROM visible_ranked
 			WHERE visible_rank = 1
+		),
+		runner_up_periods AS (
+			SELECT user_id, period_window, period_start
+			FROM visible_ranked
+			WHERE visible_rank = 2
 		),
 		latest_completed AS (
 			SELECT
@@ -365,14 +393,58 @@ func (r *leaderboardRepository) rebuildHonorStatsWithExecutor(ctx context.Contex
 			) ordered
 			WHERE period_start = latest_start - ((rn - 1) * step)
 			GROUP BY user_id, period_window
+		),
+		runner_up_islands AS (
+			SELECT
+				user_id,
+				period_window,
+				COUNT(*)::int AS streak_length
+			FROM (
+				SELECT
+					rup.user_id,
+					rup.period_window,
+					rup.period_start,
+					rup.period_start - ((ROW_NUMBER() OVER (
+						PARTITION BY rup.user_id, rup.period_window
+						ORDER BY rup.period_start
+					)::int - 1) * lc.step) AS streak_key
+				FROM runner_up_periods rup
+				JOIN latest_completed lc ON lc.period_window = rup.period_window
+			) islands
+			GROUP BY user_id, period_window, streak_key
+		),
+		runner_up_streaks AS (
+			SELECT
+				user_id,
+				period_window,
+				MAX(streak_length)::int AS longest_runner_up_streak
+			FROM runner_up_islands
+			GROUP BY user_id, period_window
+		),
+		perennial_runner_up_leaders AS (
+			SELECT
+				user_id,
+				period_window
+			FROM (
+				SELECT
+					rus.*,
+					MAX(longest_runner_up_streak) OVER (PARTITION BY period_window) AS window_max
+				FROM runner_up_streaks rus
+			) ranked_runner_ups
+			WHERE longest_runner_up_streak = window_max
+				AND longest_runner_up_streak >= 2
 		)
 		INSERT INTO leaderboard_user_honors (
 			user_id,
 			period_window,
 			top_appearances,
 			champion_count,
+			runner_up_count,
+			third_place_count,
 			best_rank,
 			current_streak,
+			longest_runner_up_streak,
+			perennial_runner_up,
 			updated_at
 		)
 		SELECT
@@ -380,11 +452,17 @@ func (r *leaderboardRepository) rebuildHonorStatsWithExecutor(ctx context.Contex
 			h.period_window,
 			h.top_appearances,
 			h.champion_count,
+			h.runner_up_count,
+			h.third_place_count,
 			COALESCE(h.best_rank, 0),
 			COALESCE(s.current_streak, 0),
+			COALESCE(rus.longest_runner_up_streak, 0),
+			COALESCE(pru.user_id IS NOT NULL, false),
 			NOW()
 		FROM honor_counts h
 		LEFT JOIN champion_streaks s ON s.user_id = h.user_id AND s.period_window = h.period_window
+		LEFT JOIN runner_up_streaks rus ON rus.user_id = h.user_id AND rus.period_window = h.period_window
+		LEFT JOIN perennial_runner_up_leaders pru ON pru.user_id = h.user_id AND pru.period_window = h.period_window
 	`, cutoff, latestDaily, latestWeekly, latestMonthly)
 	if err != nil {
 		return 0, err

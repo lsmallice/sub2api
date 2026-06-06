@@ -96,8 +96,19 @@ func TestLeaderboardRepositoryGetHonorStatsReadsMaterializedHonors(t *testing.T)
 	require.NoError(t, err)
 	defer db.Close()
 
-	rows := sqlmock.NewRows([]string{"user_id", "period_window", "top_appearances", "champion_count", "best_rank", "current_streak"}).
-		AddRow(int64(42), service.LeaderboardWindowMonthly, 3, 1, 1, 0)
+	rows := sqlmock.NewRows([]string{
+		"user_id",
+		"period_window",
+		"top_appearances",
+		"champion_count",
+		"runner_up_count",
+		"third_place_count",
+		"best_rank",
+		"current_streak",
+		"longest_runner_up_streak",
+		"perennial_runner_up",
+	}).
+		AddRow(int64(42), service.LeaderboardWindowMonthly, 3, 1, 2, 1, 1, 0, 4, true)
 	mock.ExpectQuery("leaderboard_user_honors").
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnRows(rows)
@@ -107,6 +118,10 @@ func TestLeaderboardRepositoryGetHonorStatsReadsMaterializedHonors(t *testing.T)
 	require.NoError(t, err)
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.Equal(t, 1, honors[42][service.LeaderboardWindowMonthly].ChampionCount)
+	require.Equal(t, 2, honors[42][service.LeaderboardWindowMonthly].RunnerUpCount)
+	require.Equal(t, 1, honors[42][service.LeaderboardWindowMonthly].ThirdPlaceCount)
 	require.Equal(t, 3, honors[42][service.LeaderboardWindowMonthly].TopAppearances)
 	require.Equal(t, 0, honors[42][service.LeaderboardWindowMonthly].CurrentStreak)
+	require.Equal(t, 4, honors[42][service.LeaderboardWindowMonthly].LongestRunnerUpStreak)
+	require.True(t, honors[42][service.LeaderboardWindowMonthly].PerennialRunnerUp)
 }

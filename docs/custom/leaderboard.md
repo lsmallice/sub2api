@@ -17,9 +17,12 @@ This custom feature adds a voluntary, privacy-preserving Token leaderboard for e
 - Rank badges, left accent bars, and row borders change by placement for faster scanning.
 - Missing avatars fall back to the public masked-name initial.
 - Metric chips use progressively larger color bands rather than a single accent color.
-- Token usage, request count, streak, and champion count each have their own low/mid/high/ultra tiers.
+- Token usage, request count, streak, and medal counts each have their own low/mid/high/ultra tiers.
 - Token and request tiers intentionally use wide thresholds so large accounts still show visible color progression instead of flattening too early.
-- Streak and champion tiers also ramp up gradually, with the highest tier reserved for exceptional long-running performance.
+- Streak and medal tiers also ramp up gradually, with the highest tier reserved for exceptional long-running performance.
+- Historical honors are rendered as a medal wall: gold, silver, and bronze crowns show cumulative first, second, and third-place finishes. Counts over 10 are collapsed as `10x` plus crowns to keep rows compact.
+- The user with the longest historical consecutive second-place streak in a window receives the `万年老二` public title for that window. Ties are allowed, and the title requires at least a two-period silver streak.
+- Streak labels are only shown for values greater than 1. A single completed first-place period is a gold crown, not a streak.
 
 ## Core Rules
 
@@ -36,8 +39,8 @@ This custom feature adds a voluntary, privacy-preserving Token leaderboard for e
 - Current leaderboard reads use the daily aggregate table, refreshed by the 15-minute snapshot worker and by manual admin backfill.
 - Manual and scheduled historical snapshots are internal raw usage snapshots. They do not filter by participation state during sync; visibility and honor materialization filter current participant state.
 - "Streak" means consecutive completed periods ranked first for the same window. The current unfinished period does not count toward streak.
-- Champion count, top appearances, best rank, and streak are materialized in the database and read from the materialized honor table. They are not recomputed on every leaderboard page request.
-- The current unfinished daily, weekly, or monthly window never produces champion, streak, top-appearance, or best-rank honors. For example, a June monthly snapshot or partial data must not create a June monthly champion before June has ended.
+- Champion count, runner-up count, third-place count, top appearances, best rank, gold streak, longest silver streak, and the `万年老二` title are materialized in the database and read from the materialized honor table. They are not recomputed on every leaderboard page request. Public DTOs suppress streak values less than or equal to 1.
+- The current unfinished daily, weekly, or monthly window never produces medal, streak, top-appearance, best-rank, or `万年老二` honors. For example, a June monthly snapshot or partial data must not create June monthly honors before June has ended.
 
 ## Data Model
 
@@ -64,6 +67,9 @@ This custom feature adds a voluntary, privacy-preserving Token leaderboard for e
   - Adds `leaderboard_user_honors`.
   - Stores materialized daily, weekly, and monthly honor stats: top appearances, champion count, best rank, and current streak.
   - Rebuilt after manual backfill, scheduled snapshots, opt-in/out changes, admin remove, admin ban, and admin unban.
+- Migration: `backend/migrations/153_leaderboard_medal_honors.sql`
+  - Extends `leaderboard_user_honors` with runner-up count, third-place count, longest runner-up streak, and `perennial_runner_up`.
+  - `perennial_runner_up` is computed per window from visible, completed snapshots after current opt-in/ban filtering.
 - Existing `usage_logs` remains the raw source of truth. It is not read directly by the public overview endpoint except through scheduled/manual aggregation and snapshot rebuilds.
 
 Migration conflict note: if upstream adds migrations after 146 or introduces its own leaderboard, re-number this migration during merge and compare semantics before keeping both features.
@@ -73,7 +79,7 @@ Migration conflict note: if upstream adds migrations after 146 or introduces its
 - `backend/internal/service/leaderboard.go`
   - Opt-in DTOs, overview composition, nickname validation, privacy-safe public entries, aggregate refresh orchestration, honor materialization, and period snapshot worker.
 - `backend/internal/repository/leaderboard_repo.go`
-  - Current ranking queries against `leaderboard_usage_daily`, participant visibility filtering, participant upsert, materialized honor reads, honor rebuilds, daily aggregate rebuilds, and snapshot inserts.
+  - Current ranking queries against `leaderboard_usage_daily`, participant visibility filtering, participant upsert, materialized honor reads, medal/honor rebuilds, daily aggregate rebuilds, and snapshot inserts.
 - `backend/internal/repository/leaderboard_cache.go`
   - Redis-backed short TTL overview cache for `GET /api/v1/leaderboard/overview`.
   - Cache is invalidated after manual backfill, scheduled snapshot/aggregate refresh, and participation visibility changes.
@@ -136,10 +142,11 @@ The response returns `start_time`, `end_time`, `period_count`, and `inserted_row
 - Re-confirm migration `150_leaderboard_full_snapshot_rank.sql` or an equivalent constraint update exists when snapshot code writes full ranks.
 - Re-confirm migration `151_leaderboard_usage_daily.sql` exists and public overview ranking reads `leaderboard_usage_daily`, not `usage_logs`.
 - Re-confirm migration `152_leaderboard_user_honors.sql` exists and honor fields read from `leaderboard_user_honors`.
+- Re-confirm migration `153_leaderboard_medal_honors.sql` exists and silver/bronze medal fields plus `perennial_runner_up` still materialize correctly.
 - Re-confirm banned participants are excluded from ranking queries and cannot self opt in.
 - Re-confirm `image_output_tokens` remains included in token totals.
 - Re-confirm `POST /api/v1/admin/dashboard/leaderboard/backfill` still snapshots only completed periods and remains duplicate-safe.
-- Re-confirm current unfinished daily/weekly/monthly periods are excluded from materialized honors, especially that the current month does not produce a monthly champion before month end.
+- Re-confirm current unfinished daily/weekly/monthly periods are excluded from materialized honors, especially that the current month does not produce monthly medals, streaks, or `万年老二` before month end.
 - Re-confirm the leaderboard snapshot worker interval remains 15 minutes unless intentionally changed.
 - Re-confirm Redis overview cache is invalidated after manual backfill, scheduled refresh, opt-out, admin remove, admin ban, and admin unban.
 - Re-run frontend route/sidebar checks if upstream refactors layout navigation.
@@ -175,8 +182,9 @@ Manual:
 - Re-running the same admin manual backfill rebuilds affected period rows and does not duplicate historical rows.
 - Each section returns at most 10 public rows plus separate current-user rank.
 - Public response JSON contains no `user_id`, `email`, `username`, `api_key`, `group_id`, `account_id`, or `subscription_id`.
-- Historical champion count, top appearances, best rank, and streak update after completed period snapshots.
-- Before a calendar month ends, the current month does not add monthly champion count, monthly best rank, monthly top appearances, or monthly streak.
+- Historical gold/silver/bronze counts, top appearances, best rank, gold streak, longest silver streak, and `万年老二` update after completed period snapshots.
+- Streak and silver-streak labels do not render when the value is 1.
+- Before a calendar month ends, the current month does not add monthly medals, monthly best rank, monthly top appearances, monthly streak, or monthly `万年老二`.
 - After a manual backfill, `leaderboard_usage_daily` and `leaderboard_user_honors` are rebuilt and duplicate-safe.
 
 ## Rollback Notes
