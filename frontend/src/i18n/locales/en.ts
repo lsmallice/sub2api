@@ -1446,6 +1446,15 @@ export default {
       spendShort: 'Spend',
       requestsShort: 'Req',
       tokensShort: 'Tok',
+      leaderboardBackfillTitle: 'Leaderboard manual backfill',
+      leaderboardBackfillHint: 'Fill completed daily, weekly, and monthly leaderboard snapshots from the selected date.',
+      leaderboardBackfillAction: 'Backfill snapshots',
+      leaderboardBackfilling: 'Backfilling...',
+      leaderboardBackfillConfirm: 'Backfill leaderboard snapshots from {date}?',
+      leaderboardBackfillSuccess: 'Backfill complete: scanned {periods} periods, inserted {rows} snapshot rows',
+      leaderboardBackfillLastResult: 'Last backfill: scanned {periods} periods, inserted {rows} snapshot rows',
+      leaderboardBackfillDateRequired: 'Select a backfill start date',
+      leaderboardBackfillFailed: 'Failed to backfill leaderboard snapshots',
       failedToLoad: 'Failed to load dashboard statistics'
     },
 
@@ -7158,6 +7167,7 @@ export default {
     monthly: 'Monthly',
     allTime: 'All-Time',
     allTimeSubtitle: 'Only usage after joining the leaderboard is counted',
+    nextRefresh: 'Next refresh',
     myRank: 'My Rank',
     myRankHint: 'Shows your personal rank and cumulative performance',
     notParticipating: 'You have not joined the leaderboard, so your public rank is not calculated.',

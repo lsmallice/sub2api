@@ -305,6 +305,18 @@ export interface BatchApiKeysUsageResponse {
   stats: Record<string, BatchApiKeyUsageStats>
 }
 
+export interface LeaderboardBackfillRequest {
+  start: string
+  end?: string
+}
+
+export interface LeaderboardBackfillResponse {
+  start_time: string
+  end_time: string
+  period_count: number
+  inserted_rows: number
+}
+
 /**
  * Get batch usage stats for multiple API keys
  * @param apiKeyIds - Array of API key IDs
@@ -322,6 +334,16 @@ export async function getBatchApiKeysUsage(
   return data
 }
 
+export async function backfillLeaderboardSnapshots(
+  payload: LeaderboardBackfillRequest
+): Promise<LeaderboardBackfillResponse> {
+  const { data } = await apiClient.post<LeaderboardBackfillResponse>(
+    '/admin/dashboard/leaderboard/backfill',
+    payload
+  )
+  return data
+}
+
 export const dashboardAPI = {
   getStats,
   getRealtimeMetrics,
@@ -333,7 +355,8 @@ export const dashboardAPI = {
   getUserUsageTrend,
   getUserSpendingRanking,
   getBatchUsersUsage,
-  getBatchApiKeysUsage
+  getBatchApiKeysUsage,
+  backfillLeaderboardSnapshots
 }
 
 export default dashboardAPI

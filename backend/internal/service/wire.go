@@ -177,7 +177,7 @@ func ProvideSubscriptionExpiryService(userSubRepo UserSubscriptionRepository, se
 
 // ProvideLeaderboardSnapshotService creates and starts the leaderboard period snapshot worker.
 func ProvideLeaderboardSnapshotService(leaderboard *LeaderboardService) *LeaderboardSnapshotService {
-	svc := NewLeaderboardSnapshotService(leaderboard, time.Hour)
+	svc := NewLeaderboardSnapshotService(leaderboard, 15*time.Minute)
 	svc.Start()
 	return svc
 }

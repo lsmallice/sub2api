@@ -1,6 +1,6 @@
 # Custom Features
 
-Last updated: 2026-05-30
+Last updated: 2026-06-06
 
 This directory records all Sub2API custom features maintained on top of official upstream `main`.
 
@@ -21,7 +21,7 @@ This directory records all Sub2API custom features maintained on top of official
 
 - [Image Capability](image-capability.md): routes OpenAI image-generation requests only to accounts marked `supports_image_generation=true`, while group `allow_image_generation` remains the permission and billing source.
 - [Subscription Quota Refresh](subscription-quota-refresh.md): lets exhausted daily, weekly, or monthly subscription quota windows refresh early by deducting validity, with idempotent user/admin APIs and an audit trail.
-- [Token Leaderboard](leaderboard.md): provides a voluntary, privacy-preserving Token leaderboard with daily, weekly, monthly, and all-time Top 10 plus each opted-in user's own rank.
+- [Token Leaderboard](leaderboard.md): provides a voluntary, privacy-preserving Token leaderboard with daily, weekly, monthly, all-time Top 10, each opted-in user's own rank, and a manual admin snapshot backfill entry.
 
 ## Custom Release And Deployment Workflows
 

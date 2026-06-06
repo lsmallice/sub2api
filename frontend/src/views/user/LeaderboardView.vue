@@ -10,6 +10,13 @@
               {{ t('leaderboard.publicName') }}:
               <span class="font-semibold">{{ participant.public_name }}</span>
             </p>
+            <div
+              v-if="nextRefreshAt"
+              class="mt-2 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300"
+            >
+              <Icon name="refresh" size="sm" class="text-primary-500" />
+              <span>{{ t('leaderboard.nextRefresh') }}: {{ formatDateTime(nextRefreshAt) }}</span>
+            </div>
           </div>
 
           <form class="grid gap-3 sm:grid-cols-[minmax(0,220px)_auto_auto]" @submit.prevent="saveSettings">
@@ -52,15 +59,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, ref } from 'vue'
+import { computed, defineComponent, h, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import Icon from '@/components/icons/Icon.vue'
 import { leaderboardAPI } from '@/api/leaderboard'
 import type { LeaderboardEntry, LeaderboardOverview, LeaderboardWindowOverview } from '@/types'
 import { extractApiErrorMessage } from '@/utils/apiError'
 
 const { t } = useI18n()
+const LEADERBOARD_REFRESH_INTERVAL_MS = 15 * 60 * 1000
 
 const overview = ref<LeaderboardOverview | null>(null)
 const loading = ref(false)
@@ -68,6 +77,8 @@ const saving = ref(false)
 const isOptedIn = ref(false)
 const displayName = ref('')
 const errorMessage = ref('')
+const nextRefreshAt = ref<Date | null>(null)
+let refreshTimer: number | null = null
 
 const participant = computed(() => overview.value?.participant ?? null)
 
@@ -87,8 +98,27 @@ function syncSettings() {
   displayName.value = p?.display_name ?? ''
 }
 
-async function loadOverview() {
-  loading.value = true
+function clearRefreshTimer() {
+  if (refreshTimer !== null) {
+    window.clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+function scheduleAutoRefresh() {
+  clearRefreshTimer()
+  nextRefreshAt.value = new Date(Date.now() + LEADERBOARD_REFRESH_INTERVAL_MS)
+  refreshTimer = window.setTimeout(() => {
+    refreshTimer = null
+    void loadOverview(true)
+  }, LEADERBOARD_REFRESH_INTERVAL_MS)
+}
+
+async function loadOverview(silent = false) {
+  const shouldShowLoading = !silent || !overview.value
+  if (shouldShowLoading) {
+    loading.value = true
+  }
   errorMessage.value = ''
   try {
     overview.value = await leaderboardAPI.getOverview()
@@ -97,6 +127,7 @@ async function loadOverview() {
     errorMessage.value = extractApiErrorMessage(error, t('leaderboard.loadFailed'))
   } finally {
     loading.value = false
+    scheduleAutoRefresh()
   }
 }
 
@@ -108,7 +139,7 @@ async function saveSettings() {
       is_opted_in: isOptedIn.value,
       display_name: displayName.value.trim() || null,
     })
-    await loadOverview()
+    await loadOverview(true)
   } catch (error) {
     errorMessage.value = extractApiErrorMessage(error, t('leaderboard.saveFailed'))
   } finally {
@@ -542,4 +573,7 @@ const LeaderboardPanel = defineComponent({
 })
 
 onMounted(loadOverview)
+onUnmounted(() => {
+  clearRefreshTimer()
+})
 </script>

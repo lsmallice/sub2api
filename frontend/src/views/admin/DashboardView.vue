@@ -247,6 +247,54 @@
                 </div>
               </div>
             </div>
+            <div class="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-4 dark:border-dark-700 lg:flex-row lg:items-center lg:justify-between">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                  {{ t('admin.dashboard.leaderboardBackfillTitle') }}
+                </p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.dashboard.leaderboardBackfillHint') }}
+                </p>
+                <p
+                  v-if="leaderboardBackfillResult"
+                  class="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+                >
+                  {{
+                    t('admin.dashboard.leaderboardBackfillLastResult', {
+                      periods: leaderboardBackfillResult.period_count,
+                      rows: leaderboardBackfillResult.inserted_rows
+                    })
+                  }}
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <input
+                  v-model="leaderboardBackfillStartDate"
+                  type="date"
+                  class="input h-10 w-40"
+                  :disabled="leaderboardBackfilling"
+                />
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  :disabled="leaderboardBackfilling || !leaderboardBackfillStartDate"
+                  @click="runLeaderboardBackfill"
+                >
+                  <Icon
+                    v-if="leaderboardBackfilling"
+                    name="refresh"
+                    size="sm"
+                    class="mr-1 inline animate-spin"
+                    :stroke-width="2"
+                  />
+                  {{
+                    leaderboardBackfilling
+                      ? t('admin.dashboard.leaderboardBackfilling')
+                      : t('admin.dashboard.leaderboardBackfillAction')
+                  }}
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Charts Grid -->
@@ -300,6 +348,7 @@ import { useAppStore } from '@/stores/app'
 
 const { t } = useI18n()
 import { adminAPI } from '@/api/admin'
+import type { LeaderboardBackfillResponse } from '@/api/admin/dashboard'
 import type {
   DashboardStats,
   TrendDataPoint,
@@ -365,6 +414,11 @@ const formatLocalDate = (date: Date): string => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+const getCurrentMonthStartDate = (): string => {
+  const now = new Date()
+  return formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1))
+}
+
 const getLast24HoursRangeDates = (): { start: string; end: string } => {
   const end = new Date()
   const start = new Date(end.getTime() - 24 * 60 * 60 * 1000)
@@ -379,6 +433,9 @@ const granularity = ref<'day' | 'hour'>('hour')
 const defaultRange = getLast24HoursRangeDates()
 const startDate = ref(defaultRange.start)
 const endDate = ref(defaultRange.end)
+const leaderboardBackfillStartDate = ref(getCurrentMonthStartDate())
+const leaderboardBackfilling = ref(false)
+const leaderboardBackfillResult = ref<LeaderboardBackfillResponse | null>(null)
 
 // Granularity options for Select component
 const granularityOptions = computed(() => [
@@ -564,6 +621,40 @@ const goToUserUsage = (item: UserSpendingRankingItem) => {
       end_date: endDate.value
     }
   })
+}
+
+const runLeaderboardBackfill = async () => {
+  if (!leaderboardBackfillStartDate.value) {
+    appStore.showError(t('admin.dashboard.leaderboardBackfillDateRequired'))
+    return
+  }
+
+  const confirmed = window.confirm(
+    t('admin.dashboard.leaderboardBackfillConfirm', {
+      date: leaderboardBackfillStartDate.value
+    })
+  )
+  if (!confirmed) return
+
+  leaderboardBackfilling.value = true
+  try {
+    const result = await adminAPI.dashboard.backfillLeaderboardSnapshots({
+      start: leaderboardBackfillStartDate.value
+    })
+    leaderboardBackfillResult.value = result
+    appStore.showSuccess(
+      t('admin.dashboard.leaderboardBackfillSuccess', {
+        periods: result.period_count,
+        rows: result.inserted_rows
+      })
+    )
+    await loadUserSpendingRanking()
+  } catch (error: any) {
+    console.error('Error backfilling leaderboard snapshots:', error)
+    appStore.showError(error?.message || t('admin.dashboard.leaderboardBackfillFailed'))
+  } finally {
+    leaderboardBackfilling.value = false
+  }
 }
 
 // Date range change handler

@@ -27,9 +27,11 @@ const (
 )
 
 var (
-	ErrLeaderboardInvalidDisplayName = infraerrors.BadRequest("LEADERBOARD_INVALID_DISPLAY_NAME", "leaderboard display name is invalid")
-	ErrLeaderboardBanned             = infraerrors.Forbidden("LEADERBOARD_BANNED", "leaderboard participation is disabled by admin")
-	ErrLeaderboardUnavailable        = infraerrors.ServiceUnavailable("LEADERBOARD_UNAVAILABLE", "leaderboard service is unavailable")
+	ErrLeaderboardInvalidDisplayName    = infraerrors.BadRequest("LEADERBOARD_INVALID_DISPLAY_NAME", "leaderboard display name is invalid")
+	ErrLeaderboardBanned                = infraerrors.Forbidden("LEADERBOARD_BANNED", "leaderboard participation is disabled by admin")
+	ErrLeaderboardUnavailable           = infraerrors.ServiceUnavailable("LEADERBOARD_UNAVAILABLE", "leaderboard service is unavailable")
+	ErrLeaderboardBackfillInvalidRange  = infraerrors.BadRequest("LEADERBOARD_BACKFILL_INVALID_RANGE", "leaderboard backfill range is invalid")
+	ErrLeaderboardBackfillRangeTooLarge = infraerrors.BadRequest("LEADERBOARD_BACKFILL_RANGE_TOO_LARGE", "leaderboard backfill range is too large")
 )
 
 type LeaderboardRepository interface {
@@ -97,6 +99,13 @@ type LeaderboardOverview struct {
 	Weekly      LeaderboardWindowOverview    `json:"weekly"`
 	Monthly     LeaderboardWindowOverview    `json:"monthly"`
 	AllTime     LeaderboardWindowOverview    `json:"all_time"`
+}
+
+type LeaderboardBackfillResult struct {
+	StartTime    time.Time `json:"start_time"`
+	EndTime      time.Time `json:"end_time"`
+	PeriodCount  int       `json:"period_count"`
+	InsertedRows int64     `json:"inserted_rows"`
 }
 
 type LeaderboardParticipantStatus struct {
@@ -220,6 +229,39 @@ func (s *LeaderboardService) GetOverview(ctx context.Context, userID int64, user
 		Weekly:      build(LeaderboardWindowWeekly, windows[1].start),
 		Monthly:     build(LeaderboardWindowMonthly, windows[2].start),
 		AllTime:     build(LeaderboardWindowAllTime, nil),
+	}, nil
+}
+
+func (s *LeaderboardService) SnapshotHistoricalPeriodsSince(ctx context.Context, since, now time.Time) (*LeaderboardBackfillResult, error) {
+	if s == nil || s.repo == nil {
+		return nil, ErrLeaderboardUnavailable
+	}
+	loc := timezone.Location()
+	if !now.IsZero() {
+		now = now.In(loc)
+	} else {
+		now = timezone.Now()
+	}
+	if !since.IsZero() {
+		since = since.In(loc)
+	}
+	if since.IsZero() || !since.Before(now) {
+		return nil, ErrLeaderboardBackfillInvalidRange
+	}
+	if now.Sub(since) > 370*24*time.Hour {
+		return nil, ErrLeaderboardBackfillRangeTooLarge
+	}
+
+	periods := completedLeaderboardPeriodsSince(since, now, loc)
+	inserted, err := s.snapshotPeriods(ctx, periods)
+	if err != nil {
+		return nil, err
+	}
+	return &LeaderboardBackfillResult{
+		StartTime:    since,
+		EndTime:      now,
+		PeriodCount:  len(periods),
+		InsertedRows: inserted,
 	}, nil
 }
 
@@ -359,14 +401,23 @@ func (s *LeaderboardService) SnapshotRecentlyCompletedPeriods(ctx context.Contex
 	} else {
 		now = timezone.Now()
 	}
+	_, err := s.snapshotPeriods(ctx, recentlyCompletedLeaderboardPeriods(now, loc))
+	return err
+}
 
-	periods := recentlyCompletedLeaderboardPeriods(now, loc)
-	for _, p := range periods {
-		if _, err := s.repo.SnapshotPeriod(ctx, p.window, p.start, p.end, leaderboardTopLimit); err != nil {
-			return fmt.Errorf("snapshot %s leaderboard period %s: %w", p.window, p.start.Format(time.RFC3339), err)
-		}
+func (s *LeaderboardService) snapshotPeriods(ctx context.Context, periods []leaderboardPeriod) (int64, error) {
+	if s == nil || s.repo == nil {
+		return 0, ErrLeaderboardUnavailable
 	}
-	return nil
+	var inserted int64
+	for _, p := range periods {
+		affected, err := s.repo.SnapshotPeriod(ctx, p.window, p.start, p.end, leaderboardTopLimit)
+		if err != nil {
+			return inserted, fmt.Errorf("snapshot %s leaderboard period %s: %w", p.window, p.start.Format(time.RFC3339), err)
+		}
+		inserted += affected
+	}
+	return inserted, nil
 }
 
 func (s *LeaderboardService) participantStatus(p *LeaderboardParticipant) LeaderboardParticipantStatus {
@@ -505,6 +556,43 @@ func recentlyCompletedLeaderboardPeriods(now time.Time, loc *time.Location) []le
 		{window: LeaderboardWindowWeekly, start: weekStart.AddDate(0, 0, -7), end: weekStart},
 		{window: LeaderboardWindowMonthly, start: monthStart.AddDate(0, -1, 0), end: monthStart},
 	}
+}
+
+func completedLeaderboardPeriodsSince(since, now time.Time, loc *time.Location) []leaderboardPeriod {
+	if since.IsZero() || now.IsZero() || !since.Before(now) {
+		return nil
+	}
+
+	dayStart := startOfLeaderboardDay(since, loc)
+	dayEnd := startOfLeaderboardDay(now, loc)
+	weekStart := startOfLeaderboardWeek(since, loc)
+	weekEnd := startOfLeaderboardWeek(now, loc)
+	monthStart := startOfLeaderboardMonth(since, loc)
+	monthEnd := startOfLeaderboardMonth(now, loc)
+
+	periods := make([]leaderboardPeriod, 0, 32)
+	for cur := dayStart; cur.Before(dayEnd); cur = cur.AddDate(0, 0, 1) {
+		periods = append(periods, leaderboardPeriod{
+			window: LeaderboardWindowDaily,
+			start:  cur,
+			end:    cur.AddDate(0, 0, 1),
+		})
+	}
+	for cur := weekStart; cur.Before(weekEnd); cur = cur.AddDate(0, 0, 7) {
+		periods = append(periods, leaderboardPeriod{
+			window: LeaderboardWindowWeekly,
+			start:  cur,
+			end:    cur.AddDate(0, 0, 7),
+		})
+	}
+	for cur := monthStart; cur.Before(monthEnd); cur = cur.AddDate(0, 1, 0) {
+		periods = append(periods, leaderboardPeriod{
+			window: LeaderboardWindowMonthly,
+			start:  cur,
+			end:    cur.AddDate(0, 1, 0),
+		})
+	}
+	return periods
 }
 
 func currentLeaderboardStreak(starts []time.Time, latest time.Time, window string) int {

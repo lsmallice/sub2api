@@ -63,6 +63,7 @@ Migration conflict note: if upstream adds migrations after 146 or introduces its
   - `GET /api/v1/leaderboard/overview`
   - `GET /api/v1/leaderboard/me`
   - `PUT /api/v1/leaderboard/me`
+  - `POST /api/v1/admin/dashboard/leaderboard/backfill`
   - `POST /api/v1/admin/users/:id/leaderboard/remove`
   - `POST /api/v1/admin/users/:id/leaderboard/ban`
   - `POST /api/v1/admin/users/:id/leaderboard/unban`
@@ -74,9 +75,11 @@ Migration conflict note: if upstream adds migrations after 146 or introduces its
 ## Frontend Touchpoints
 
 - `frontend/src/api/leaderboard.ts`
+- `frontend/src/api/admin/dashboard.ts`
 - `frontend/src/types/index.ts`
 - `frontend/src/router/index.ts`
 - `frontend/src/views/user/LeaderboardView.vue`
+- `frontend/src/views/admin/DashboardView.vue`
 - `frontend/src/views/admin/UsersView.vue`
 - `frontend/src/components/layout/AppSidebar.vue`
 - `frontend/src/i18n/locales/zh.ts`
@@ -85,6 +88,14 @@ Migration conflict note: if upstream adds migrations after 146 or introduces its
 
 The page is a single user-facing page. It shows four panels: daily, weekly, monthly, all-time. Each panel shows Top 10 plus "my rank" when the current user has opted in.
 
+The admin dashboard includes a compact manual backfill control for historical leaderboard snapshots. Admins choose a start date and trigger `POST /api/v1/admin/dashboard/leaderboard/backfill` with:
+
+```json
+{ "start": "2026-06-01" }
+```
+
+The response returns `start_time`, `end_time`, `period_count`, and `inserted_rows`. The backfill only snapshots completed daily, weekly, and monthly periods. It does not snapshot the current unfinished period.
+
 ## Production Behavior
 
 - No secrets or raw identities are exposed by public leaderboard DTOs.
@@ -92,7 +103,9 @@ The page is a single user-facing page. It shows four panels: daily, weekly, mont
 - Admin remove also clears public participation without deleting `usage_logs` or historical period snapshots.
 - Admin ban clears public participation and blocks future self opt-in until admin unban.
 - Rejoining starts all-time counting from the new `opted_in_at`.
-- The snapshot worker runs hourly and backfills recently completed daily, weekly, and monthly windows. Duplicate workers are safe because snapshot inserts are idempotent.
+- The snapshot worker runs every 15 minutes and snapshots recently completed daily, weekly, and monthly windows. Duplicate workers are safe because snapshot inserts are idempotent.
+- Historical backfill is manual only. It must not run automatically on application startup.
+- Manual backfill is duplicate-safe because `leaderboard_period_results` has unique constraints and snapshot inserts use `ON CONFLICT DO NOTHING`. Re-running the same date range skips existing rows instead of double-counting.
 - If the snapshot worker fails, current real-time leaderboards still work; historical honors may lag.
 
 ## Merge Checklist
@@ -103,6 +116,8 @@ The page is a single user-facing page. It shows four panels: daily, weekly, mont
 - Re-confirm opt-in filtering is applied in every ranking query.
 - Re-confirm banned participants are excluded from ranking queries and cannot self opt in.
 - Re-confirm `image_output_tokens` remains included in token totals.
+- Re-confirm `POST /api/v1/admin/dashboard/leaderboard/backfill` still snapshots only completed periods and remains duplicate-safe.
+- Re-confirm the leaderboard snapshot worker interval remains 15 minutes unless intentionally changed.
 - Re-run frontend route/sidebar checks if upstream refactors layout navigation.
 - Re-run Wire or manually sync `wire_gen.go` if upstream regenerates dependency wiring.
 
@@ -132,6 +147,8 @@ Manual:
 - Opted-out user disappears from daily, weekly, monthly, and all-time sections.
 - Admin remove hides a user from current public ranking without setting `is_banned`.
 - Admin ban hides a user and prevents self opt-in; admin unban allows future opt-in but does not auto-rejoin.
+- Admin dashboard manual backfill from a selected date succeeds and reports period count plus inserted rows.
+- Re-running the same admin manual backfill does not duplicate historical rows.
 - Each section returns at most 10 public rows plus separate current-user rank.
 - Public response JSON contains no `user_id`, `email`, `username`, `api_key`, `group_id`, `account_id`, or `subscription_id`.
 - Historical champion count, top appearances, best rank, and streak update after completed period snapshots.

@@ -9,13 +9,15 @@ import (
 )
 
 type leaderboardRepoStub struct {
-	participant *LeaderboardParticipant
-	top         map[string][]LeaderboardRankRow
-	me          map[string]*LeaderboardRankRow
-	honors      map[int64]LeaderboardHonorStats
-	upserted    LeaderboardParticipantUpsert
-	removed     LeaderboardParticipantRemove
-	banUpdated  LeaderboardParticipantBanUpdate
+	participant      *LeaderboardParticipant
+	top              map[string][]LeaderboardRankRow
+	me               map[string]*LeaderboardRankRow
+	honors           map[int64]LeaderboardHonorStats
+	upserted         LeaderboardParticipantUpsert
+	removed          LeaderboardParticipantRemove
+	banUpdated       LeaderboardParticipantBanUpdate
+	snapshotAffected int64
+	snapshotCalls    []leaderboardPeriod
 }
 
 func (r *leaderboardRepoStub) GetParticipant(context.Context, int64) (*LeaderboardParticipant, error) {
@@ -71,8 +73,13 @@ func (r *leaderboardRepoStub) GetHonorStats(_ context.Context, _ []int64) (map[i
 	return r.honors, nil
 }
 
-func (r *leaderboardRepoStub) SnapshotPeriod(context.Context, string, time.Time, time.Time, int) (int64, error) {
-	return 0, nil
+func (r *leaderboardRepoStub) SnapshotPeriod(_ context.Context, window string, startTime, endTime time.Time, _ int) (int64, error) {
+	r.snapshotCalls = append(r.snapshotCalls, leaderboardPeriod{
+		window: window,
+		start:  startTime,
+		end:    endTime,
+	})
+	return r.snapshotAffected, nil
 }
 
 func TestLeaderboardOverviewRedactsUserIdentityAndHighlightsMe(t *testing.T) {
@@ -193,6 +200,34 @@ func TestLeaderboardRemoveParticipantDoesNotBanUser(t *testing.T) {
 	require.False(t, status.IsBanned)
 	require.False(t, status.IsOptedIn)
 	require.Equal(t, int64(42), repo.removed.UserID)
+}
+
+func TestLeaderboardBackfillSnapshotsSinceCompletedPeriods(t *testing.T) {
+	loc := time.Local
+	repo := &leaderboardRepoStub{snapshotAffected: 2}
+	svc := NewLeaderboardService(repo)
+	since := time.Date(2026, 6, 1, 10, 0, 0, 0, loc)
+	now := time.Date(2026, 6, 6, 12, 0, 0, 0, loc)
+
+	result, err := svc.SnapshotHistoricalPeriodsSince(context.Background(), since, now)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 5, result.PeriodCount)
+	require.Equal(t, int64(10), result.InsertedRows)
+	require.Len(t, repo.snapshotCalls, 5)
+	require.Equal(t, LeaderboardWindowDaily, repo.snapshotCalls[0].window)
+	require.Equal(t, time.Date(2026, 6, 1, 0, 0, 0, 0, loc), repo.snapshotCalls[0].start)
+	require.Equal(t, time.Date(2026, 6, 6, 0, 0, 0, 0, loc), repo.snapshotCalls[4].end)
+}
+
+func TestLeaderboardBackfillRejectsInvalidRange(t *testing.T) {
+	svc := NewLeaderboardService(&leaderboardRepoStub{})
+	now := time.Date(2026, 6, 6, 12, 0, 0, 0, time.Local)
+
+	_, err := svc.SnapshotHistoricalPeriodsSince(context.Background(), now, now)
+
+	require.ErrorIs(t, err, ErrLeaderboardBackfillInvalidRange)
 }
 
 func TestCurrentLeaderboardStreak(t *testing.T) {
