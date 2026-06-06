@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -89,6 +91,21 @@ func TestLeaderboardRepositoryRebuildHonorStatsMaterializesCompletedPeriods(t *t
 	require.NoError(t, err)
 	require.Equal(t, int64(4), affected)
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestLeaderboardRepositoryRebuildHonorStatsSelectsUniquePerennialRunnerUpByRunnerUpCount(t *testing.T) {
+	src, err := os.ReadFile("leaderboard_repo.go")
+	require.NoError(t, err)
+	sql := string(src)
+
+	require.Contains(t, sql, "perennial_runner_up_leaders AS")
+	require.Contains(t, sql, "ROW_NUMBER() OVER")
+	require.Contains(t, sql, "PARTITION BY h.period_window")
+	require.Contains(t, sql, "h.runner_up_count DESC")
+	require.Contains(t, sql, "WHERE h.runner_up_count > 0")
+	require.Contains(t, sql, "WHERE rn = 1")
+	require.NotContains(t, sql, "MAX(longest_runner_up_streak) OVER (PARTITION BY period_window)")
+	require.Equal(t, 1, strings.Count(sql, "COALESCE(pru.user_id IS NOT NULL, false)"))
 }
 
 func TestLeaderboardRepositoryGetHonorStatsReadsMaterializedHonors(t *testing.T) {

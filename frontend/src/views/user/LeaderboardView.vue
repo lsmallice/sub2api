@@ -183,10 +183,10 @@ type MetricTone =
   | 'streakMid'
   | 'streakHigh'
   | 'streakUltra'
-  | 'championsLow'
-  | 'championsMid'
-  | 'championsHigh'
-  | 'championsUltra'
+  | 'goldLow'
+  | 'goldMid'
+  | 'goldHigh'
+  | 'goldUltra'
   | 'silverLow'
   | 'silverMid'
   | 'silverHigh'
@@ -257,25 +257,25 @@ const METRIC_CHIP_STYLES: Record<MetricTone, { shellClass: string; dotClass: str
       'border-violet-200/90 bg-gradient-to-br from-violet-50 via-fuchsia-50 to-amber-50 text-violet-700 shadow-[0_10px_22px_-15px_rgba(124,58,237,0.78)] dark:border-violet-400/30 dark:from-violet-500/15 dark:via-fuchsia-500/10 dark:to-amber-500/15 dark:text-violet-100',
     dotClass: 'bg-gradient-to-br from-violet-500 to-amber-400 dark:from-violet-300 dark:to-amber-300',
   },
-  championsLow: {
+  goldLow: {
     shellClass:
-      'border-cyan-200/80 bg-gradient-to-br from-cyan-50 via-white to-sky-50 text-cyan-700 shadow-[0_8px_18px_-16px_rgba(6,182,212,0.72)] dark:border-cyan-500/25 dark:from-cyan-500/10 dark:via-dark-700/70 dark:to-sky-500/10 dark:text-cyan-100',
-    dotClass: 'bg-cyan-500 dark:bg-cyan-300',
+      'border-amber-300/90 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 text-amber-800 shadow-[0_8px_18px_-16px_rgba(245,158,11,0.85)] dark:border-amber-400/35 dark:from-amber-500/15 dark:via-yellow-500/10 dark:to-orange-500/10 dark:text-amber-100',
+    dotClass: 'bg-amber-500 dark:bg-amber-300',
   },
-  championsMid: {
+  goldMid: {
     shellClass:
-      'border-blue-200/80 bg-gradient-to-br from-blue-50 via-white to-indigo-50 text-blue-700 shadow-[0_8px_18px_-16px_rgba(37,99,235,0.72)] dark:border-blue-500/25 dark:from-blue-500/10 dark:via-dark-700/70 dark:to-indigo-500/10 dark:text-blue-100',
-    dotClass: 'bg-blue-500 dark:bg-blue-300',
+      'border-yellow-300/90 bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-100 text-yellow-900 shadow-[0_8px_18px_-16px_rgba(234,179,8,0.85)] dark:border-yellow-400/35 dark:from-yellow-500/15 dark:via-amber-500/10 dark:to-orange-500/10 dark:text-yellow-100',
+    dotClass: 'bg-gradient-to-br from-yellow-400 to-amber-600 dark:from-yellow-300 dark:to-amber-300',
   },
-  championsHigh: {
+  goldHigh: {
     shellClass:
-      'border-purple-200/80 bg-gradient-to-br from-purple-50 via-white to-fuchsia-50 text-purple-700 shadow-[0_8px_18px_-16px_rgba(147,51,234,0.76)] dark:border-purple-500/25 dark:from-purple-500/10 dark:via-dark-700/70 dark:to-fuchsia-500/10 dark:text-purple-100',
-    dotClass: 'bg-purple-500 dark:bg-purple-300',
+      'border-amber-400/90 bg-gradient-to-br from-amber-100 via-yellow-50 to-orange-100 text-amber-900 shadow-[0_10px_22px_-15px_rgba(217,119,6,0.9)] dark:border-amber-300/40 dark:from-amber-400/20 dark:via-yellow-500/10 dark:to-orange-500/15 dark:text-amber-100',
+    dotClass: 'bg-gradient-to-br from-amber-400 to-orange-600 dark:from-amber-300 dark:to-orange-300',
   },
-  championsUltra: {
+  goldUltra: {
     shellClass:
-      'border-pink-200/90 bg-gradient-to-br from-pink-50 via-fuchsia-50 to-amber-50 text-pink-700 shadow-[0_10px_22px_-15px_rgba(236,72,153,0.8)] dark:border-pink-400/30 dark:from-pink-500/15 dark:via-fuchsia-500/10 dark:to-amber-500/15 dark:text-pink-100',
-    dotClass: 'bg-gradient-to-br from-pink-500 to-amber-400 dark:from-pink-300 dark:to-amber-300',
+      'border-yellow-400 bg-gradient-to-br from-yellow-100 via-amber-100 to-orange-200 text-amber-950 shadow-[0_10px_24px_-15px_rgba(180,83,9,0.95)] dark:border-yellow-300/45 dark:from-yellow-400/20 dark:via-amber-500/15 dark:to-orange-500/20 dark:text-yellow-50',
+    dotClass: 'bg-gradient-to-br from-yellow-300 to-orange-600 dark:from-yellow-200 dark:to-orange-300',
   },
   silverLow: {
     shellClass:
@@ -299,23 +299,23 @@ const METRIC_CHIP_STYLES: Record<MetricTone, { shellClass: string; dotClass: str
   },
   bronzeLow: {
     shellClass:
-      'border-orange-200/90 bg-gradient-to-br from-orange-50 via-white to-amber-50 text-orange-700 shadow-[0_8px_18px_-16px_rgba(249,115,22,0.72)] dark:border-orange-400/25 dark:from-orange-500/10 dark:via-dark-700/70 dark:to-amber-500/10 dark:text-orange-100',
-    dotClass: 'bg-orange-500 dark:bg-orange-300',
+      'border-stone-300/90 bg-gradient-to-br from-stone-100 via-orange-50 to-stone-50 text-stone-800 shadow-[0_8px_18px_-16px_rgba(120,113,108,0.78)] dark:border-stone-400/30 dark:from-stone-500/15 dark:via-orange-500/10 dark:to-dark-700 dark:text-stone-100',
+    dotClass: 'bg-stone-500 dark:bg-stone-300',
   },
   bronzeMid: {
     shellClass:
-      'border-yellow-200/90 bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50 text-yellow-800 shadow-[0_8px_18px_-16px_rgba(234,179,8,0.76)] dark:border-yellow-400/30 dark:from-yellow-500/15 dark:via-orange-500/10 dark:to-amber-500/10 dark:text-yellow-100',
-    dotClass: 'bg-gradient-to-br from-yellow-500 to-orange-500 dark:from-yellow-300 dark:to-orange-300',
+      'border-orange-700/35 bg-gradient-to-br from-orange-100 via-stone-100 to-red-50 text-orange-950 shadow-[0_8px_18px_-16px_rgba(194,65,12,0.78)] dark:border-orange-500/35 dark:from-orange-600/18 dark:via-stone-500/12 dark:to-red-500/10 dark:text-orange-100',
+    dotClass: 'bg-gradient-to-br from-orange-700 to-stone-500 dark:from-orange-300 dark:to-stone-300',
   },
   bronzeHigh: {
     shellClass:
-      'border-amber-200/90 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 text-amber-800 shadow-[0_10px_22px_-15px_rgba(245,158,11,0.78)] dark:border-amber-400/30 dark:from-amber-500/15 dark:via-orange-500/10 dark:to-rose-500/10 dark:text-amber-100',
-    dotClass: 'bg-gradient-to-br from-amber-500 to-rose-500 dark:from-amber-300 dark:to-rose-300',
+      'border-orange-800/45 bg-gradient-to-br from-orange-100 via-red-50 to-stone-100 text-orange-950 shadow-[0_10px_22px_-15px_rgba(154,52,18,0.85)] dark:border-orange-400/40 dark:from-orange-700/20 dark:via-red-500/12 dark:to-stone-500/12 dark:text-orange-100',
+    dotClass: 'bg-gradient-to-br from-orange-800 to-red-700 dark:from-orange-300 dark:to-red-300',
   },
   bronzeUltra: {
     shellClass:
-      'border-rose-200/90 bg-gradient-to-br from-rose-50 via-orange-50 to-fuchsia-50 text-rose-700 shadow-[0_10px_24px_-15px_rgba(244,63,94,0.82)] dark:border-rose-400/30 dark:from-rose-500/15 dark:via-orange-500/10 dark:to-fuchsia-500/15 dark:text-rose-100',
-    dotClass: 'bg-gradient-to-br from-rose-500 to-fuchsia-500 dark:from-rose-300 dark:to-fuchsia-300',
+      'border-red-900/45 bg-gradient-to-br from-red-100 via-orange-100 to-stone-200 text-red-950 shadow-[0_10px_24px_-15px_rgba(127,29,29,0.9)] dark:border-red-400/40 dark:from-red-700/22 dark:via-orange-600/16 dark:to-stone-500/14 dark:text-red-100',
+    dotClass: 'bg-gradient-to-br from-red-800 to-orange-700 dark:from-red-300 dark:to-orange-300',
   },
 }
 
@@ -340,11 +340,11 @@ function getStreakMetricTone(streak: number): MetricTone {
   return 'streakLow'
 }
 
-function getChampionMetricTone(champions: number): MetricTone {
-  if (champions >= 200) return 'championsUltra'
-  if (champions >= 50) return 'championsHigh'
-  if (champions >= 10) return 'championsMid'
-  return 'championsLow'
+function getGoldMetricTone(champions: number): MetricTone {
+  if (champions >= 200) return 'goldUltra'
+  if (champions >= 50) return 'goldHigh'
+  if (champions >= 10) return 'goldMid'
+  return 'goldLow'
 }
 
 function getSilverMetricTone(count: number): MetricTone {
@@ -383,8 +383,8 @@ type MedalKind = 'gold' | 'silver' | 'bronze'
 const MEDAL_STYLES: Record<MedalKind, { labelClass: string; crownClass: string; tone: (count: number) => MetricTone }> = {
   gold: {
     labelClass: 'text-amber-700 dark:text-amber-100',
-    crownClass: 'text-amber-500',
-    tone: getChampionMetricTone,
+    crownClass: 'text-amber-500 dark:text-amber-300',
+    tone: getGoldMetricTone,
   },
   silver: {
     labelClass: 'text-slate-700 dark:text-slate-100',
@@ -392,8 +392,8 @@ const MEDAL_STYLES: Record<MedalKind, { labelClass: string; crownClass: string; 
     tone: getSilverMetricTone,
   },
   bronze: {
-    labelClass: 'text-orange-700 dark:text-orange-100',
-    crownClass: 'text-orange-500',
+    labelClass: 'text-orange-950 dark:text-orange-100',
+    crownClass: 'text-orange-700 dark:text-orange-300',
     tone: getBronzeMetricTone,
   },
 }
@@ -434,8 +434,8 @@ function renderHonorWall(entry: LeaderboardEntry) {
     : null
   const runnerUpStreakCount = entry.longest_runner_up_streak || 0
   const hasRunnerUpStreak = runnerUpStreakCount > 1
-  const runnerUpTitle = entry.perennial_runner_up && hasRunnerUpStreak
-    ? renderMetricChip(t('leaderboard.perennialRunnerUp'), getSilverMetricTone(runnerUpStreakCount))
+  const runnerUpTitle = entry.perennial_runner_up && (entry.runner_up_count || 0) > 0
+    ? renderMetricChip(t('leaderboard.perennialRunnerUp'), getSilverMetricTone(entry.runner_up_count || 0))
     : null
   const runnerUpStreak =
     !entry.perennial_runner_up && hasRunnerUpStreak

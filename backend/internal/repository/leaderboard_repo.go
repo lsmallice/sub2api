@@ -427,12 +427,23 @@ func (r *leaderboardRepository) rebuildHonorStatsWithExecutor(ctx context.Contex
 				period_window
 			FROM (
 				SELECT
-					rus.*,
-					MAX(longest_runner_up_streak) OVER (PARTITION BY period_window) AS window_max
-				FROM runner_up_streaks rus
+					h.user_id,
+					h.period_window,
+					ROW_NUMBER() OVER (
+						PARTITION BY h.period_window
+						ORDER BY
+							h.runner_up_count DESC,
+							COALESCE(rus.longest_runner_up_streak, 0) DESC,
+							h.best_rank ASC,
+							h.top_appearances DESC,
+							h.champion_count DESC,
+							h.user_id ASC
+					) AS rn
+				FROM honor_counts h
+				LEFT JOIN runner_up_streaks rus ON rus.user_id = h.user_id AND rus.period_window = h.period_window
+				WHERE h.runner_up_count > 0
 			) ranked_runner_ups
-			WHERE longest_runner_up_streak = window_max
-				AND longest_runner_up_streak >= 2
+			WHERE rn = 1
 		)
 		INSERT INTO leaderboard_user_honors (
 			user_id,
