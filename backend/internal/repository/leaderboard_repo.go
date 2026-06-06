@@ -79,6 +79,41 @@ func (r *leaderboardRepository) UpsertParticipant(ctx context.Context, input ser
 	return row, nil
 }
 
+func (r *leaderboardRepository) RemoveParticipant(ctx context.Context, input service.LeaderboardParticipantRemove) (*service.LeaderboardParticipant, error) {
+	if input.Now.IsZero() {
+		input.Now = time.Now()
+	}
+
+	displayName := sql.NullString{}
+	row, err := r.scanParticipant(ctx, `
+		INSERT INTO leaderboard_participants (
+			user_id,
+			is_opted_in,
+			is_banned,
+			display_name,
+			display_code,
+			opted_in_at,
+			created_at,
+			updated_at
+		)
+		VALUES ($1, false, false, $2, $3, NULL, $4, $4)
+		ON CONFLICT (user_id) DO UPDATE SET
+			is_opted_in = false,
+			display_name = COALESCE(leaderboard_participants.display_name, EXCLUDED.display_name),
+			display_code = COALESCE(leaderboard_participants.display_code, EXCLUDED.display_code),
+			opted_in_at = NULL,
+			updated_at = EXCLUDED.updated_at
+		RETURNING user_id, is_opted_in, is_banned, display_name, display_code, opted_in_at, created_at, updated_at
+	`, input.UserID, displayName, input.DisplayCode, input.Now)
+	if err != nil {
+		if isForeignKeyViolation(err) {
+			return nil, sql.ErrNoRows
+		}
+		return nil, err
+	}
+	return row, nil
+}
+
 func (r *leaderboardRepository) SetParticipantBanStatus(ctx context.Context, input service.LeaderboardParticipantBanUpdate) (*service.LeaderboardParticipant, error) {
 	if input.Now.IsZero() {
 		input.Now = time.Now()

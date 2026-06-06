@@ -704,6 +704,33 @@
 
               <div class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
 
+              <!-- Leaderboard controls -->
+              <button
+                @click="handleLeaderboardRemove(user); closeActionMenu()"
+                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
+              >
+                <Icon name="xCircle" size="sm" class="text-amber-500" :stroke-width="2" />
+                {{ t('admin.users.leaderboardRemove') }}
+              </button>
+
+              <button
+                @click="handleLeaderboardBan(user); closeActionMenu()"
+                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+              >
+                <Icon name="ban" size="sm" :stroke-width="2" />
+                {{ t('admin.users.leaderboardBan') }}
+              </button>
+
+              <button
+                @click="handleLeaderboardUnban(user); closeActionMenu()"
+                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+              >
+                <Icon name="checkCircle" size="sm" :stroke-width="2" />
+                {{ t('admin.users.leaderboardUnban') }}
+              </button>
+
+              <div class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
+
               <!-- Delete (not for admin) -->
               <button
                 v-if="user.role !== 'admin'"
@@ -1352,7 +1379,7 @@ const openActionMenu = (user: AdminUser, e: MouseEvent) => {
 
     const rect = target.getBoundingClientRect()
     const menuWidth = 200
-    const menuHeight = 240
+    const menuHeight = 360
     const padding = 8
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
@@ -1631,6 +1658,36 @@ const handleToggleStatus = async (user: AdminUser) => {
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.users.failedToToggle'))
     console.error('Error toggling user status:', error)
+  }
+}
+
+const handleLeaderboardRemove = async (user: AdminUser) => {
+  try {
+    await adminAPI.users.removeFromLeaderboard(user.id)
+    appStore.showSuccess(t('admin.users.leaderboardRemoved'))
+  } catch (error: any) {
+    appStore.showError(error.response?.data?.detail || t('admin.users.failedToUpdateLeaderboard'))
+    console.error('Error removing user from leaderboard:', error)
+  }
+}
+
+const handleLeaderboardBan = async (user: AdminUser) => {
+  try {
+    await adminAPI.users.banFromLeaderboard(user.id)
+    appStore.showSuccess(t('admin.users.leaderboardBanned'))
+  } catch (error: any) {
+    appStore.showError(error.response?.data?.detail || t('admin.users.failedToUpdateLeaderboard'))
+    console.error('Error banning user from leaderboard:', error)
+  }
+}
+
+const handleLeaderboardUnban = async (user: AdminUser) => {
+  try {
+    await adminAPI.users.unbanFromLeaderboard(user.id)
+    appStore.showSuccess(t('admin.users.leaderboardUnbanned'))
+  } catch (error: any) {
+    appStore.showError(error.response?.data?.detail || t('admin.users.failedToUpdateLeaderboard'))
+    console.error('Error unbanning user from leaderboard:', error)
   }
 }
 

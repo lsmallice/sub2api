@@ -4,7 +4,7 @@ Last updated: 2026-06-06
 
 Current custom branch: `image-capability`
 
-Current upstream base: `0.1.133`
+Current upstream base: `0.1.134`
 
 ## Purpose
 
@@ -25,6 +25,8 @@ This custom feature adds a voluntary, privacy-preserving Token leaderboard for e
 
 - Users are not ranked by default. They must explicitly opt in.
 - Opting out immediately hides the user from public leaderboard responses.
+- Administrators can remove a user from the public leaderboard without banning future participation.
+- Administrators can ban a user from leaderboard participation; banned users cannot opt in again until unbanned.
 - Public responses must not include email, username, database `user_id`, API Key, group, account, subscription, or raw identity fields.
 - Public names are either a validated optional nickname or a stable masked display code such as `用户 #A83F`.
 - Ranking tokens are `input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens + image_output_tokens`.
@@ -38,8 +40,11 @@ This custom feature adds a voluntary, privacy-preserving Token leaderboard for e
 - Migration: `backend/migrations/146_leaderboard.sql`
 - `leaderboard_participants`
   - `user_id` primary key, references `users(id)`.
-  - `is_opted_in`, optional `display_name`, stable `display_code`, `opted_in_at`.
+  - `is_opted_in`, `is_banned`, optional `display_name`, stable `display_code`, `opted_in_at`.
   - `display_name` is constrained to 1-32 trimmed characters when present.
+- Migration: `backend/migrations/149_leaderboard_ban_status.sql`
+  - Adds `leaderboard_participants.is_banned` for admin-controlled opt-in blocking.
+  - Kept separate from migration 146 to avoid checksum drift on environments that already applied 146.
 - `leaderboard_period_results`
   - Stores completed daily, weekly, and monthly Top 10 snapshots.
   - Stores masked display snapshots, tokens, requests, rank, period start/end.
@@ -58,6 +63,9 @@ Migration conflict note: if upstream adds migrations after 146 or introduces its
   - `GET /api/v1/leaderboard/overview`
   - `GET /api/v1/leaderboard/me`
   - `PUT /api/v1/leaderboard/me`
+  - `POST /api/v1/admin/users/:id/leaderboard/remove`
+  - `POST /api/v1/admin/users/:id/leaderboard/ban`
+  - `POST /api/v1/admin/users/:id/leaderboard/unban`
 - `backend/internal/server/routes/user.go`
   - Registers leaderboard routes behind user JWT auth.
 - `backend/cmd/server/wire.go` and `backend/cmd/server/wire_gen.go`
@@ -69,6 +77,7 @@ Migration conflict note: if upstream adds migrations after 146 or introduces its
 - `frontend/src/types/index.ts`
 - `frontend/src/router/index.ts`
 - `frontend/src/views/user/LeaderboardView.vue`
+- `frontend/src/views/admin/UsersView.vue`
 - `frontend/src/components/layout/AppSidebar.vue`
 - `frontend/src/i18n/locales/zh.ts`
 - `frontend/src/i18n/locales/en.ts`
@@ -80,6 +89,8 @@ The page is a single user-facing page. It shows four panels: daily, weekly, mont
 
 - No secrets or raw identities are exposed by public leaderboard DTOs.
 - Opt-out does not delete `usage_logs`; it only hides public leaderboard participation and clears `opted_in_at`.
+- Admin remove also clears public participation without deleting `usage_logs` or historical period snapshots.
+- Admin ban clears public participation and blocks future self opt-in until admin unban.
 - Rejoining starts all-time counting from the new `opted_in_at`.
 - The snapshot worker runs hourly and backfills recently completed daily, weekly, and monthly windows. Duplicate workers are safe because snapshot inserts are idempotent.
 - If the snapshot worker fails, current real-time leaderboards still work; historical honors may lag.
@@ -90,6 +101,7 @@ The page is a single user-facing page. It shows four panels: daily, weekly, mont
 - Check whether upstream added a public leaderboard or user privacy feature with overlapping tables or routes.
 - Re-confirm public leaderboard responses still omit raw user identity fields.
 - Re-confirm opt-in filtering is applied in every ranking query.
+- Re-confirm banned participants are excluded from ranking queries and cannot self opt in.
 - Re-confirm `image_output_tokens` remains included in token totals.
 - Re-run frontend route/sidebar checks if upstream refactors layout navigation.
 - Re-run Wire or manually sync `wire_gen.go` if upstream regenerates dependency wiring.
@@ -118,6 +130,8 @@ Manual:
 - User opts in with no nickname and appears as a masked name.
 - User opts in with nickname and appears with nickname only.
 - Opted-out user disappears from daily, weekly, monthly, and all-time sections.
+- Admin remove hides a user from current public ranking without setting `is_banned`.
+- Admin ban hides a user and prevents self opt-in; admin unban allows future opt-in but does not auto-rejoin.
 - Each section returns at most 10 public rows plus separate current-user rank.
 - Public response JSON contains no `user_id`, `email`, `username`, `api_key`, `group_id`, `account_id`, or `subscription_id`.
 - Historical champion count, top appearances, best rank, and streak update after completed period snapshots.

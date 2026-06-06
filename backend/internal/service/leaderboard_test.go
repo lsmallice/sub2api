@@ -14,6 +14,7 @@ type leaderboardRepoStub struct {
 	me          map[string]*LeaderboardRankRow
 	honors      map[int64]LeaderboardHonorStats
 	upserted    LeaderboardParticipantUpsert
+	removed     LeaderboardParticipantRemove
 	banUpdated  LeaderboardParticipantBanUpdate
 }
 
@@ -33,6 +34,18 @@ func (r *leaderboardRepoStub) UpsertParticipant(_ context.Context, input Leaderb
 		DisplayName: input.DisplayName,
 		DisplayCode: firstNonEmpty(input.DisplayCode, "ABCD"),
 		OptedInAt:   optedInAt,
+		CreatedAt:   input.Now,
+		UpdatedAt:   input.Now,
+	}, nil
+}
+
+func (r *leaderboardRepoStub) RemoveParticipant(_ context.Context, input LeaderboardParticipantRemove) (*LeaderboardParticipant, error) {
+	r.removed = input
+	return &LeaderboardParticipant{
+		UserID:      input.UserID,
+		IsOptedIn:   false,
+		IsBanned:    false,
+		DisplayCode: firstNonEmpty(input.DisplayCode, "ABCD"),
 		CreatedAt:   input.Now,
 		UpdatedAt:   input.Now,
 	}, nil
@@ -170,6 +183,16 @@ func TestLeaderboardBanParticipantOptOutsUser(t *testing.T) {
 	require.True(t, status.IsBanned)
 	require.False(t, status.IsOptedIn)
 	require.True(t, repo.banUpdated.IsBanned)
+}
+
+func TestLeaderboardRemoveParticipantDoesNotBanUser(t *testing.T) {
+	repo := &leaderboardRepoStub{}
+	status, err := NewLeaderboardService(repo).RemoveParticipant(context.Background(), 42)
+
+	require.NoError(t, err)
+	require.False(t, status.IsBanned)
+	require.False(t, status.IsOptedIn)
+	require.Equal(t, int64(42), repo.removed.UserID)
 }
 
 func TestCurrentLeaderboardStreak(t *testing.T) {

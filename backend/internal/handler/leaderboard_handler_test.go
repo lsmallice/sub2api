@@ -119,12 +119,31 @@ func TestLeaderboardHandlerUpdateMeRejectsBannedUser(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "LEADERBOARD_BANNED")
 }
 
+func TestLeaderboardHandlerAdminBanParticipant(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	repo := &handlerLeaderboardRepoStub{}
+	handler := NewLeaderboardHandler(service.NewLeaderboardService(repo))
+	router := gin.New()
+	router.POST("/admin/users/:id/leaderboard/ban", handler.AdminBanParticipant)
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/users/42/leaderboard/ban", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.True(t, repo.banUpdated.IsBanned)
+	require.Equal(t, int64(42), repo.banUpdated.UserID)
+	require.Contains(t, rec.Body.String(), `"is_banned":true`)
+}
+
 type handlerLeaderboardRepoStub struct {
 	participant *service.LeaderboardParticipant
 	top         map[string][]service.LeaderboardRankRow
 	me          map[string]*service.LeaderboardRankRow
 	honors      map[int64]service.LeaderboardHonorStats
 	upserted    service.LeaderboardParticipantUpsert
+	removed     service.LeaderboardParticipantRemove
 	banUpdated  service.LeaderboardParticipantBanUpdate
 }
 
@@ -144,6 +163,18 @@ func (r *handlerLeaderboardRepoStub) UpsertParticipant(_ context.Context, input 
 		DisplayName: input.DisplayName,
 		DisplayCode: "A83F",
 		OptedInAt:   optedInAt,
+		CreatedAt:   input.Now,
+		UpdatedAt:   input.Now,
+	}, nil
+}
+
+func (r *handlerLeaderboardRepoStub) RemoveParticipant(_ context.Context, input service.LeaderboardParticipantRemove) (*service.LeaderboardParticipant, error) {
+	r.removed = input
+	return &service.LeaderboardParticipant{
+		UserID:      input.UserID,
+		IsOptedIn:   false,
+		IsBanned:    false,
+		DisplayCode: input.DisplayCode,
 		CreatedAt:   input.Now,
 		UpdatedAt:   input.Now,
 	}, nil

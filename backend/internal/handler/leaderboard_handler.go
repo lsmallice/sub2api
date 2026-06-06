@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -72,4 +74,52 @@ func (h *LeaderboardHandler) UpdateMe(c *gin.Context) {
 		return
 	}
 	response.Success(c, me)
+}
+
+func (h *LeaderboardHandler) AdminRemoveParticipant(c *gin.Context) {
+	userID, ok := parseLeaderboardUserID(c)
+	if !ok {
+		return
+	}
+	status, err := h.leaderboardService.RemoveParticipant(c.Request.Context(), userID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, status)
+}
+
+func (h *LeaderboardHandler) AdminBanParticipant(c *gin.Context) {
+	userID, ok := parseLeaderboardUserID(c)
+	if !ok {
+		return
+	}
+	status, err := h.leaderboardService.BanParticipant(c.Request.Context(), userID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, status)
+}
+
+func (h *LeaderboardHandler) AdminUnbanParticipant(c *gin.Context) {
+	userID, ok := parseLeaderboardUserID(c)
+	if !ok {
+		return
+	}
+	status, err := h.leaderboardService.UnbanParticipant(c.Request.Context(), userID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, status)
+}
+
+func parseLeaderboardUserID(c *gin.Context) (int64, bool) {
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || userID <= 0 {
+		response.BadRequest(c, "Invalid user ID")
+		return 0, false
+	}
+	return userID, true
 }

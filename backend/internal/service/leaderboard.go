@@ -35,6 +35,7 @@ var (
 type LeaderboardRepository interface {
 	GetParticipant(ctx context.Context, userID int64) (*LeaderboardParticipant, error)
 	UpsertParticipant(ctx context.Context, input LeaderboardParticipantUpsert) (*LeaderboardParticipant, error)
+	RemoveParticipant(ctx context.Context, input LeaderboardParticipantRemove) (*LeaderboardParticipant, error)
 	SetParticipantBanStatus(ctx context.Context, input LeaderboardParticipantBanUpdate) (*LeaderboardParticipant, error)
 	GetRanking(ctx context.Context, window string, startTime, endTime time.Time, limit int, currentUserID int64) ([]LeaderboardRankRow, *LeaderboardRankRow, error)
 	GetHonorStats(ctx context.Context, userIDs []int64) (map[int64]LeaderboardHonorStats, error)
@@ -63,6 +64,12 @@ type LeaderboardParticipantUpsert struct {
 type LeaderboardParticipantBanUpdate struct {
 	UserID      int64
 	IsBanned    bool
+	DisplayCode string
+	Now         time.Time
+}
+
+type LeaderboardParticipantRemove struct {
+	UserID      int64
 	DisplayCode string
 	Now         time.Time
 }
@@ -273,6 +280,39 @@ func (s *LeaderboardService) BanParticipant(ctx context.Context, userID int64) (
 
 func (s *LeaderboardService) UnbanParticipant(ctx context.Context, userID int64) (*LeaderboardParticipantStatus, error) {
 	return s.SetParticipantBanStatus(ctx, userID, false)
+}
+
+func (s *LeaderboardService) RemoveParticipant(ctx context.Context, userID int64) (*LeaderboardParticipantStatus, error) {
+	if s == nil || s.repo == nil {
+		return nil, ErrLeaderboardUnavailable
+	}
+
+	participant, err := s.repo.GetParticipant(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get leaderboard participant: %w", err)
+	}
+
+	code := ""
+	if participant != nil {
+		code = participant.DisplayCode
+	}
+	if strings.TrimSpace(code) == "" {
+		code, err = generateLeaderboardDisplayCode()
+		if err != nil {
+			return nil, fmt.Errorf("generate leaderboard display code: %w", err)
+		}
+	}
+
+	participant, err = s.repo.RemoveParticipant(ctx, LeaderboardParticipantRemove{
+		UserID:      userID,
+		DisplayCode: code,
+		Now:         time.Now(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("remove leaderboard participant: %w", err)
+	}
+	status := s.participantStatus(participant)
+	return &status, nil
 }
 
 func (s *LeaderboardService) SetParticipantBanStatus(ctx context.Context, userID int64, isBanned bool) (*LeaderboardParticipantStatus, error) {
