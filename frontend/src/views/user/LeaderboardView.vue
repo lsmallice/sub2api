@@ -333,13 +333,6 @@ function getRequestMetricTone(requests: number): MetricTone {
   return 'requestsLow'
 }
 
-function getStreakMetricTone(streak: number): MetricTone {
-  if (streak >= 30) return 'streakUltra'
-  if (streak >= 15) return 'streakHigh'
-  if (streak >= 5) return 'streakMid'
-  return 'streakLow'
-}
-
 function getGoldMetricTone(champions: number): MetricTone {
   if (champions >= 200) return 'goldUltra'
   if (champions >= 50) return 'goldHigh'
@@ -429,21 +422,70 @@ function renderHonorWall(entry: LeaderboardEntry) {
     renderMedalCrowns('silver', entry.runner_up_count || 0),
     renderMedalCrowns('bronze', entry.third_place_count || 0),
   ].filter(Boolean)
-  const streak = entry.current_streak && entry.current_streak > 1
-    ? renderMetricChip(t('leaderboard.streak', { n: entry.current_streak }), getStreakMetricTone(entry.current_streak))
-    : null
-  const runnerUpStreakCount = entry.longest_runner_up_streak || 0
-  const hasRunnerUpStreak = runnerUpStreakCount > 1
   const runnerUpTitle = entry.perennial_runner_up && (entry.runner_up_count || 0) > 0
     ? renderMetricChip(t('leaderboard.perennialRunnerUp'), getSilverMetricTone(entry.runner_up_count || 0))
     : null
-  const runnerUpStreak =
-    !entry.perennial_runner_up && hasRunnerUpStreak
-      ? renderMetricChip(t('leaderboard.runnerUpStreak', { n: runnerUpStreakCount }), getSilverMetricTone(runnerUpStreakCount))
-      : null
-  const items = [...medals, streak, runnerUpTitle, runnerUpStreak].filter(Boolean)
+  const items = [...medals, runnerUpTitle].filter(Boolean)
   if (!items.length) return null
   return h('div', { class: 'mt-2 flex flex-wrap items-center gap-1.5' }, items)
+}
+
+type StreakBadge = {
+  label: string
+  value: number
+  iconClass: string
+  shellClass: string
+  glowClass: string
+}
+
+function getStreakBadge(entry: LeaderboardEntry): StreakBadge | null {
+  const championStreak = entry.current_streak || 0
+  if (championStreak > 1) {
+    return {
+      label: t('leaderboard.streak', { n: championStreak }),
+      value: championStreak,
+      iconClass: 'text-yellow-200 drop-shadow-[0_1px_2px_rgba(120,53,15,0.45)]',
+      shellClass:
+        'border-amber-300/80 bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 text-white shadow-[0_12px_30px_-14px_rgba(245,158,11,0.95)]',
+      glowClass: 'from-yellow-200/80 via-white/35 to-transparent',
+    }
+  }
+
+  const runnerUpStreak = entry.current_runner_up_streak || 0
+  if (runnerUpStreak > 1) {
+    return {
+      label: t('leaderboard.runnerUpStreak', { n: runnerUpStreak }),
+      value: runnerUpStreak,
+      iconClass: 'text-slate-100 drop-shadow-[0_1px_2px_rgba(15,23,42,0.35)]',
+      shellClass:
+        'border-slate-300/90 bg-gradient-to-r from-slate-500 via-indigo-500 to-cyan-500 text-white shadow-[0_12px_30px_-14px_rgba(99,102,241,0.8)]',
+      glowClass: 'from-white/70 via-cyan-100/30 to-transparent',
+    }
+  }
+
+  return null
+}
+
+function renderStreakBadge(entry: LeaderboardEntry) {
+  const badge = getStreakBadge(entry)
+  if (!badge) return null
+  return h(
+    'div',
+    {
+      class: [
+        'absolute -left-1 -top-3 z-20 inline-flex min-h-[34px] max-w-[calc(100%-1.5rem)] items-center gap-1.5 overflow-hidden rounded-br-2xl rounded-tl-[1.25rem] rounded-tr-md border px-3 py-1.5 text-[12px] font-black leading-none tracking-normal',
+        badge.shellClass,
+      ],
+      title: badge.label,
+    },
+    [
+      h('span', { class: ['absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b opacity-70', badge.glowClass] }),
+      h('span', { class: 'relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/18 ring-1 ring-white/25' }, [
+        renderCrownIcon(badge.iconClass),
+      ]),
+      h('span', { class: 'relative truncate tabular-nums' }, badge.label),
+    ]
+  )
 }
 
 type RankStyle = {
@@ -626,13 +668,14 @@ const LeaderboardPanel = defineComponent({
         'li',
         {
           class: [
-            'group relative overflow-hidden rounded-[1.35rem] border px-3 py-3 transition-transform duration-200',
+            'group relative mt-3 list-none overflow-visible rounded-[1.35rem] border px-3 py-3 transition-transform duration-200',
             rankStyle.shellClass,
             entry.is_me ? 'ring-2 ring-primary-300/70 dark:ring-primary-500/40' : '',
             isPodium(entry.rank) ? 'md:pl-4' : '',
           ],
         },
         [
+          renderStreakBadge(entry),
           h('div', { class: ['absolute left-0 top-0 h-full w-1.5 rounded-r-full', rankStyle.accentClass] }),
           h('div', { class: 'relative flex items-center gap-3 pl-1' }, [
             renderRankBadge(entry, rankStyle),
@@ -663,7 +706,7 @@ const LeaderboardPanel = defineComponent({
         h('span', { class: 'rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-dark-700 dark:text-gray-300' }, 'Top 10'),
       ]),
       props.window.top10.length
-        ? h('ol', { class: 'space-y-2' }, props.window.top10.map((entry) => renderEntry(entry)))
+        ? h('ol', { class: 'space-y-2 pt-1' }, props.window.top10.map((entry) => renderEntry(entry)))
         : h('div', { class: 'rounded-md border border-dashed border-gray-200 py-8 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400' }, t('leaderboard.empty')),
       h('div', { class: 'mt-4 border-t border-gray-100 pt-4 dark:border-dark-700' }, [
         props.window.me

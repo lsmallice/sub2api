@@ -103,6 +103,7 @@ type LeaderboardHonorStats struct {
 	ThirdPlaceCount       int
 	BestRank              int
 	CurrentStreak         int
+	CurrentRunnerUpStreak int
 	LongestRunnerUpStreak int
 	PerennialRunnerUp     bool
 	ChampionStarts        map[string][]time.Time
@@ -152,6 +153,7 @@ type LeaderboardPublicEntry struct {
 	ThirdPlaceCount       int    `json:"third_place_count,omitempty"`
 	TopAppearances        int    `json:"top_appearances,omitempty"`
 	BestRank              int    `json:"best_rank,omitempty"`
+	CurrentRunnerUpStreak int    `json:"current_runner_up_streak,omitempty"`
 	LongestRunnerUpStreak int    `json:"longest_runner_up_streak,omitempty"`
 	PerennialRunnerUp     bool   `json:"perennial_runner_up,omitempty"`
 	IsMe                  bool   `json:"is_me,omitempty"`
@@ -532,11 +534,15 @@ func (s *LeaderboardService) publicEntry(row LeaderboardRankRow, currentUserID i
 	if currentStreak <= 1 {
 		currentStreak = 0
 	}
+	currentRunnerUpStreak := honors.CurrentRunnerUpStreak
+	if currentRunnerUpStreak <= 1 {
+		currentRunnerUpStreak = 0
+	}
 	longestRunnerUpStreak := honors.LongestRunnerUpStreak
 	if longestRunnerUpStreak <= 1 {
 		longestRunnerUpStreak = 0
 	}
-	perennialRunnerUp := honors.PerennialRunnerUp && longestRunnerUpStreak > 1
+	perennialRunnerUp := honors.PerennialRunnerUp && honors.RunnerUpCount > 0
 	return LeaderboardPublicEntry{
 		Rank:                  row.Rank,
 		DisplayName:           publicLeaderboardName(row.DisplayName, row.DisplayCode),
@@ -549,6 +555,7 @@ func (s *LeaderboardService) publicEntry(row LeaderboardRankRow, currentUserID i
 		ThirdPlaceCount:       honors.ThirdPlaceCount,
 		TopAppearances:        honors.TopAppearances,
 		BestRank:              honors.BestRank,
+		CurrentRunnerUpStreak: currentRunnerUpStreak,
 		LongestRunnerUpStreak: longestRunnerUpStreak,
 		PerennialRunnerUp:     perennialRunnerUp,
 		IsMe:                  row.UserID == currentUserID,

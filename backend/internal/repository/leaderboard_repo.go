@@ -240,6 +240,7 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 			third_place_count,
 			best_rank,
 			current_streak,
+			current_runner_up_streak,
 			longest_runner_up_streak,
 			perennial_runner_up
 		FROM leaderboard_user_honors
@@ -263,6 +264,7 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 			&stats.ThirdPlaceCount,
 			&stats.BestRank,
 			&stats.CurrentStreak,
+			&stats.CurrentRunnerUpStreak,
 			&stats.LongestRunnerUpStreak,
 			&stats.PerennialRunnerUp,
 		); err != nil {
@@ -394,6 +396,26 @@ func (r *leaderboardRepository) rebuildHonorStatsWithExecutor(ctx context.Contex
 			WHERE period_start = latest_start - ((rn - 1) * step)
 			GROUP BY user_id, period_window
 		),
+		current_runner_up_streaks AS (
+			SELECT user_id, period_window, COUNT(*)::int AS current_runner_up_streak
+			FROM (
+				SELECT
+					rup.user_id,
+					rup.period_window,
+					rup.period_start,
+					ROW_NUMBER() OVER (
+						PARTITION BY rup.user_id, rup.period_window
+						ORDER BY rup.period_start DESC
+					)::int AS rn,
+					lc.latest_start,
+					lc.step
+				FROM runner_up_periods rup
+				JOIN latest_completed lc ON lc.period_window = rup.period_window
+				WHERE rup.period_start <= lc.latest_start
+			) ordered
+			WHERE period_start = latest_start - ((rn - 1) * step)
+			GROUP BY user_id, period_window
+		),
 		runner_up_islands AS (
 			SELECT
 				user_id,
@@ -454,6 +476,7 @@ func (r *leaderboardRepository) rebuildHonorStatsWithExecutor(ctx context.Contex
 			third_place_count,
 			best_rank,
 			current_streak,
+			current_runner_up_streak,
 			longest_runner_up_streak,
 			perennial_runner_up,
 			updated_at
@@ -467,11 +490,13 @@ func (r *leaderboardRepository) rebuildHonorStatsWithExecutor(ctx context.Contex
 			h.third_place_count,
 			COALESCE(h.best_rank, 0),
 			COALESCE(s.current_streak, 0),
+			COALESCE(crus.current_runner_up_streak, 0),
 			COALESCE(rus.longest_runner_up_streak, 0),
 			COALESCE(pru.user_id IS NOT NULL, false),
 			NOW()
 		FROM honor_counts h
 		LEFT JOIN champion_streaks s ON s.user_id = h.user_id AND s.period_window = h.period_window
+		LEFT JOIN current_runner_up_streaks crus ON crus.user_id = h.user_id AND crus.period_window = h.period_window
 		LEFT JOIN runner_up_streaks rus ON rus.user_id = h.user_id AND rus.period_window = h.period_window
 		LEFT JOIN perennial_runner_up_leaders pru ON pru.user_id = h.user_id AND pru.period_window = h.period_window
 	`, cutoff, latestDaily, latestWeekly, latestMonthly)

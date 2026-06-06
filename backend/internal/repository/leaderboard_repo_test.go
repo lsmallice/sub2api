@@ -108,6 +108,19 @@ func TestLeaderboardRepositoryRebuildHonorStatsSelectsUniquePerennialRunnerUpByR
 	require.Equal(t, 1, strings.Count(sql, "COALESCE(pru.user_id IS NOT NULL, false)"))
 }
 
+func TestLeaderboardRepositoryRebuildHonorStatsMaterializesCurrentRunnerUpStreak(t *testing.T) {
+	src, err := os.ReadFile("leaderboard_repo.go")
+	require.NoError(t, err)
+	sql := string(src)
+
+	require.Contains(t, sql, "current_runner_up_streaks AS")
+	require.Contains(t, sql, "COUNT(*)::int AS current_runner_up_streak")
+	require.Contains(t, sql, "ORDER BY rup.period_start DESC")
+	require.Contains(t, sql, "WHERE period_start = latest_start - ((rn - 1) * step)")
+	require.Contains(t, sql, "COALESCE(crus.current_runner_up_streak, 0)")
+	require.Contains(t, sql, "LEFT JOIN current_runner_up_streaks crus")
+}
+
 func TestLeaderboardRepositoryGetHonorStatsReadsMaterializedHonors(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -122,10 +135,11 @@ func TestLeaderboardRepositoryGetHonorStatsReadsMaterializedHonors(t *testing.T)
 		"third_place_count",
 		"best_rank",
 		"current_streak",
+		"current_runner_up_streak",
 		"longest_runner_up_streak",
 		"perennial_runner_up",
 	}).
-		AddRow(int64(42), service.LeaderboardWindowMonthly, 3, 1, 2, 1, 1, 0, 4, true)
+		AddRow(int64(42), service.LeaderboardWindowMonthly, 3, 1, 2, 1, 1, 0, 2, 4, true)
 	mock.ExpectQuery("leaderboard_user_honors").
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnRows(rows)
@@ -139,6 +153,7 @@ func TestLeaderboardRepositoryGetHonorStatsReadsMaterializedHonors(t *testing.T)
 	require.Equal(t, 1, honors[42][service.LeaderboardWindowMonthly].ThirdPlaceCount)
 	require.Equal(t, 3, honors[42][service.LeaderboardWindowMonthly].TopAppearances)
 	require.Equal(t, 0, honors[42][service.LeaderboardWindowMonthly].CurrentStreak)
+	require.Equal(t, 2, honors[42][service.LeaderboardWindowMonthly].CurrentRunnerUpStreak)
 	require.Equal(t, 4, honors[42][service.LeaderboardWindowMonthly].LongestRunnerUpStreak)
 	require.True(t, honors[42][service.LeaderboardWindowMonthly].PerennialRunnerUp)
 }

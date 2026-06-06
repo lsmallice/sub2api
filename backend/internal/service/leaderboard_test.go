@@ -130,6 +130,7 @@ func TestLeaderboardOverviewRedactsUserIdentityAndHighlightsMe(t *testing.T) {
 					ThirdPlaceCount:       1,
 					BestRank:              1,
 					CurrentStreak:         1,
+					CurrentRunnerUpStreak: 2,
 					LongestRunnerUpStreak: 2,
 					PerennialRunnerUp:     true,
 					ChampionStarts: map[string][]time.Time{},
@@ -162,6 +163,7 @@ func TestLeaderboardOverviewRedactsUserIdentityAndHighlightsMe(t *testing.T) {
 	require.Equal(t, 1, overview.Daily.Me.ThirdPlaceCount)
 	require.Equal(t, 3, overview.Daily.Me.TopAppearances)
 	require.Equal(t, 0, overview.Daily.Me.CurrentStreak)
+	require.Equal(t, 2, overview.Daily.Me.CurrentRunnerUpStreak)
 	require.Equal(t, 2, overview.Daily.Me.LongestRunnerUpStreak)
 	require.True(t, overview.Daily.Me.PerennialRunnerUp)
 	require.NotNil(t, overview.Weekly.Me)
@@ -208,8 +210,10 @@ func TestLeaderboardOverviewOnlyExposesStreakHonorsAboveOne(t *testing.T) {
 			42: {
 				LeaderboardWindowDaily: {
 					ChampionCount:         1,
+					RunnerUpCount:         1,
 					BestRank:              1,
 					CurrentStreak:         1,
+					CurrentRunnerUpStreak: 1,
 					LongestRunnerUpStreak: 1,
 					PerennialRunnerUp:     true,
 					ChampionStarts:        map[string][]time.Time{},
@@ -222,8 +226,9 @@ func TestLeaderboardOverviewOnlyExposesStreakHonorsAboveOne(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, overview.Daily.Me)
 	require.Equal(t, 0, overview.Daily.Me.CurrentStreak)
+	require.Equal(t, 0, overview.Daily.Me.CurrentRunnerUpStreak)
 	require.Equal(t, 0, overview.Daily.Me.LongestRunnerUpStreak)
-	require.False(t, overview.Daily.Me.PerennialRunnerUp)
+	require.True(t, overview.Daily.Me.PerennialRunnerUp)
 }
 
 func TestLeaderboardUpdateParticipantValidatesDisplayName(t *testing.T) {
