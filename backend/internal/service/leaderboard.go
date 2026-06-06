@@ -40,7 +40,7 @@ type LeaderboardRepository interface {
 	RemoveParticipant(ctx context.Context, input LeaderboardParticipantRemove) (*LeaderboardParticipant, error)
 	SetParticipantBanStatus(ctx context.Context, input LeaderboardParticipantBanUpdate) (*LeaderboardParticipant, error)
 	GetRanking(ctx context.Context, window string, startTime, endTime time.Time, limit int, currentUserID int64) ([]LeaderboardRankRow, *LeaderboardRankRow, error)
-	GetHonorStats(ctx context.Context, userIDs []int64) (map[int64]LeaderboardHonorStats, error)
+	GetHonorStats(ctx context.Context, userIDs []int64) (map[int64]map[string]LeaderboardHonorStats, error)
 	SnapshotPeriod(ctx context.Context, window string, startTime, endTime time.Time, limit int) (int64, error)
 }
 
@@ -198,7 +198,7 @@ func (s *LeaderboardService) GetOverview(ctx context.Context, userID int64, user
 		}
 	}
 
-	honors, err := s.repo.GetHonorStats(ctx, sortedInt64Keys(userIDs))
+	honorsByUser, err := s.repo.GetHonorStats(ctx, sortedInt64Keys(userIDs))
 	if err != nil {
 		return nil, fmt.Errorf("get leaderboard honor stats: %w", err)
 	}
@@ -207,11 +207,11 @@ func (s *LeaderboardService) GetOverview(ctx context.Context, userID int64, user
 	build := func(window string, start *time.Time) LeaderboardWindowOverview {
 		top10 := make([]LeaderboardPublicEntry, 0, len(rowsByWindow[window]))
 		for _, row := range rowsByWindow[window] {
-			top10 = append(top10, s.publicEntry(row, userID, honors[row.UserID], window, latestCompleted))
+			top10 = append(top10, s.publicEntry(row, userID, honorStatsForWindow(honorsByUser, row.UserID, window), window, latestCompleted))
 		}
 		var me *LeaderboardPublicEntry
 		if participant.IsOptedIn && meByWindow[window] != nil {
-			entry := s.publicEntry(*meByWindow[window], userID, honors[meByWindow[window].UserID], window, latestCompleted)
+			entry := s.publicEntry(*meByWindow[window], userID, honorStatsForWindow(honorsByUser, meByWindow[window].UserID, window), window, latestCompleted)
 			me = &entry
 		}
 		return LeaderboardWindowOverview{
@@ -489,6 +489,17 @@ func publicLeaderboardName(displayName, displayCode string) string {
 		code = "ANON"
 	}
 	return "用户 #" + code
+}
+
+func honorStatsForWindow(honors map[int64]map[string]LeaderboardHonorStats, userID int64, window string) LeaderboardHonorStats {
+	if honors == nil {
+		return LeaderboardHonorStats{}
+	}
+	byWindow := honors[userID]
+	if byWindow == nil {
+		return LeaderboardHonorStats{}
+	}
+	return byWindow[window]
 }
 
 func sortedInt64Keys(values map[int64]struct{}) []int64 {

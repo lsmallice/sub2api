@@ -12,7 +12,7 @@ type leaderboardRepoStub struct {
 	participant      *LeaderboardParticipant
 	top              map[string][]LeaderboardRankRow
 	me               map[string]*LeaderboardRankRow
-	honors           map[int64]LeaderboardHonorStats
+	honors           map[int64]map[string]LeaderboardHonorStats
 	upserted         LeaderboardParticipantUpsert
 	removed          LeaderboardParticipantRemove
 	banUpdated       LeaderboardParticipantBanUpdate
@@ -69,7 +69,7 @@ func (r *leaderboardRepoStub) GetRanking(_ context.Context, window string, _ tim
 	return r.top[window], r.me[window], nil
 }
 
-func (r *leaderboardRepoStub) GetHonorStats(_ context.Context, _ []int64) (map[int64]LeaderboardHonorStats, error) {
+func (r *leaderboardRepoStub) GetHonorStats(_ context.Context, _ []int64) (map[int64]map[string]LeaderboardHonorStats, error) {
 	return r.honors, nil
 }
 
@@ -97,16 +97,28 @@ func TestLeaderboardOverviewRedactsUserIdentityAndHighlightsMe(t *testing.T) {
 				{UserID: 7, Rank: 1, DisplayCode: "BEEF", AvatarURL: "https://cdn.example.com/bob.png", Tokens: 200, Requests: 2},
 				{UserID: 42, Rank: 2, DisplayName: "Alice", DisplayCode: "A83F", AvatarURL: "https://cdn.example.com/alice.png", Tokens: 100, Requests: 1},
 			},
+			LeaderboardWindowWeekly: {
+				{UserID: 42, Rank: 1, DisplayName: "Alice", DisplayCode: "A83F", AvatarURL: "https://cdn.example.com/alice.png", Tokens: 700, Requests: 7},
+			},
 		},
 		me: map[string]*LeaderboardRankRow{
-			LeaderboardWindowDaily: {UserID: 42, Rank: 2, DisplayName: "Alice", DisplayCode: "A83F", AvatarURL: "https://cdn.example.com/alice.png", Tokens: 100, Requests: 1},
+			LeaderboardWindowDaily:  {UserID: 42, Rank: 2, DisplayName: "Alice", DisplayCode: "A83F", AvatarURL: "https://cdn.example.com/alice.png", Tokens: 100, Requests: 1},
+			LeaderboardWindowWeekly: {UserID: 42, Rank: 1, DisplayName: "Alice", DisplayCode: "A83F", AvatarURL: "https://cdn.example.com/alice.png", Tokens: 700, Requests: 7},
 		},
-		honors: map[int64]LeaderboardHonorStats{
+		honors: map[int64]map[string]LeaderboardHonorStats{
 			42: {
-				TopAppearances: 3,
-				ChampionCount:  1,
-				BestRank:       1,
-				ChampionStarts: map[string][]time.Time{},
+				LeaderboardWindowDaily: {
+					TopAppearances: 3,
+					ChampionCount:  1,
+					BestRank:       1,
+					ChampionStarts: map[string][]time.Time{},
+				},
+				LeaderboardWindowWeekly: {
+					TopAppearances: 7,
+					ChampionCount:  5,
+					BestRank:       1,
+					ChampionStarts: map[string][]time.Time{},
+				},
 			},
 		},
 	}
@@ -124,6 +136,11 @@ func TestLeaderboardOverviewRedactsUserIdentityAndHighlightsMe(t *testing.T) {
 	require.NotNil(t, overview.Daily.Me)
 	require.Equal(t, int64(100), overview.Daily.Me.Tokens)
 	require.Equal(t, "https://cdn.example.com/alice.png", overview.Daily.Me.AvatarURL)
+	require.Equal(t, 1, overview.Daily.Me.ChampionCount)
+	require.Equal(t, 3, overview.Daily.Me.TopAppearances)
+	require.NotNil(t, overview.Weekly.Me)
+	require.Equal(t, 5, overview.Weekly.Me.ChampionCount)
+	require.Equal(t, 7, overview.Weekly.Me.TopAppearances)
 }
 
 func TestLeaderboardOverviewHidesMeWhenOptedOut(t *testing.T) {
@@ -139,7 +156,7 @@ func TestLeaderboardOverviewHidesMeWhenOptedOut(t *testing.T) {
 		me: map[string]*LeaderboardRankRow{
 			LeaderboardWindowDaily: {UserID: 42, Rank: 2, DisplayCode: "A83F", Tokens: 100, Requests: 1},
 		},
-		honors: map[int64]LeaderboardHonorStats{},
+		honors: map[int64]map[string]LeaderboardHonorStats{},
 	}
 
 	overview, err := NewLeaderboardService(repo).GetOverview(context.Background(), 42, "UTC")

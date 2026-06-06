@@ -35,7 +35,7 @@ func TestLeaderboardHandlerOverviewRedactsIdentity(t *testing.T) {
 		me: map[string]*service.LeaderboardRankRow{
 			service.LeaderboardWindowDaily: {UserID: 42, Rank: 1, DisplayName: "榜单用户", DisplayCode: "A83F", Tokens: 1234, Requests: 2},
 		},
-		honors: map[int64]service.LeaderboardHonorStats{},
+		honors: map[int64]map[string]service.LeaderboardHonorStats{},
 	}
 	handler := NewLeaderboardHandler(service.NewLeaderboardService(repo))
 	router := gin.New()
@@ -141,7 +141,7 @@ type handlerLeaderboardRepoStub struct {
 	participant *service.LeaderboardParticipant
 	top         map[string][]service.LeaderboardRankRow
 	me          map[string]*service.LeaderboardRankRow
-	honors      map[int64]service.LeaderboardHonorStats
+	honors      map[int64]map[string]service.LeaderboardHonorStats
 	upserted    service.LeaderboardParticipantUpsert
 	removed     service.LeaderboardParticipantRemove
 	banUpdated  service.LeaderboardParticipantBanUpdate
@@ -196,9 +196,9 @@ func (r *handlerLeaderboardRepoStub) GetRanking(_ context.Context, window string
 	return r.top[window], r.me[window], nil
 }
 
-func (r *handlerLeaderboardRepoStub) GetHonorStats(_ context.Context, userIDs []int64) (map[int64]service.LeaderboardHonorStats, error) {
+func (r *handlerLeaderboardRepoStub) GetHonorStats(_ context.Context, userIDs []int64) (map[int64]map[string]service.LeaderboardHonorStats, error) {
 	if r.honors == nil {
-		return map[int64]service.LeaderboardHonorStats{}, nil
+		return map[int64]map[string]service.LeaderboardHonorStats{}, nil
 	}
 	return r.honors, nil
 }

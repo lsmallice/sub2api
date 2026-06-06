@@ -48,9 +48,14 @@ func TestLeaderboardRepositorySnapshotPeriodIsIdempotent(t *testing.T) {
 	start := time.Date(2026, 6, 4, 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
 
+	mock.ExpectBegin()
+	mock.ExpectExec("DELETE FROM leaderboard_period_results").
+		WithArgs(service.LeaderboardWindowDaily, start).
+		WillReturnResult(sqlmock.NewResult(0, 2))
 	mock.ExpectExec("WITH ranked AS").
-		WithArgs(service.LeaderboardWindowDaily, start, end, 10).
+		WithArgs(service.LeaderboardWindowDaily, start, end).
 		WillReturnResult(sqlmock.NewResult(0, 3))
+	mock.ExpectCommit()
 
 	repo := NewLeaderboardRepository(db)
 	affected, err := repo.SnapshotPeriod(context.Background(), service.LeaderboardWindowDaily, start, end, 10)

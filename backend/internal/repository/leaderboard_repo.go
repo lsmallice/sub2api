@@ -12,11 +12,12 @@ import (
 )
 
 type leaderboardRepository struct {
+	db  *sql.DB
 	sql sqlExecutor
 }
 
 func NewLeaderboardRepository(sqlDB *sql.DB) service.LeaderboardRepository {
-	return &leaderboardRepository{sql: sqlDB}
+	return &leaderboardRepository{db: sqlDB, sql: sqlDB}
 }
 
 func (r *leaderboardRepository) GetParticipant(ctx context.Context, userID int64) (*service.LeaderboardParticipant, error) {
@@ -154,7 +155,7 @@ func (r *leaderboardRepository) GetRanking(ctx context.Context, window string, s
 	if limit <= 0 {
 		limit = 10
 	}
-	conditions := "ul.created_at >= lp.opted_in_at AND ul.created_at < $1"
+	conditions := "ul.created_at < $1"
 	args := []any{endTime}
 	if window != service.LeaderboardWindowAllTime {
 		conditions += " AND ul.created_at >= $2"
@@ -231,27 +232,40 @@ func (r *leaderboardRepository) GetRanking(ctx context.Context, window string, s
 	return top, me, nil
 }
 
-func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int64) (map[int64]service.LeaderboardHonorStats, error) {
-	result := make(map[int64]service.LeaderboardHonorStats, len(userIDs))
+func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int64) (map[int64]map[string]service.LeaderboardHonorStats, error) {
+	result := make(map[int64]map[string]service.LeaderboardHonorStats, len(userIDs))
 	if len(userIDs) == 0 {
 		return result, nil
 	}
 	for _, userID := range userIDs {
-		result[userID] = service.LeaderboardHonorStats{
-			BestRank:       0,
-			ChampionStarts: map[string][]time.Time{},
-		}
+		result[userID] = emptyLeaderboardHonorStatsByWindow()
 	}
 
 	rows, err := r.sql.QueryContext(ctx, `
+		WITH visible_ranked AS (
+			SELECT
+				lpr.user_id,
+				lpr.period_window,
+				lpr.period_start,
+				ROW_NUMBER() OVER (
+					PARTITION BY lpr.period_window, lpr.period_start
+					ORDER BY lpr.tokens DESC, lpr.requests DESC, lpr.user_id ASC
+				)::int AS visible_rank
+			FROM leaderboard_period_results lpr
+			JOIN leaderboard_participants lp ON lp.user_id = lpr.user_id
+			WHERE lp.is_opted_in = true
+				AND lp.is_banned = false
+				AND lp.opted_in_at IS NOT NULL
+		)
 		SELECT
 			user_id,
-			COUNT(*)::int AS top_appearances,
-			COUNT(*) FILTER (WHERE rank = 1)::int AS champion_count,
-			MIN(rank)::int AS best_rank
-		FROM leaderboard_period_results
-		WHERE user_id = ANY($1)
-		GROUP BY user_id
+			period_window,
+			COUNT(*) FILTER (WHERE visible_rank <= 10)::int AS top_appearances,
+			COUNT(*) FILTER (WHERE visible_rank = 1)::int AS champion_count,
+			MIN(visible_rank) FILTER (WHERE visible_rank <= 10)::int AS best_rank
+		FROM visible_ranked
+		WHERE user_id = ANY($1) AND visible_rank <= 10
+		GROUP BY user_id, period_window
 	`, pq.Array(userIDs))
 	if err != nil {
 		return nil, err
@@ -259,21 +273,40 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 	defer rows.Close()
 	for rows.Next() {
 		var userID int64
+		var periodWindow string
 		var stats service.LeaderboardHonorStats
 		stats.ChampionStarts = map[string][]time.Time{}
-		if err := rows.Scan(&userID, &stats.TopAppearances, &stats.ChampionCount, &stats.BestRank); err != nil {
+		if err := rows.Scan(&userID, &periodWindow, &stats.TopAppearances, &stats.ChampionCount, &stats.BestRank); err != nil {
 			return nil, err
 		}
-		result[userID] = stats
+		if result[userID] == nil {
+			result[userID] = emptyLeaderboardHonorStatsByWindow()
+		}
+		result[userID][periodWindow] = stats
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
 	rows, err = r.sql.QueryContext(ctx, `
+		WITH visible_ranked AS (
+			SELECT
+				lpr.user_id,
+				lpr.period_window,
+				lpr.period_start,
+				ROW_NUMBER() OVER (
+					PARTITION BY lpr.period_window, lpr.period_start
+					ORDER BY lpr.tokens DESC, lpr.requests DESC, lpr.user_id ASC
+				)::int AS visible_rank
+			FROM leaderboard_period_results lpr
+			JOIN leaderboard_participants lp ON lp.user_id = lpr.user_id
+			WHERE lp.is_opted_in = true
+				AND lp.is_banned = false
+				AND lp.opted_in_at IS NOT NULL
+		)
 		SELECT user_id, period_window, period_start
-		FROM leaderboard_period_results
-		WHERE user_id = ANY($1) AND rank = 1
+		FROM visible_ranked
+		WHERE user_id = ANY($1) AND visible_rank = 1
 		ORDER BY user_id ASC, period_window ASC, period_start DESC
 	`, pq.Array(userIDs))
 	if err != nil {
@@ -287,12 +320,15 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 		if err := rows.Scan(&userID, &periodWindow, &start); err != nil {
 			return nil, err
 		}
-		stats := result[userID]
+		if result[userID] == nil {
+			result[userID] = emptyLeaderboardHonorStatsByWindow()
+		}
+		stats := result[userID][periodWindow]
 		if stats.ChampionStarts == nil {
 			stats.ChampionStarts = map[string][]time.Time{}
 		}
 		stats.ChampionStarts[periodWindow] = append(stats.ChampionStarts[periodWindow], start)
-		result[userID] = stats
+		result[userID][periodWindow] = stats
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -301,15 +337,43 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 }
 
 func (r *leaderboardRepository) SnapshotPeriod(ctx context.Context, window string, startTime, endTime time.Time, limit int) (int64, error) {
-	if limit <= 0 {
-		limit = 10
+	if r.db == nil {
+		return r.snapshotPeriodWithExecutor(ctx, r.sql, window, startTime, endTime)
 	}
-	res, err := r.sql.ExecContext(ctx, `
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	inserted, err := r.snapshotPeriodWithExecutor(ctx, tx, window, startTime, endTime)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	committed = true
+	return inserted, nil
+}
+
+func (r *leaderboardRepository) snapshotPeriodWithExecutor(ctx context.Context, exec sqlExecutor, window string, startTime, endTime time.Time) (int64, error) {
+	if _, err := exec.ExecContext(ctx, `
+		DELETE FROM leaderboard_period_results
+		WHERE period_window = $1 AND period_start = $2
+	`, window, startTime); err != nil {
+		return 0, err
+	}
+
+	res, err := exec.ExecContext(ctx, `
 		WITH ranked AS (
 			SELECT
-				lp.user_id,
-				COALESCE(lp.display_name, '') AS display_name,
-				lp.display_code,
+				ul.user_id,
 				COUNT(ul.id)::bigint AS requests,
 				COALESCE(SUM(
 					COALESCE(ul.input_tokens, 0) +
@@ -328,15 +392,12 @@ func (r *leaderboardRepository) SnapshotPeriod(ctx context.Context, window strin
 							COALESCE(ul.image_output_tokens, 0)
 						), 0) DESC,
 						COUNT(ul.id) DESC,
-						lp.display_code ASC
+						ul.user_id ASC
 				)::int AS rank
-			FROM leaderboard_participants lp
-			JOIN usage_logs ul ON ul.user_id = lp.user_id
-				AND ul.created_at >= $2
+			FROM usage_logs ul
+			WHERE ul.created_at >= $2
 				AND ul.created_at < $3
-				AND ul.created_at >= lp.opted_in_at
-			WHERE lp.is_opted_in = true AND lp.is_banned = false AND lp.opted_in_at IS NOT NULL
-			GROUP BY lp.user_id, lp.display_name, lp.display_code
+			GROUP BY ul.user_id
 			HAVING COUNT(ul.id) > 0
 		)
 		INSERT INTO leaderboard_period_results (
@@ -356,18 +417,26 @@ func (r *leaderboardRepository) SnapshotPeriod(ctx context.Context, window strin
 			$3,
 			rank,
 			user_id,
-			NULLIF(display_name, ''),
-			display_code,
+			NULL,
+			UPPER(SUBSTRING(MD5(user_id::text), 1, 8)),
 			tokens,
 			requests
 		FROM ranked
-		WHERE rank <= $4
 		ON CONFLICT DO NOTHING
-	`, window, startTime, endTime, limit)
+	`, window, startTime, endTime)
 	if err != nil {
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+func emptyLeaderboardHonorStatsByWindow() map[string]service.LeaderboardHonorStats {
+	return map[string]service.LeaderboardHonorStats{
+		service.LeaderboardWindowDaily:   {ChampionStarts: map[string][]time.Time{}},
+		service.LeaderboardWindowWeekly:  {ChampionStarts: map[string][]time.Time{}},
+		service.LeaderboardWindowMonthly: {ChampionStarts: map[string][]time.Time{}},
+		service.LeaderboardWindowAllTime: {ChampionStarts: map[string][]time.Time{}},
+	}
 }
 
 func (r *leaderboardRepository) scanParticipant(ctx context.Context, query string, args ...any) (*service.LeaderboardParticipant, error) {

@@ -30,9 +30,10 @@ This custom feature adds a voluntary, privacy-preserving Token leaderboard for e
 - Public responses must not include email, username, database `user_id`, API Key, group, account, subscription, or raw identity fields.
 - Public names are either a validated optional nickname or a stable masked display code such as `用户 #A83F`.
 - Ranking tokens are `input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens + image_output_tokens`.
-- All leaderboard windows only count usage created after the user's current `opted_in_at`.
+- Daily, weekly, monthly, and all-time public leaderboards only display users who are currently opted in and not banned.
+- Daily, weekly, monthly, and all-time public leaderboards rank current participants by their usage in the selected window; the usage itself is not truncated by `opted_in_at`.
 - Daily, weekly, and monthly current leaderboards are real-time and use the server configured timezone, so all users see the same global windows. Historical honors come from period snapshots.
-- All-time leaderboard is cumulative usage after the current opt-in time.
+- Manual and scheduled historical snapshots are internal raw usage snapshots. They do not filter by participation state during sync; visibility and honor calculation filter current participant state at read time.
 - "Streak" means consecutive completed periods ranked first for the same window. The current unfinished period does not count toward streak.
 
 ## Data Model
@@ -46,9 +47,12 @@ This custom feature adds a voluntary, privacy-preserving Token leaderboard for e
   - Adds `leaderboard_participants.is_banned` for admin-controlled opt-in blocking.
   - Kept separate from migration 146 to avoid checksum drift on environments that already applied 146.
 - `leaderboard_period_results`
-  - Stores completed daily, weekly, and monthly Top 10 snapshots.
-  - Stores masked display snapshots, tokens, requests, rank, period start/end.
+  - Stores completed daily, weekly, and monthly raw usage snapshots.
+  - Stores tokens, requests, rank, period start/end, and non-sensitive display snapshots.
+  - Rank is not limited to Top 10 so later opt-in users can surface correct historical honors.
   - Unique indexes prevent duplicate rows for the same window/period/rank/user.
+- Migration: `backend/migrations/150_leaderboard_full_snapshot_rank.sql`
+  - Replaces the old Top 10 rank check with `rank >= 1`, allowing manual and scheduled snapshots to store full-period raw rankings.
 - Existing `usage_logs` remains the source of current usage aggregation.
 
 Migration conflict note: if upstream adds migrations after 146 or introduces its own leaderboard, re-number this migration during merge and compare semantics before keeping both features.
@@ -58,7 +62,7 @@ Migration conflict note: if upstream adds migrations after 146 or introduces its
 - `backend/internal/service/leaderboard.go`
   - Opt-in DTOs, overview composition, nickname validation, privacy-safe public entries, streak calculation, and period snapshot worker.
 - `backend/internal/repository/leaderboard_repo.go`
-  - Raw SQL aggregation against `usage_logs`, opt-in filtering, participant upsert, historical honor queries, and snapshot inserts.
+  - Raw SQL aggregation against `usage_logs`, participant visibility filtering, participant upsert, historical honor queries, and snapshot inserts.
 - `backend/internal/handler/leaderboard_handler.go`
   - `GET /api/v1/leaderboard/overview`
   - `GET /api/v1/leaderboard/me`
@@ -70,7 +74,7 @@ Migration conflict note: if upstream adds migrations after 146 or introduces its
 - `backend/internal/server/routes/user.go`
   - Registers leaderboard routes behind user JWT auth.
 - `backend/cmd/server/wire.go` and `backend/cmd/server/wire_gen.go`
-  - Wires the leaderboard repository, service, handler, and hourly snapshot worker.
+  - Wires the leaderboard repository, service, handler, and 15-minute snapshot worker.
 
 ## Frontend Touchpoints
 
@@ -94,7 +98,7 @@ The admin dashboard includes a compact manual backfill control for historical le
 { "start": "2026-06-01" }
 ```
 
-The response returns `start_time`, `end_time`, `period_count`, and `inserted_rows`. The backfill only snapshots completed daily, weekly, and monthly periods. It does not snapshot the current unfinished period.
+The response returns `start_time`, `end_time`, `period_count`, and `inserted_rows`. The backfill only snapshots completed daily, weekly, and monthly periods. It does not snapshot the current unfinished period. Re-running the same range deletes and rebuilds each affected period snapshot so old snapshot data can be corrected after ranking logic changes.
 
 ## Production Behavior
 
@@ -102,10 +106,10 @@ The response returns `start_time`, `end_time`, `period_count`, and `inserted_row
 - Opt-out does not delete `usage_logs`; it only hides public leaderboard participation and clears `opted_in_at`.
 - Admin remove also clears public participation without deleting `usage_logs` or historical period snapshots.
 - Admin ban clears public participation and blocks future self opt-in until admin unban.
-- Rejoining starts all-time counting from the new `opted_in_at`.
-- The snapshot worker runs every 15 minutes and snapshots recently completed daily, weekly, and monthly windows. Duplicate workers are safe because snapshot inserts are idempotent.
+- Rejoining makes the user visible again; current rankings use the selected window's historical usage while visibility remains controlled by current opt-in state.
+- The snapshot worker runs every 15 minutes and snapshots recently completed daily, weekly, and monthly windows.
 - Historical backfill is manual only. It must not run automatically on application startup.
-- Manual backfill is duplicate-safe because `leaderboard_period_results` has unique constraints and snapshot inserts use `ON CONFLICT DO NOTHING`. Re-running the same date range skips existing rows instead of double-counting.
+- Manual backfill is duplicate-safe because each period is deleted and rebuilt in one transaction. Re-running the same date range corrects rows instead of double-counting.
 - If the snapshot worker fails, current real-time leaderboards still work; historical honors may lag.
 
 ## Merge Checklist
@@ -113,7 +117,8 @@ The response returns `start_time`, `end_time`, `period_count`, and `inserted_row
 - Check whether upstream changed `usage_logs` token columns or request success semantics.
 - Check whether upstream added a public leaderboard or user privacy feature with overlapping tables or routes.
 - Re-confirm public leaderboard responses still omit raw user identity fields.
-- Re-confirm opt-in filtering is applied in every ranking query.
+- Re-confirm participation filtering is applied at public read/honor calculation time, not during snapshot sync.
+- Re-confirm migration `150_leaderboard_full_snapshot_rank.sql` or an equivalent constraint update exists when snapshot code writes full ranks.
 - Re-confirm banned participants are excluded from ranking queries and cannot self opt in.
 - Re-confirm `image_output_tokens` remains included in token totals.
 - Re-confirm `POST /api/v1/admin/dashboard/leaderboard/backfill` still snapshots only completed periods and remains duplicate-safe.
@@ -147,14 +152,14 @@ Manual:
 - Opted-out user disappears from daily, weekly, monthly, and all-time sections.
 - Admin remove hides a user from current public ranking without setting `is_banned`.
 - Admin ban hides a user and prevents self opt-in; admin unban allows future opt-in but does not auto-rejoin.
-- Admin dashboard manual backfill from a selected date succeeds and reports period count plus inserted rows.
-- Re-running the same admin manual backfill does not duplicate historical rows.
+- Admin dashboard manual backfill from a selected date succeeds and reports period count plus written rows.
+- Re-running the same admin manual backfill rebuilds affected period rows and does not duplicate historical rows.
 - Each section returns at most 10 public rows plus separate current-user rank.
 - Public response JSON contains no `user_id`, `email`, `username`, `api_key`, `group_id`, `account_id`, or `subscription_id`.
 - Historical champion count, top appearances, best rank, and streak update after completed period snapshots.
 
 ## Rollback Notes
 
-- The migration only adds new tables. Application rollback can normally leave these tables in place.
+- The leaderboard migrations add new tables and later relax the period-result rank constraint. Application rollback can normally leave these tables and the relaxed constraint in place.
 - If a bug appears, hide the sidebar entry or roll back the application image. Existing billing, subscription quota, and usage logging paths are independent.
 - If data cleanup is required, delete from `leaderboard_period_results` and `leaderboard_participants`; never delete `usage_logs` as part of leaderboard rollback.
