@@ -17,6 +17,11 @@ type leaderboardRepoStub struct {
 	removed          LeaderboardParticipantRemove
 	banUpdated       LeaderboardParticipantBanUpdate
 	snapshotAffected int64
+	rebuildDailyRows int64
+	rebuildHonorRows int64
+	rebuildDailyFrom time.Time
+	rebuildDailyTo   time.Time
+	rebuildHonorAt   time.Time
 	snapshotCalls    []leaderboardPeriod
 }
 
@@ -71,6 +76,17 @@ func (r *leaderboardRepoStub) GetRanking(_ context.Context, window string, _ tim
 
 func (r *leaderboardRepoStub) GetHonorStats(_ context.Context, _ []int64) (map[int64]map[string]LeaderboardHonorStats, error) {
 	return r.honors, nil
+}
+
+func (r *leaderboardRepoStub) RebuildUsageDaily(_ context.Context, startDate, endDate time.Time) (int64, error) {
+	r.rebuildDailyFrom = startDate
+	r.rebuildDailyTo = endDate
+	return r.rebuildDailyRows, nil
+}
+
+func (r *leaderboardRepoStub) RebuildHonorStats(_ context.Context, cutoff time.Time, _ map[string]time.Time) (int64, error) {
+	r.rebuildHonorAt = cutoff
+	return r.rebuildHonorRows, nil
 }
 
 func (r *leaderboardRepoStub) SnapshotPeriod(_ context.Context, window string, startTime, endTime time.Time, _ int) (int64, error) {
@@ -236,6 +252,22 @@ func TestLeaderboardBackfillSnapshotsSinceCompletedPeriods(t *testing.T) {
 	require.Equal(t, LeaderboardWindowDaily, repo.snapshotCalls[0].window)
 	require.Equal(t, time.Date(2026, 6, 1, 0, 0, 0, 0, loc), repo.snapshotCalls[0].start)
 	require.Equal(t, time.Date(2026, 6, 6, 0, 0, 0, 0, loc), repo.snapshotCalls[4].end)
+}
+
+func TestLeaderboardBackfillDoesNotSnapshotCurrentMonth(t *testing.T) {
+	loc := time.Local
+	repo := &leaderboardRepoStub{snapshotAffected: 1}
+	svc := NewLeaderboardService(repo)
+	since := time.Date(2026, 6, 1, 0, 0, 0, 0, loc)
+	now := time.Date(2026, 6, 7, 12, 0, 0, 0, loc)
+
+	result, err := svc.SnapshotHistoricalPeriodsSince(context.Background(), since, now)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	for _, call := range repo.snapshotCalls {
+		require.NotEqual(t, LeaderboardWindowMonthly, call.window, "current month must not be snapshotted before month end")
+	}
 }
 
 func TestLeaderboardBackfillRejectsInvalidRange(t *testing.T) {

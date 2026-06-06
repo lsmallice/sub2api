@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/lib/pq"
 )
@@ -155,10 +156,10 @@ func (r *leaderboardRepository) GetRanking(ctx context.Context, window string, s
 	if limit <= 0 {
 		limit = 10
 	}
-	conditions := "ul.created_at < $1"
+	conditions := "lud.usage_date < $1::date"
 	args := []any{endTime}
 	if window != service.LeaderboardWindowAllTime {
-		conditions += " AND ul.created_at >= $2"
+		conditions += " AND lud.usage_date >= $2::date"
 		args = append(args, startTime)
 	}
 	args = append(args, limit, currentUserID)
@@ -172,32 +173,20 @@ func (r *leaderboardRepository) GetRanking(ctx context.Context, window string, s
 				COALESCE(lp.display_name, '') AS display_name,
 				lp.display_code,
 				COALESCE(MAX(NULLIF(ua.url, '')), '') AS avatar_url,
-				COUNT(ul.id)::bigint AS requests,
-				COALESCE(SUM(
-					COALESCE(ul.input_tokens, 0) +
-					COALESCE(ul.output_tokens, 0) +
-					COALESCE(ul.cache_creation_tokens, 0) +
-					COALESCE(ul.cache_read_tokens, 0) +
-					COALESCE(ul.image_output_tokens, 0)
-				), 0)::bigint AS tokens,
+				COALESCE(SUM(lud.requests), 0)::bigint AS requests,
+				COALESCE(SUM(lud.tokens), 0)::bigint AS tokens,
 				ROW_NUMBER() OVER (
 					ORDER BY
-						COALESCE(SUM(
-							COALESCE(ul.input_tokens, 0) +
-							COALESCE(ul.output_tokens, 0) +
-							COALESCE(ul.cache_creation_tokens, 0) +
-							COALESCE(ul.cache_read_tokens, 0) +
-							COALESCE(ul.image_output_tokens, 0)
-						), 0) DESC,
-						COUNT(ul.id) DESC,
+						COALESCE(SUM(lud.tokens), 0) DESC,
+						COALESCE(SUM(lud.requests), 0) DESC,
 						lp.display_code ASC
 				)::int AS rank
 			FROM leaderboard_participants lp
 			LEFT JOIN user_avatars ua ON ua.user_id = lp.user_id
-			LEFT JOIN usage_logs ul ON ul.user_id = lp.user_id AND %s
+			LEFT JOIN leaderboard_usage_daily lud ON lud.user_id = lp.user_id AND %s
 			WHERE lp.is_opted_in = true AND lp.is_banned = false AND lp.opted_in_at IS NOT NULL
 			GROUP BY lp.user_id, lp.display_name, lp.display_code
-			HAVING COUNT(ul.id) > 0
+			HAVING COALESCE(SUM(lud.requests), 0) > 0
 		)
 		SELECT user_id, rank, display_name, display_code, avatar_url, tokens, requests
 		FROM ranked
@@ -242,30 +231,9 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 	}
 
 	rows, err := r.sql.QueryContext(ctx, `
-		WITH visible_ranked AS (
-			SELECT
-				lpr.user_id,
-				lpr.period_window,
-				lpr.period_start,
-				ROW_NUMBER() OVER (
-					PARTITION BY lpr.period_window, lpr.period_start
-					ORDER BY lpr.tokens DESC, lpr.requests DESC, lpr.user_id ASC
-				)::int AS visible_rank
-			FROM leaderboard_period_results lpr
-			JOIN leaderboard_participants lp ON lp.user_id = lpr.user_id
-			WHERE lp.is_opted_in = true
-				AND lp.is_banned = false
-				AND lp.opted_in_at IS NOT NULL
-		)
-		SELECT
-			user_id,
-			period_window,
-			COUNT(*) FILTER (WHERE visible_rank <= 10)::int AS top_appearances,
-			COUNT(*) FILTER (WHERE visible_rank = 1)::int AS champion_count,
-			MIN(visible_rank) FILTER (WHERE visible_rank <= 10)::int AS best_rank
-		FROM visible_ranked
-		WHERE user_id = ANY($1) AND visible_rank <= 10
-		GROUP BY user_id, period_window
+		SELECT user_id, period_window, top_appearances, champion_count, best_rank, current_streak
+		FROM leaderboard_user_honors
+		WHERE user_id = ANY($1)
 	`, pq.Array(userIDs))
 	if err != nil {
 		return nil, err
@@ -276,7 +244,7 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 		var periodWindow string
 		var stats service.LeaderboardHonorStats
 		stats.ChampionStarts = map[string][]time.Time{}
-		if err := rows.Scan(&userID, &periodWindow, &stats.TopAppearances, &stats.ChampionCount, &stats.BestRank); err != nil {
+		if err := rows.Scan(&userID, &periodWindow, &stats.TopAppearances, &stats.ChampionCount, &stats.BestRank, &stats.CurrentStreak); err != nil {
 			return nil, err
 		}
 		if result[userID] == nil {
@@ -287,13 +255,53 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	return result, nil
+}
 
-	rows, err = r.sql.QueryContext(ctx, `
+func (r *leaderboardRepository) RebuildHonorStats(ctx context.Context, cutoff time.Time, latestCompleted map[string]time.Time) (int64, error) {
+	if cutoff.IsZero() {
+		cutoff = time.Now()
+	}
+	if r.db == nil {
+		return r.rebuildHonorStatsWithExecutor(ctx, r.sql, cutoff, latestCompleted)
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	affected, err := r.rebuildHonorStatsWithExecutor(ctx, tx, cutoff, latestCompleted)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	committed = true
+	return affected, nil
+}
+
+func (r *leaderboardRepository) rebuildHonorStatsWithExecutor(ctx context.Context, exec sqlExecutor, cutoff time.Time, latestCompleted map[string]time.Time) (int64, error) {
+	if _, err := exec.ExecContext(ctx, `DELETE FROM leaderboard_user_honors`); err != nil {
+		return 0, err
+	}
+	latestDaily := latestCompleted[service.LeaderboardWindowDaily]
+	latestWeekly := latestCompleted[service.LeaderboardWindowWeekly]
+	latestMonthly := latestCompleted[service.LeaderboardWindowMonthly]
+
+	res, err := exec.ExecContext(ctx, `
 		WITH visible_ranked AS (
 			SELECT
 				lpr.user_id,
 				lpr.period_window,
 				lpr.period_start,
+				lpr.period_end,
 				ROW_NUMBER() OVER (
 					PARTITION BY lpr.period_window, lpr.period_start
 					ORDER BY lpr.tokens DESC, lpr.requests DESC, lpr.user_id ASC
@@ -303,37 +311,161 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 			WHERE lp.is_opted_in = true
 				AND lp.is_banned = false
 				AND lp.opted_in_at IS NOT NULL
+				AND lpr.period_window IN ('daily', 'weekly', 'monthly')
+				AND lpr.period_end <= $1
+		),
+		honor_counts AS (
+			SELECT
+				user_id,
+				period_window,
+				COUNT(*) FILTER (WHERE visible_rank <= 10)::int AS top_appearances,
+				COUNT(*) FILTER (WHERE visible_rank = 1)::int AS champion_count,
+				MIN(visible_rank) FILTER (WHERE visible_rank <= 10)::int AS best_rank
+			FROM visible_ranked
+			WHERE visible_rank <= 10
+			GROUP BY user_id, period_window
+		),
+		champion_periods AS (
+			SELECT user_id, period_window, period_start
+			FROM visible_ranked
+			WHERE visible_rank = 1
+		),
+		latest_completed AS (
+			SELECT
+				'daily'::varchar AS period_window,
+				$2::timestamptz AS latest_start,
+				interval '1 day' AS step
+			UNION ALL
+			SELECT
+				'weekly'::varchar,
+				$3::timestamptz AS latest_start,
+				interval '7 day' AS step
+			UNION ALL
+			SELECT
+				'monthly'::varchar,
+				$4::timestamptz AS latest_start,
+				interval '1 month' AS step
+		),
+		champion_streaks AS (
+			SELECT user_id, period_window, COUNT(*)::int AS current_streak
+			FROM (
+				SELECT
+					cp.user_id,
+					cp.period_window,
+					cp.period_start,
+					ROW_NUMBER() OVER (
+						PARTITION BY cp.user_id, cp.period_window
+						ORDER BY cp.period_start DESC
+					)::int AS rn,
+					lc.latest_start,
+					lc.step
+				FROM champion_periods cp
+				JOIN latest_completed lc ON lc.period_window = cp.period_window
+				WHERE cp.period_start <= lc.latest_start
+			) ordered
+			WHERE period_start = latest_start - ((rn - 1) * step)
+			GROUP BY user_id, period_window
 		)
-		SELECT user_id, period_window, period_start
-		FROM visible_ranked
-		WHERE user_id = ANY($1) AND visible_rank = 1
-		ORDER BY user_id ASC, period_window ASC, period_start DESC
-	`, pq.Array(userIDs))
+		INSERT INTO leaderboard_user_honors (
+			user_id,
+			period_window,
+			top_appearances,
+			champion_count,
+			best_rank,
+			current_streak,
+			updated_at
+		)
+		SELECT
+			h.user_id,
+			h.period_window,
+			h.top_appearances,
+			h.champion_count,
+			COALESCE(h.best_rank, 0),
+			COALESCE(s.current_streak, 0),
+			NOW()
+		FROM honor_counts h
+		LEFT JOIN champion_streaks s ON s.user_id = h.user_id AND s.period_window = h.period_window
+	`, cutoff, latestDaily, latestWeekly, latestMonthly)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var userID int64
-		var periodWindow string
-		var start time.Time
-		if err := rows.Scan(&userID, &periodWindow, &start); err != nil {
-			return nil, err
-		}
-		if result[userID] == nil {
-			result[userID] = emptyLeaderboardHonorStatsByWindow()
-		}
-		stats := result[userID][periodWindow]
-		if stats.ChampionStarts == nil {
-			stats.ChampionStarts = map[string][]time.Time{}
-		}
-		stats.ChampionStarts[periodWindow] = append(stats.ChampionStarts[periodWindow], start)
-		result[userID][periodWindow] = stats
+	return res.RowsAffected()
+}
+
+func (r *leaderboardRepository) RebuildUsageDaily(ctx context.Context, startDate, endDate time.Time) (int64, error) {
+	if !startDate.Before(endDate) {
+		return 0, nil
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
+	if r.db == nil {
+		return r.rebuildUsageDailyWithExecutor(ctx, r.sql, startDate, endDate)
 	}
-	return result, nil
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	affected, err := r.rebuildUsageDailyWithExecutor(ctx, tx, startDate, endDate)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	committed = true
+	return affected, nil
+}
+
+func (r *leaderboardRepository) rebuildUsageDailyWithExecutor(ctx context.Context, exec sqlExecutor, startDate, endDate time.Time) (int64, error) {
+	if _, err := exec.ExecContext(ctx, `
+		DELETE FROM leaderboard_usage_daily
+		WHERE usage_date >= $1::date AND usage_date < $2::date
+	`, startDate, endDate); err != nil {
+		return 0, err
+	}
+
+	res, err := exec.ExecContext(ctx, `
+		WITH daily AS (
+			SELECT
+				(ul.created_at AT TIME ZONE $3)::date AS usage_date,
+				ul.user_id,
+				COUNT(ul.id)::bigint AS requests,
+				COALESCE(SUM(
+					COALESCE(ul.input_tokens, 0) +
+					COALESCE(ul.output_tokens, 0) +
+					COALESCE(ul.cache_creation_tokens, 0) +
+					COALESCE(ul.cache_read_tokens, 0) +
+					COALESCE(ul.image_output_tokens, 0)
+				), 0)::bigint AS tokens
+			FROM usage_logs ul
+			WHERE ul.created_at >= $1
+				AND ul.created_at < $2
+			GROUP BY (ul.created_at AT TIME ZONE $3)::date, ul.user_id
+			HAVING COUNT(ul.id) > 0
+		)
+		INSERT INTO leaderboard_usage_daily (
+			usage_date,
+			user_id,
+			tokens,
+			requests,
+			updated_at
+		)
+		SELECT usage_date, user_id, tokens, requests, NOW()
+		FROM daily
+		ON CONFLICT (usage_date, user_id) DO UPDATE SET
+			tokens = EXCLUDED.tokens,
+			requests = EXCLUDED.requests,
+			updated_at = EXCLUDED.updated_at
+	`, startDate, endDate, timezone.Name())
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 func (r *leaderboardRepository) SnapshotPeriod(ctx context.Context, window string, startTime, endTime time.Time, limit int) (int64, error) {

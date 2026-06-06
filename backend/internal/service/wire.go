@@ -182,6 +182,11 @@ func ProvideLeaderboardSnapshotService(leaderboard *LeaderboardService) *Leaderb
 	return svc
 }
 
+// ProvideLeaderboardService creates the leaderboard service with Redis-backed overview cache.
+func ProvideLeaderboardService(repo LeaderboardRepository, cache LeaderboardCache) *LeaderboardService {
+	return NewLeaderboardService(repo, cache)
+}
+
 // ProvideTimingWheelService creates and starts TimingWheelService
 func ProvideTimingWheelService() (*TimingWheelService, error) {
 	svc, err := NewTimingWheelService()
@@ -553,7 +558,7 @@ var ProviderSet = wire.NewSet(
 	ProvideEmailQueueService,
 	NewTurnstileService,
 	NewSubscriptionService,
-	NewLeaderboardService,
+	ProvideLeaderboardService,
 	ProvideLeaderboardSnapshotService,
 	wire.Bind(new(DefaultSubscriptionAssigner), new(*SubscriptionService)),
 	ProvideConcurrencyService,

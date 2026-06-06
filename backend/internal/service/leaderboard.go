@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
@@ -41,7 +42,16 @@ type LeaderboardRepository interface {
 	SetParticipantBanStatus(ctx context.Context, input LeaderboardParticipantBanUpdate) (*LeaderboardParticipant, error)
 	GetRanking(ctx context.Context, window string, startTime, endTime time.Time, limit int, currentUserID int64) ([]LeaderboardRankRow, *LeaderboardRankRow, error)
 	GetHonorStats(ctx context.Context, userIDs []int64) (map[int64]map[string]LeaderboardHonorStats, error)
+	RebuildUsageDaily(ctx context.Context, startDate, endDate time.Time) (int64, error)
+	RebuildHonorStats(ctx context.Context, cutoff time.Time, latestCompleted map[string]time.Time) (int64, error)
 	SnapshotPeriod(ctx context.Context, window string, startTime, endTime time.Time, limit int) (int64, error)
+}
+
+type LeaderboardCache interface {
+	GetOverview(ctx context.Context, key string) (string, error)
+	SetOverview(ctx context.Context, key string, payload string, ttl time.Duration) error
+	DeleteOverview(ctx context.Context, key string) error
+	DeleteAll(ctx context.Context) error
 }
 
 type LeaderboardParticipant struct {
@@ -90,6 +100,7 @@ type LeaderboardHonorStats struct {
 	TopAppearances int
 	ChampionCount  int
 	BestRank       int
+	CurrentStreak  int
 	ChampionStarts map[string][]time.Time
 }
 
@@ -144,11 +155,16 @@ type UpdateLeaderboardParticipantRequest struct {
 }
 
 type LeaderboardService struct {
-	repo LeaderboardRepository
+	repo  LeaderboardRepository
+	cache LeaderboardCache
 }
 
-func NewLeaderboardService(repo LeaderboardRepository) *LeaderboardService {
-	return &LeaderboardService{repo: repo}
+func NewLeaderboardService(repo LeaderboardRepository, caches ...LeaderboardCache) *LeaderboardService {
+	var cache LeaderboardCache
+	if len(caches) > 0 {
+		cache = caches[0]
+	}
+	return &LeaderboardService{repo: repo, cache: cache}
 }
 
 func (s *LeaderboardService) GetOverview(ctx context.Context, userID int64, userTZ string) (*LeaderboardOverview, error) {
@@ -166,6 +182,16 @@ func (s *LeaderboardService) GetOverview(ctx context.Context, userID int64, user
 
 	loc := resolveLeaderboardLocation(userTZ)
 	now := time.Now().In(loc)
+	endExclusive := startOfLeaderboardDay(now, loc).AddDate(0, 0, 1)
+	cacheKey := leaderboardOverviewCacheKey(userID, now, loc)
+	if s.cache != nil {
+		if cached, err := s.cache.GetOverview(ctx, cacheKey); err == nil && strings.TrimSpace(cached) != "" {
+			var overview LeaderboardOverview
+			if err := json.Unmarshal([]byte(cached), &overview); err == nil {
+				return &overview, nil
+			}
+		}
+	}
 	windows := []struct {
 		name  string
 		start *time.Time
@@ -184,7 +210,7 @@ func (s *LeaderboardService) GetOverview(ctx context.Context, userID int64, user
 		if w.start != nil {
 			start = *w.start
 		}
-		topRows, meRow, err := s.repo.GetRanking(ctx, w.name, start, now, leaderboardTopLimit, userID)
+		topRows, meRow, err := s.repo.GetRanking(ctx, w.name, start, endExclusive, leaderboardTopLimit, userID)
 		if err != nil {
 			return nil, fmt.Errorf("get %s leaderboard ranking: %w", w.name, err)
 		}
@@ -202,16 +228,14 @@ func (s *LeaderboardService) GetOverview(ctx context.Context, userID int64, user
 	if err != nil {
 		return nil, fmt.Errorf("get leaderboard honor stats: %w", err)
 	}
-	latestCompleted := latestCompletedLeaderboardStarts(now, loc)
-
 	build := func(window string, start *time.Time) LeaderboardWindowOverview {
 		top10 := make([]LeaderboardPublicEntry, 0, len(rowsByWindow[window]))
 		for _, row := range rowsByWindow[window] {
-			top10 = append(top10, s.publicEntry(row, userID, honorStatsForWindow(honorsByUser, row.UserID, window), window, latestCompleted))
+			top10 = append(top10, s.publicEntry(row, userID, honorStatsForWindow(honorsByUser, row.UserID, window)))
 		}
 		var me *LeaderboardPublicEntry
 		if participant.IsOptedIn && meByWindow[window] != nil {
-			entry := s.publicEntry(*meByWindow[window], userID, honorStatsForWindow(honorsByUser, meByWindow[window].UserID, window), window, latestCompleted)
+			entry := s.publicEntry(*meByWindow[window], userID, honorStatsForWindow(honorsByUser, meByWindow[window].UserID, window))
 			me = &entry
 		}
 		return LeaderboardWindowOverview{
@@ -223,13 +247,19 @@ func (s *LeaderboardService) GetOverview(ctx context.Context, userID int64, user
 		}
 	}
 
-	return &LeaderboardOverview{
+	overview := &LeaderboardOverview{
 		Participant: s.participantStatus(participant),
 		Daily:       build(LeaderboardWindowDaily, windows[0].start),
 		Weekly:      build(LeaderboardWindowWeekly, windows[1].start),
 		Monthly:     build(LeaderboardWindowMonthly, windows[2].start),
 		AllTime:     build(LeaderboardWindowAllTime, nil),
-	}, nil
+	}
+	if s.cache != nil {
+		if payload, err := json.Marshal(overview); err == nil {
+			_ = s.cache.SetOverview(ctx, cacheKey, string(payload), 90*time.Second)
+		}
+	}
+	return overview, nil
 }
 
 func (s *LeaderboardService) SnapshotHistoricalPeriodsSince(ctx context.Context, since, now time.Time) (*LeaderboardBackfillResult, error) {
@@ -237,10 +267,14 @@ func (s *LeaderboardService) SnapshotHistoricalPeriodsSince(ctx context.Context,
 		return nil, ErrLeaderboardUnavailable
 	}
 	loc := timezone.Location()
+	actualNow := timezone.Now()
 	if !now.IsZero() {
 		now = now.In(loc)
 	} else {
-		now = timezone.Now()
+		now = actualNow
+	}
+	if now.After(actualNow) {
+		now = actualNow
 	}
 	if !since.IsZero() {
 		since = since.In(loc)
@@ -253,7 +287,7 @@ func (s *LeaderboardService) SnapshotHistoricalPeriodsSince(ctx context.Context,
 	}
 
 	periods := completedLeaderboardPeriodsSince(since, now, loc)
-	inserted, err := s.snapshotPeriods(ctx, periods)
+	inserted, err := s.rebuildDailyAggregatesAndSnapshotPeriods(ctx, since, now, periods)
 	if err != nil {
 		return nil, err
 	}
@@ -312,6 +346,8 @@ func (s *LeaderboardService) UpdateParticipant(ctx context.Context, userID int64
 	if err != nil {
 		return nil, fmt.Errorf("update leaderboard participant: %w", err)
 	}
+	_ = s.rebuildHonors(ctx, time.Time{})
+	_ = s.InvalidateCache(ctx)
 	status := s.participantStatus(participant)
 	return &status, nil
 }
@@ -353,6 +389,8 @@ func (s *LeaderboardService) RemoveParticipant(ctx context.Context, userID int64
 	if err != nil {
 		return nil, fmt.Errorf("remove leaderboard participant: %w", err)
 	}
+	_ = s.rebuildHonors(ctx, time.Time{})
+	_ = s.InvalidateCache(ctx)
 	status := s.participantStatus(participant)
 	return &status, nil
 }
@@ -387,6 +425,8 @@ func (s *LeaderboardService) SetParticipantBanStatus(ctx context.Context, userID
 	if err != nil {
 		return nil, fmt.Errorf("set leaderboard participant ban status: %w", err)
 	}
+	_ = s.rebuildHonors(ctx, time.Time{})
+	_ = s.InvalidateCache(ctx)
 	status := s.participantStatus(participant)
 	return &status, nil
 }
@@ -401,8 +441,53 @@ func (s *LeaderboardService) SnapshotRecentlyCompletedPeriods(ctx context.Contex
 	} else {
 		now = timezone.Now()
 	}
-	_, err := s.snapshotPeriods(ctx, recentlyCompletedLeaderboardPeriods(now, loc))
+	periods := recentlyCompletedLeaderboardPeriods(now, loc)
+	_, err := s.rebuildDailyAggregatesAndSnapshotPeriods(ctx, now.AddDate(0, 0, -2), now, periods)
 	return err
+}
+
+func (s *LeaderboardService) InvalidateCache(ctx context.Context) error {
+	if s == nil || s.cache == nil {
+		return nil
+	}
+	return s.cache.DeleteAll(ctx)
+}
+
+func (s *LeaderboardService) rebuildHonors(ctx context.Context, now time.Time) error {
+	if s == nil || s.repo == nil {
+		return ErrLeaderboardUnavailable
+	}
+	if now.IsZero() {
+		now = timezone.Now()
+	}
+	if _, err := s.repo.RebuildHonorStats(ctx, now, latestCompletedLeaderboardStarts(now, timezone.Location())); err != nil {
+		return fmt.Errorf("rebuild leaderboard honor stats: %w", err)
+	}
+	return nil
+}
+
+func (s *LeaderboardService) rebuildDailyAggregatesAndSnapshotPeriods(ctx context.Context, since, now time.Time, periods []leaderboardPeriod) (int64, error) {
+	if s == nil || s.repo == nil {
+		return 0, ErrLeaderboardUnavailable
+	}
+	loc := timezone.Location()
+	if since.IsZero() || now.IsZero() || !since.Before(now) {
+		return s.snapshotPeriods(ctx, periods)
+	}
+	startDate := startOfLeaderboardDay(since, loc)
+	endDate := startOfLeaderboardDay(now, loc).AddDate(0, 0, 1)
+	if _, err := s.repo.RebuildUsageDaily(ctx, startDate, endDate); err != nil {
+		return 0, fmt.Errorf("rebuild leaderboard daily usage %s..%s: %w", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), err)
+	}
+	inserted, err := s.snapshotPeriods(ctx, periods)
+	if err != nil {
+		return inserted, err
+	}
+	if err := s.rebuildHonors(ctx, now); err != nil {
+		return inserted, err
+	}
+	_ = s.InvalidateCache(ctx)
+	return inserted, nil
 }
 
 func (s *LeaderboardService) snapshotPeriods(ctx context.Context, periods []leaderboardPeriod) (int64, error) {
@@ -434,14 +519,14 @@ func (s *LeaderboardService) participantStatus(p *LeaderboardParticipant) Leader
 	}
 }
 
-func (s *LeaderboardService) publicEntry(row LeaderboardRankRow, currentUserID int64, honors LeaderboardHonorStats, window string, latestCompleted map[string]time.Time) LeaderboardPublicEntry {
+func (s *LeaderboardService) publicEntry(row LeaderboardRankRow, currentUserID int64, honors LeaderboardHonorStats) LeaderboardPublicEntry {
 	return LeaderboardPublicEntry{
 		Rank:           row.Rank,
 		DisplayName:    publicLeaderboardName(row.DisplayName, row.DisplayCode),
 		AvatarURL:      row.AvatarURL,
 		Tokens:         row.Tokens,
 		Requests:       row.Requests,
-		CurrentStreak:  currentLeaderboardStreak(honors.ChampionStarts[window], latestCompleted[window], window),
+		CurrentStreak:  honors.CurrentStreak,
 		ChampionCount:  honors.ChampionCount,
 		TopAppearances: honors.TopAppearances,
 		BestRank:       honors.BestRank,
@@ -513,6 +598,19 @@ func sortedInt64Keys(values map[int64]struct{}) []int64 {
 
 func ptrLeaderboardTime(t time.Time) *time.Time {
 	return &t
+}
+
+func leaderboardOverviewCacheKey(userID int64, now time.Time, loc *time.Location) string {
+	day := startOfLeaderboardDay(now, loc)
+	week := startOfLeaderboardWeek(now, loc)
+	month := startOfLeaderboardMonth(now, loc)
+	return fmt.Sprintf(
+		"user:%d:day:%s:week:%s:month:%s",
+		userID,
+		day.Format("2006-01-02"),
+		week.Format("2006-01-02"),
+		month.Format("2006-01"),
+	)
 }
 
 func resolveLeaderboardLocation(userTZ string) *time.Location {

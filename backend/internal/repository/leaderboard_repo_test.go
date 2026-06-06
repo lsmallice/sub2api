@@ -21,7 +21,7 @@ func TestLeaderboardRepositoryGetRankingReturnsTopAndMe(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"user_id", "rank", "display_name", "display_code", "avatar_url", "tokens", "requests"}).
 		AddRow(int64(7), 1, "", "BEEF", "https://cdn.example.com/bob.png", int64(2000), int64(4)).
 		AddRow(int64(42), 11, "Alice", "A83F", "https://cdn.example.com/alice.png", int64(500), int64(1))
-	mock.ExpectQuery("WITH ranked AS").
+	mock.ExpectQuery("leaderboard_usage_daily").
 		WithArgs(end, start, 10, int64(42)).
 		WillReturnRows(rows)
 
@@ -62,4 +62,51 @@ func TestLeaderboardRepositorySnapshotPeriodIsIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(3), affected)
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestLeaderboardRepositoryRebuildHonorStatsMaterializesCompletedPeriods(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	cutoff := time.Date(2026, 6, 7, 12, 0, 0, 0, time.UTC)
+	latest := map[string]time.Time{
+		service.LeaderboardWindowDaily:   time.Date(2026, 6, 6, 0, 0, 0, 0, time.UTC),
+		service.LeaderboardWindowWeekly:  time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		service.LeaderboardWindowMonthly: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("DELETE FROM leaderboard_user_honors").
+		WillReturnResult(sqlmock.NewResult(0, 3))
+	mock.ExpectExec("period_end <= \\$1").
+		WithArgs(cutoff, latest[service.LeaderboardWindowDaily], latest[service.LeaderboardWindowWeekly], latest[service.LeaderboardWindowMonthly]).
+		WillReturnResult(sqlmock.NewResult(0, 4))
+	mock.ExpectCommit()
+
+	repo := NewLeaderboardRepository(db)
+	affected, err := repo.RebuildHonorStats(context.Background(), cutoff, latest)
+	require.NoError(t, err)
+	require.Equal(t, int64(4), affected)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestLeaderboardRepositoryGetHonorStatsReadsMaterializedHonors(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	rows := sqlmock.NewRows([]string{"user_id", "period_window", "top_appearances", "champion_count", "best_rank", "current_streak"}).
+		AddRow(int64(42), service.LeaderboardWindowMonthly, 3, 1, 1, 0)
+	mock.ExpectQuery("leaderboard_user_honors").
+		WithArgs(sqlmock.AnyArg()).
+		WillReturnRows(rows)
+
+	repo := NewLeaderboardRepository(db)
+	honors, err := repo.GetHonorStats(context.Background(), []int64{42})
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+	require.Equal(t, 1, honors[42][service.LeaderboardWindowMonthly].ChampionCount)
+	require.Equal(t, 3, honors[42][service.LeaderboardWindowMonthly].TopAppearances)
+	require.Equal(t, 0, honors[42][service.LeaderboardWindowMonthly].CurrentStreak)
 }

@@ -203,6 +203,14 @@ func (r *handlerLeaderboardRepoStub) GetHonorStats(_ context.Context, userIDs []
 	return r.honors, nil
 }
 
+func (r *handlerLeaderboardRepoStub) RebuildUsageDaily(context.Context, time.Time, time.Time) (int64, error) {
+	return 0, nil
+}
+
+func (r *handlerLeaderboardRepoStub) RebuildHonorStats(context.Context, time.Time, map[string]time.Time) (int64, error) {
+	return 0, nil
+}
+
 func (r *handlerLeaderboardRepoStub) SnapshotPeriod(context.Context, string, time.Time, time.Time, int) (int64, error) {
 	return 0, nil
 }
