@@ -92,20 +92,21 @@ func quotaRefreshTestSub(window SubscriptionQuotaRefreshWindow, usage, limit flo
 
 func TestRefreshSubscriptionQuota_SuccessWindows(t *testing.T) {
 	tests := []struct {
-		name     string
-		window   SubscriptionQuotaRefreshWindow
-		duration time.Duration
+		name             string
+		window           SubscriptionQuotaRefreshWindow
+		windowElapsed    time.Duration
+		expectedDeducted time.Duration
 	}{
-		{name: "daily", window: SubscriptionQuotaRefreshWindowDaily, duration: 24 * time.Hour},
-		{name: "weekly", window: SubscriptionQuotaRefreshWindowWeekly, duration: 7 * 24 * time.Hour},
-		{name: "monthly", window: SubscriptionQuotaRefreshWindowMonthly, duration: 30 * 24 * time.Hour},
+		{name: "daily", window: SubscriptionQuotaRefreshWindowDaily, windowElapsed: 20 * time.Hour, expectedDeducted: 4 * time.Hour},
+		{name: "weekly", window: SubscriptionQuotaRefreshWindowWeekly, windowElapsed: 6 * 24 * time.Hour, expectedDeducted: 24 * time.Hour},
+		{name: "monthly", window: SubscriptionQuotaRefreshWindowMonthly, windowElapsed: 29 * 24 * time.Hour, expectedDeducted: 24 * time.Hour},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			before := time.Now()
-			windowStart := before.Add(-time.Hour)
-			expiresAt := before.Add(tt.duration + 48*time.Hour)
+			windowStart := before.Add(-tt.windowElapsed)
+			expiresAt := before.Add(tt.expectedDeducted + 48*time.Hour)
 			stub := &quotaRefreshUserSubRepoStub{
 				sub: quotaRefreshTestSub(tt.window, 10, 10, &windowStart, expiresAt),
 			}
@@ -119,10 +120,10 @@ func TestRefreshSubscriptionQuota_SuccessWindows(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, tt.window, result.Window)
-			require.Equal(t, int64(tt.duration/time.Second), result.DeductedSeconds)
+			require.InDelta(t, tt.expectedDeducted.Seconds(), result.DeductedSeconds, 1)
 			require.Equal(t, float64(10), result.OldUsageUSD)
 			require.Equal(t, float64(10), result.LimitUSD)
-			require.WithinDuration(t, expiresAt.Add(-tt.duration), result.NewExpiresAt, time.Second)
+			require.WithinDuration(t, expiresAt.Add(-tt.expectedDeducted), result.NewExpiresAt, time.Second)
 			require.NotNil(t, result.OldWindowStart)
 			require.Equal(t, windowStart, *result.OldWindowStart)
 			require.True(t, !result.NewWindowStart.Before(before))
@@ -134,9 +135,9 @@ func TestRefreshSubscriptionQuota_SuccessWindows(t *testing.T) {
 
 func TestRefreshSubscriptionQuota_InsufficientValidity(t *testing.T) {
 	now := time.Now()
-	windowStart := now.Add(-time.Hour)
+	windowStart := now.Add(-20 * time.Hour)
 	stub := &quotaRefreshUserSubRepoStub{
-		sub: quotaRefreshTestSub(SubscriptionQuotaRefreshWindowDaily, 10, 10, &windowStart, now.Add(23*time.Hour)),
+		sub: quotaRefreshTestSub(SubscriptionQuotaRefreshWindowDaily, 10, 10, &windowStart, now.Add(3*time.Hour)),
 	}
 	svc := newQuotaRefreshSvc(stub)
 
@@ -151,9 +152,9 @@ func TestRefreshSubscriptionQuota_InsufficientValidity(t *testing.T) {
 
 func TestRefreshSubscriptionQuota_ExactDurationValidityIsInsufficient(t *testing.T) {
 	now := time.Now()
-	windowStart := now.Add(-time.Hour)
+	windowStart := now.Add(-20 * time.Hour)
 	stub := &quotaRefreshUserSubRepoStub{
-		sub: quotaRefreshTestSub(SubscriptionQuotaRefreshWindowDaily, 10, 10, &windowStart, now.Add(24*time.Hour)),
+		sub: quotaRefreshTestSub(SubscriptionQuotaRefreshWindowDaily, 10, 10, &windowStart, now.Add(4*time.Hour)),
 	}
 	svc := newQuotaRefreshSvc(stub)
 
@@ -164,6 +165,36 @@ func TestRefreshSubscriptionQuota_ExactDurationValidityIsInsufficient(t *testing
 
 	require.ErrorIs(t, err, ErrQuotaRefreshInsufficientValidity)
 	require.Equal(t, 0, stub.refreshCalls)
+}
+
+func TestBuildSubscriptionQuotaRefreshInfo_DeductsRemainingWindowTime(t *testing.T) {
+	now := time.Date(2026, 6, 4, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name             string
+		window           SubscriptionQuotaRefreshWindow
+		windowElapsed    time.Duration
+		expectedDeducted time.Duration
+	}{
+		{name: "daily", window: SubscriptionQuotaRefreshWindowDaily, windowElapsed: 20 * time.Hour, expectedDeducted: 4 * time.Hour},
+		{name: "weekly", window: SubscriptionQuotaRefreshWindowWeekly, windowElapsed: 6 * 24 * time.Hour, expectedDeducted: 24 * time.Hour},
+		{name: "monthly", window: SubscriptionQuotaRefreshWindowMonthly, windowElapsed: 29 * 24 * time.Hour, expectedDeducted: 24 * time.Hour},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			windowStart := now.Add(-tt.windowElapsed)
+			expiresAt := now.Add(10 * 24 * time.Hour)
+			sub := quotaRefreshTestSub(tt.window, 10, 10, &windowStart, expiresAt)
+			sub.StartsAt = now.Add(-60 * 24 * time.Hour)
+
+			info := buildSubscriptionQuotaRefreshInfo(sub, tt.window, now, true)
+
+			require.True(t, info.Eligible)
+			require.Equal(t, int64(tt.expectedDeducted/time.Second), info.DeductedSeconds)
+			require.NotNil(t, info.ProjectedExpiresAt)
+			require.Equal(t, expiresAt.Add(-tt.expectedDeducted), *info.ProjectedExpiresAt)
+		})
+	}
 }
 
 func TestRefreshSubscriptionQuota_NotExhausted(t *testing.T) {

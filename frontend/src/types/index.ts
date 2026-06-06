@@ -22,6 +22,52 @@ export interface FetchOptions {
   signal?: AbortSignal
 }
 
+// ==================== Leaderboard Types ====================
+
+export type LeaderboardWindowKey = 'daily' | 'weekly' | 'monthly' | 'all_time'
+
+export interface LeaderboardParticipantStatus {
+  is_opted_in: boolean
+  display_name?: string
+  display_code?: string
+  public_name?: string
+  opted_in_at?: string
+}
+
+export interface LeaderboardEntry {
+  rank?: number
+  display_name: string
+  avatar_url?: string | null
+  tokens: number
+  requests: number
+  current_streak?: number
+  champion_count?: number
+  top_appearances?: number
+  best_rank?: number
+  is_me?: boolean
+}
+
+export interface LeaderboardWindowOverview {
+  window: LeaderboardWindowKey
+  starts_at?: string
+  ends_at: string
+  top10: LeaderboardEntry[]
+  me?: LeaderboardEntry | null
+}
+
+export interface LeaderboardOverview {
+  participant: LeaderboardParticipantStatus
+  daily: LeaderboardWindowOverview
+  weekly: LeaderboardWindowOverview
+  monthly: LeaderboardWindowOverview
+  all_time: LeaderboardWindowOverview
+}
+
+export interface UpdateLeaderboardParticipantRequest {
+  is_opted_in: boolean
+  display_name?: string | null
+}
+
 // ==================== Notification Types ====================
 
 /** Notification email entry with enable/disable and verification state.

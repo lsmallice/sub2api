@@ -162,6 +162,13 @@ func ProvideSubscriptionExpiryService(userSubRepo UserSubscriptionRepository, se
 	return svc
 }
 
+// ProvideLeaderboardSnapshotService creates and starts the leaderboard period snapshot worker.
+func ProvideLeaderboardSnapshotService(leaderboard *LeaderboardService) *LeaderboardSnapshotService {
+	svc := NewLeaderboardSnapshotService(leaderboard, time.Hour)
+	svc.Start()
+	return svc
+}
+
 // ProvideTimingWheelService creates and starts TimingWheelService
 func ProvideTimingWheelService() (*TimingWheelService, error) {
 	svc, err := NewTimingWheelService()
@@ -533,6 +540,8 @@ var ProviderSet = wire.NewSet(
 	ProvideEmailQueueService,
 	NewTurnstileService,
 	NewSubscriptionService,
+	NewLeaderboardService,
+	ProvideLeaderboardSnapshotService,
 	wire.Bind(new(DefaultSubscriptionAssigner), new(*SubscriptionService)),
 	ProvideConcurrencyService,
 	ProvideUserMessageQueueService,

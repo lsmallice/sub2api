@@ -1459,14 +1459,22 @@ const formatResetDuration = (parts: RemainingDurationParts): string => {
 }
 
 const formatDeductedSeconds = (seconds: number): string => {
-  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.max(1, Math.ceil(seconds / 60))
+  const hours = Math.floor(minutes / 60)
   const days = Math.floor(hours / 24)
   const remainingHours = hours % 24
+  const remainingMinutes = minutes % 60
   if (days > 0 && remainingHours > 0) {
     return t('admin.subscriptions.durationDaysHours', { days, hours: remainingHours })
   }
   if (days > 0) {
     return t('admin.subscriptions.durationDays', { days })
+  }
+  if (hours > 0 && remainingMinutes > 0) {
+    return t('admin.subscriptions.durationHoursMinutes', { hours, minutes: remainingMinutes })
+  }
+  if (hours === 0) {
+    return t('admin.subscriptions.durationMinutes', { minutes })
   }
   return t('admin.subscriptions.durationHours', { hours })
 }

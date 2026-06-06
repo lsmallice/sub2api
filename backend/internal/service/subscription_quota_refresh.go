@@ -143,19 +143,6 @@ func (w SubscriptionQuotaRefreshWindow) Valid() bool {
 	}
 }
 
-func SubscriptionQuotaRefreshDuration(window SubscriptionQuotaRefreshWindow) time.Duration {
-	switch window {
-	case SubscriptionQuotaRefreshWindowDaily:
-		return 24 * time.Hour
-	case SubscriptionQuotaRefreshWindowWeekly:
-		return 7 * 24 * time.Hour
-	case SubscriptionQuotaRefreshWindowMonthly:
-		return 30 * 24 * time.Hour
-	default:
-		return 0
-	}
-}
-
 func (s *SubscriptionService) BuildSubscriptionQuotaRefreshSummary(sub *UserSubscription) *SubscriptionQuotaRefreshSummary {
 	if sub == nil || sub.Group == nil {
 		return nil
@@ -188,8 +175,7 @@ func buildSubscriptionQuotaRefreshInfo(
 	enabled bool,
 ) SubscriptionQuotaRefreshWindowInfo {
 	info := SubscriptionQuotaRefreshWindowInfo{
-		Window:          window,
-		DeductedSeconds: int64(SubscriptionQuotaRefreshDuration(window) / time.Second),
+		Window: window,
 	}
 	if sub == nil || sub.Group == nil {
 		info.Reason = QuotaRefreshReasonSubscriptionUnavailable
@@ -221,16 +207,17 @@ func buildSubscriptionQuotaRefreshInfo(
 		info.Reason = QuotaRefreshReasonWindowNotActive
 		return info
 	}
-	if subscriptionQuotaRefreshNeedsResetAt(sub, window, now) {
+	deductDuration, ok := subscriptionQuotaRefreshDeductionDuration(info.NextResetAt, now)
+	if !ok {
 		info.Reason = QuotaRefreshReasonNaturalResetAvailable
 		return info
 	}
+	info.DeductedSeconds = subscriptionQuotaRefreshDeductedSeconds(deductDuration)
 	if usage+quotaRefreshUsageEpsilon < *limit {
 		info.Reason = QuotaRefreshReasonNotExhausted
 		return info
 	}
-	duration := SubscriptionQuotaRefreshDuration(window)
-	projected := sub.ExpiresAt.Add(-duration)
+	projected := sub.ExpiresAt.Add(-deductDuration)
 	info.ProjectedExpiresAt = &projected
 	if !projected.After(now) {
 		info.Reason = QuotaRefreshReasonInsufficientValidity
@@ -238,6 +225,20 @@ func buildSubscriptionQuotaRefreshInfo(
 	}
 	info.Eligible = true
 	return info
+}
+
+func subscriptionQuotaRefreshDeductionDuration(nextResetAt *time.Time, now time.Time) (time.Duration, bool) {
+	if nextResetAt == nil || !nextResetAt.After(now) {
+		return 0, false
+	}
+	return nextResetAt.Sub(now), true
+}
+
+func subscriptionQuotaRefreshDeductedSeconds(duration time.Duration) int64 {
+	if duration <= 0 {
+		return 0
+	}
+	return int64((duration + time.Second - time.Nanosecond) / time.Second)
 }
 
 func (s *SubscriptionService) RefreshSubscriptionQuota(ctx context.Context, input RefreshSubscriptionQuotaInput) (*SubscriptionQuotaRefreshResult, error) {
@@ -385,28 +386,6 @@ func subscriptionQuotaRefreshNextResetAt(sub *UserSubscription, window Subscript
 		return sub.MonthlyResetTime()
 	default:
 		return nil
-	}
-}
-
-func subscriptionQuotaRefreshNeedsResetAt(sub *UserSubscription, window SubscriptionQuotaRefreshWindow, now time.Time) bool {
-	if sub == nil {
-		return false
-	}
-	switch window {
-	case SubscriptionQuotaRefreshWindowDaily:
-		return sub.NeedsDailyResetAt(now)
-	case SubscriptionQuotaRefreshWindowWeekly:
-		if sub.WeeklyWindowStart == nil {
-			return false
-		}
-		return !now.Before(sub.WeeklyWindowStart.Add(7 * 24 * time.Hour))
-	case SubscriptionQuotaRefreshWindowMonthly:
-		if sub.MonthlyWindowStart == nil {
-			return false
-		}
-		return !now.Before(sub.MonthlyWindowStart.Add(30 * 24 * time.Hour))
-	default:
-		return false
 	}
 }
 

@@ -1,6 +1,6 @@
 # Subscription Quota Refresh
 
-Last updated: 2026-05-30
+Last updated: 2026-06-04
 
 Current custom branch: `image-capability`
 
@@ -16,12 +16,10 @@ The upstream `main` branch remains the source of truth. During upstream merges, 
 
 - Only one refresh window may be selected per request: `daily`, `weekly`, or `monthly`.
 - A refresh is allowed only when the selected quota window is already exhausted.
-- The subscription must still be active and must still have enough validity left after deducting the refresh duration.
-- Refresh durations are fixed:
-  - daily: `24h`
-  - weekly: `7 * 24h`
-  - monthly: `30 * 24h`
-- Monthly refresh uses a rolling 30-day deduction, not a calendar-month rule.
+- The subscription must still be active and must still have enough validity left after deducting the current window's remaining time.
+- Refresh deduction is dynamic: `deducted_duration = next_reset_at - now`.
+- Daily, weekly, and monthly reset anchors still follow the existing rolling-window rules: daily `24h`, weekly `7 * 24h`, monthly `30 * 24h`.
+- Monthly refresh still uses a rolling 30-day window, not a calendar-month rule.
 - Paid refresh uses the exact current time as the new window start so the user receives a full fresh quota period.
 - If the window has already reached its natural reset time, the feature must not deduct validity. It should report that natural reset is available or otherwise unnecessary.
 - Every refresh request must carry `Idempotency-Key`.
@@ -95,7 +93,8 @@ Behavior:
 
 - `RefreshSubscriptionQuota` validates ownership for user requests and records actor metadata for admin requests.
 - Eligibility is computed once and reused for both API responses and the actual mutation path.
-- The repository locks the subscription row, clears the selected window usage, moves the selected window start to `now`, deducts `expires_at`, and writes one audit row in the same transaction.
+- `deducted_seconds` records the actual remaining-window time deducted for that refresh, not the full daily/weekly/monthly period.
+- The repository locks the subscription row, clears the selected window usage, moves the selected window start to `now`, deducts `expires_at` by `next_reset_at - now`, and writes one audit row in the same transaction.
 - After a successful refresh, subscription and billing caches are invalidated.
 - Subscription list/detail DTOs expose `quota_refresh` metadata so the frontend does not reimplement eligibility rules.
 
@@ -182,7 +181,10 @@ corepack pnpm@9 run build
 
 Manual checks:
 
-- Daily, weekly, and monthly refresh each deduct the correct duration.
+- Daily, weekly, and monthly refresh each deduct only the remaining time before natural reset.
+- A daily window started 20 hours ago deducts about 4 hours.
+- A weekly window started 6 days ago deducts about 1 day.
+- A monthly window started 29 days ago deducts about 1 day.
 - Refresh fails when the quota window is not exhausted.
 - Refresh fails when remaining validity is too short.
 - Refresh fails when the subscription is inactive or the limit is missing.

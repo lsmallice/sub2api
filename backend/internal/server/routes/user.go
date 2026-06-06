@@ -78,6 +78,14 @@ func RegisterUserRoutes(
 			channels.GET("/available", h.AvailableChannel.List)
 		}
 
+		// 用户自愿参榜 Token 榜单
+		leaderboard := authenticated.Group("/leaderboard")
+		{
+			leaderboard.GET("/overview", h.Leaderboard.GetOverview)
+			leaderboard.GET("/me", h.Leaderboard.GetMe)
+			leaderboard.PUT("/me", h.Leaderboard.UpdateMe)
+		}
+
 		// 使用记录
 		usage := authenticated.Group("/usage")
 		{
