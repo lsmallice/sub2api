@@ -466,24 +466,23 @@ function getStreakBadge(entry: LeaderboardEntry): StreakBadge | null {
   return null
 }
 
-function renderStreakBadge(entry: LeaderboardEntry) {
-  const badge = getStreakBadge(entry)
+function renderStreakBadge(badge: StreakBadge | null) {
   if (!badge) return null
   return h(
     'div',
     {
       class: [
-        'absolute -left-1 -top-3 z-20 inline-flex min-h-[34px] max-w-[calc(100%-1.5rem)] items-center gap-1.5 overflow-hidden rounded-br-2xl rounded-tl-[1.25rem] rounded-tr-md border px-3 py-1.5 text-[12px] font-black leading-none tracking-normal',
+        'absolute -left-1 -top-4 z-20 inline-flex w-fit max-w-[calc(100%-1rem)] min-h-[42px] items-center gap-2 overflow-hidden rounded-br-[1.5rem] rounded-tl-[1.45rem] rounded-tr-xl border px-3.5 py-2 text-[13px] font-black leading-none tracking-normal whitespace-nowrap shadow-[0_14px_28px_-14px_rgba(15,23,42,0.45)]',
         badge.shellClass,
       ],
       title: badge.label,
     },
     [
-      h('span', { class: ['absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b opacity-70', badge.glowClass] }),
-      h('span', { class: 'relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/18 ring-1 ring-white/25' }, [
+      h('span', { class: ['pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b opacity-70', badge.glowClass] }),
+      h('span', { class: 'relative inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/18 ring-1 ring-white/25' }, [
         renderCrownIcon(badge.iconClass),
       ]),
-      h('span', { class: 'relative truncate tabular-nums' }, badge.label),
+      h('span', { class: 'relative tabular-nums' }, badge.label),
     ]
   )
 }
@@ -664,18 +663,20 @@ const LeaderboardPanel = defineComponent({
   setup(props) {
     const renderEntry = (entry: LeaderboardEntry, variant: EntryVariant = 'default') => {
       const rankStyle = getRankStyle(entry.rank, variant)
+      const streakBadge = getStreakBadge(entry)
       return h(
         'li',
         {
           class: [
             'group relative mt-3 list-none overflow-visible rounded-[1.35rem] border px-3 py-3 transition-transform duration-200',
+            streakBadge ? 'pt-12' : '',
             rankStyle.shellClass,
             entry.is_me ? 'ring-2 ring-primary-300/70 dark:ring-primary-500/40' : '',
             isPodium(entry.rank) ? 'md:pl-4' : '',
           ],
         },
         [
-          renderStreakBadge(entry),
+          renderStreakBadge(streakBadge),
           h('div', { class: ['absolute left-0 top-0 h-full w-1.5 rounded-r-full', rankStyle.accentClass] }),
           h('div', { class: 'relative flex items-center gap-3 pl-1' }, [
             renderRankBadge(entry, rankStyle),
