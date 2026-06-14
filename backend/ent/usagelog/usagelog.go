@@ -36,6 +36,10 @@ const (
 	FieldBillingTier = "billing_tier"
 	// FieldBillingMode holds the string denoting the billing_mode field in the database.
 	FieldBillingMode = "billing_mode"
+	// FieldRequestedTierKey holds the string denoting the requested_tier_key field in the database.
+	FieldRequestedTierKey = "requested_tier_key"
+	// FieldActualTierKey holds the string denoting the actual_tier_key field in the database.
+	FieldActualTierKey = "actual_tier_key"
 	// FieldGroupID holds the string denoting the group_id field in the database.
 	FieldGroupID = "group_id"
 	// FieldSubscriptionID holds the string denoting the subscription_id field in the database.
@@ -159,6 +163,8 @@ var Columns = []string{
 	FieldModelMappingChain,
 	FieldBillingTier,
 	FieldBillingMode,
+	FieldRequestedTierKey,
+	FieldActualTierKey,
 	FieldGroupID,
 	FieldSubscriptionID,
 	FieldInputTokens,
@@ -216,6 +222,10 @@ var (
 	BillingTierValidator func(string) error
 	// BillingModeValidator is a validator for the "billing_mode" field. It is called by the builders before save.
 	BillingModeValidator func(string) error
+	// RequestedTierKeyValidator is a validator for the "requested_tier_key" field. It is called by the builders before save.
+	RequestedTierKeyValidator func(string) error
+	// ActualTierKeyValidator is a validator for the "actual_tier_key" field. It is called by the builders before save.
+	ActualTierKeyValidator func(string) error
 	// DefaultInputTokens holds the default value on creation for the "input_tokens" field.
 	DefaultInputTokens int
 	// DefaultOutputTokens holds the default value on creation for the "output_tokens" field.
@@ -327,6 +337,16 @@ func ByBillingTier(opts ...sql.OrderTermOption) OrderOption {
 // ByBillingMode orders the results by the billing_mode field.
 func ByBillingMode(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldBillingMode, opts...).ToFunc()
+}
+
+// ByRequestedTierKey orders the results by the requested_tier_key field.
+func ByRequestedTierKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRequestedTierKey, opts...).ToFunc()
+}
+
+// ByActualTierKey orders the results by the actual_tier_key field.
+func ByActualTierKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActualTierKey, opts...).ToFunc()
 }
 
 // ByGroupID orders the results by the group_id field.

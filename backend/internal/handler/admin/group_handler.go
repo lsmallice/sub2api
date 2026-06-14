@@ -521,6 +521,52 @@ func (h *GroupHandler) BatchSetGroupRateMultipliers(c *gin.Context) {
 	response.Success(c, gin.H{"message": "Rate multipliers updated successfully"})
 }
 
+// GetGroupRateTiers handles getting service tiers for a group.
+// GET /api/v1/admin/groups/:id/rate-tiers
+func (h *GroupHandler) GetGroupRateTiers(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid group ID")
+		return
+	}
+
+	tiers, err := h.adminService.GetGroupRateTiers(c.Request.Context(), groupID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if tiers == nil {
+		tiers = []service.GroupRateTier{}
+	}
+	response.Success(c, tiers)
+}
+
+type BatchSetGroupRateTiersRequest struct {
+	Tiers []service.GroupRateTierInput `json:"tiers" binding:"required"`
+}
+
+// BatchSetGroupRateTiers handles batch setting service tiers for a group.
+// PUT /api/v1/admin/groups/:id/rate-tiers
+func (h *GroupHandler) BatchSetGroupRateTiers(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid group ID")
+		return
+	}
+
+	var req BatchSetGroupRateTiersRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	if err := h.adminService.BatchSetGroupRateTiers(c.Request.Context(), groupID, req.Tiers); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "Group rate tiers updated successfully"})
+}
+
 // BatchSetGroupRPMOverridesRequest represents batch set rpm_override request
 type BatchSetGroupRPMOverridesRequest struct {
 	Entries []service.GroupRPMOverrideInput `json:"entries" binding:"required"`

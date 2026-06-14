@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from './client'
-import type { Group } from '@/types'
+import type { Group, GroupRateTier } from '@/types'
 
 /**
  * Get available groups that the current user can bind to API keys
@@ -27,9 +27,18 @@ export async function getUserGroupRates(): Promise<Record<number, number>> {
   return data || {}
 }
 
+/**
+ * Get active service tiers available to the current user for a group.
+ */
+export async function getRateTiers(groupId: number): Promise<GroupRateTier[]> {
+  const { data } = await apiClient.get<GroupRateTier[]>(`/groups/${groupId}/rate-tiers`)
+  return data
+}
+
 export const userGroupsAPI = {
   getAvailable,
-  getUserGroupRates
+  getUserGroupRates,
+  getRateTiers
 }
 
 export default userGroupsAPI

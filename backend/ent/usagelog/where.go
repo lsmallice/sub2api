@@ -110,6 +110,16 @@ func BillingMode(v string) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldBillingMode, v))
 }
 
+// RequestedTierKey applies equality check predicate on the "requested_tier_key" field. It's identical to RequestedTierKeyEQ.
+func RequestedTierKey(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldRequestedTierKey, v))
+}
+
+// ActualTierKey applies equality check predicate on the "actual_tier_key" field. It's identical to ActualTierKeyEQ.
+func ActualTierKey(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualTierKey, v))
+}
+
 // GroupID applies equality check predicate on the "group_id" field. It's identical to GroupIDEQ.
 func GroupID(v int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldGroupID, v))
@@ -868,6 +878,156 @@ func BillingModeEqualFold(v string) predicate.UsageLog {
 // BillingModeContainsFold applies the ContainsFold predicate on the "billing_mode" field.
 func BillingModeContainsFold(v string) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldContainsFold(FieldBillingMode, v))
+}
+
+// RequestedTierKeyEQ applies the EQ predicate on the "requested_tier_key" field.
+func RequestedTierKeyEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldRequestedTierKey, v))
+}
+
+// RequestedTierKeyNEQ applies the NEQ predicate on the "requested_tier_key" field.
+func RequestedTierKeyNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldRequestedTierKey, v))
+}
+
+// RequestedTierKeyIn applies the In predicate on the "requested_tier_key" field.
+func RequestedTierKeyIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldRequestedTierKey, vs...))
+}
+
+// RequestedTierKeyNotIn applies the NotIn predicate on the "requested_tier_key" field.
+func RequestedTierKeyNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldRequestedTierKey, vs...))
+}
+
+// RequestedTierKeyGT applies the GT predicate on the "requested_tier_key" field.
+func RequestedTierKeyGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldRequestedTierKey, v))
+}
+
+// RequestedTierKeyGTE applies the GTE predicate on the "requested_tier_key" field.
+func RequestedTierKeyGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldRequestedTierKey, v))
+}
+
+// RequestedTierKeyLT applies the LT predicate on the "requested_tier_key" field.
+func RequestedTierKeyLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldRequestedTierKey, v))
+}
+
+// RequestedTierKeyLTE applies the LTE predicate on the "requested_tier_key" field.
+func RequestedTierKeyLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldRequestedTierKey, v))
+}
+
+// RequestedTierKeyContains applies the Contains predicate on the "requested_tier_key" field.
+func RequestedTierKeyContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldRequestedTierKey, v))
+}
+
+// RequestedTierKeyHasPrefix applies the HasPrefix predicate on the "requested_tier_key" field.
+func RequestedTierKeyHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldRequestedTierKey, v))
+}
+
+// RequestedTierKeyHasSuffix applies the HasSuffix predicate on the "requested_tier_key" field.
+func RequestedTierKeyHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldRequestedTierKey, v))
+}
+
+// RequestedTierKeyIsNil applies the IsNil predicate on the "requested_tier_key" field.
+func RequestedTierKeyIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldRequestedTierKey))
+}
+
+// RequestedTierKeyNotNil applies the NotNil predicate on the "requested_tier_key" field.
+func RequestedTierKeyNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldRequestedTierKey))
+}
+
+// RequestedTierKeyEqualFold applies the EqualFold predicate on the "requested_tier_key" field.
+func RequestedTierKeyEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldRequestedTierKey, v))
+}
+
+// RequestedTierKeyContainsFold applies the ContainsFold predicate on the "requested_tier_key" field.
+func RequestedTierKeyContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldRequestedTierKey, v))
+}
+
+// ActualTierKeyEQ applies the EQ predicate on the "actual_tier_key" field.
+func ActualTierKeyEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualTierKey, v))
+}
+
+// ActualTierKeyNEQ applies the NEQ predicate on the "actual_tier_key" field.
+func ActualTierKeyNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldActualTierKey, v))
+}
+
+// ActualTierKeyIn applies the In predicate on the "actual_tier_key" field.
+func ActualTierKeyIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldActualTierKey, vs...))
+}
+
+// ActualTierKeyNotIn applies the NotIn predicate on the "actual_tier_key" field.
+func ActualTierKeyNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldActualTierKey, vs...))
+}
+
+// ActualTierKeyGT applies the GT predicate on the "actual_tier_key" field.
+func ActualTierKeyGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldActualTierKey, v))
+}
+
+// ActualTierKeyGTE applies the GTE predicate on the "actual_tier_key" field.
+func ActualTierKeyGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldActualTierKey, v))
+}
+
+// ActualTierKeyLT applies the LT predicate on the "actual_tier_key" field.
+func ActualTierKeyLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldActualTierKey, v))
+}
+
+// ActualTierKeyLTE applies the LTE predicate on the "actual_tier_key" field.
+func ActualTierKeyLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldActualTierKey, v))
+}
+
+// ActualTierKeyContains applies the Contains predicate on the "actual_tier_key" field.
+func ActualTierKeyContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldActualTierKey, v))
+}
+
+// ActualTierKeyHasPrefix applies the HasPrefix predicate on the "actual_tier_key" field.
+func ActualTierKeyHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldActualTierKey, v))
+}
+
+// ActualTierKeyHasSuffix applies the HasSuffix predicate on the "actual_tier_key" field.
+func ActualTierKeyHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldActualTierKey, v))
+}
+
+// ActualTierKeyIsNil applies the IsNil predicate on the "actual_tier_key" field.
+func ActualTierKeyIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldActualTierKey))
+}
+
+// ActualTierKeyNotNil applies the NotNil predicate on the "actual_tier_key" field.
+func ActualTierKeyNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldActualTierKey))
+}
+
+// ActualTierKeyEqualFold applies the EqualFold predicate on the "actual_tier_key" field.
+func ActualTierKeyEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldActualTierKey, v))
+}
+
+// ActualTierKeyContainsFold applies the ContainsFold predicate on the "actual_tier_key" field.
+func ActualTierKeyContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldActualTierKey, v))
 }
 
 // GroupIDEQ applies the EQ predicate on the "group_id" field.

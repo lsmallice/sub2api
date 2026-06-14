@@ -141,6 +141,34 @@ func (_c *UsageLogCreate) SetNillableBillingMode(v *string) *UsageLogCreate {
 	return _c
 }
 
+// SetRequestedTierKey sets the "requested_tier_key" field.
+func (_c *UsageLogCreate) SetRequestedTierKey(v string) *UsageLogCreate {
+	_c.mutation.SetRequestedTierKey(v)
+	return _c
+}
+
+// SetNillableRequestedTierKey sets the "requested_tier_key" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableRequestedTierKey(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetRequestedTierKey(*v)
+	}
+	return _c
+}
+
+// SetActualTierKey sets the "actual_tier_key" field.
+func (_c *UsageLogCreate) SetActualTierKey(v string) *UsageLogCreate {
+	_c.mutation.SetActualTierKey(v)
+	return _c
+}
+
+// SetNillableActualTierKey sets the "actual_tier_key" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableActualTierKey(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetActualTierKey(*v)
+	}
+	return _c
+}
+
 // SetGroupID sets the "group_id" field.
 func (_c *UsageLogCreate) SetGroupID(v int64) *UsageLogCreate {
 	_c.mutation.SetGroupID(v)
@@ -739,6 +767,16 @@ func (_c *UsageLogCreate) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.RequestedTierKey(); ok {
+		if err := usagelog.RequestedTierKeyValidator(v); err != nil {
+			return &ValidationError{Name: "requested_tier_key", err: fmt.Errorf(`ent: validator failed for field "UsageLog.requested_tier_key": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.ActualTierKey(); ok {
+		if err := usagelog.ActualTierKeyValidator(v); err != nil {
+			return &ValidationError{Name: "actual_tier_key", err: fmt.Errorf(`ent: validator failed for field "UsageLog.actual_tier_key": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.InputTokens(); !ok {
 		return &ValidationError{Name: "input_tokens", err: errors.New(`ent: missing required field "UsageLog.input_tokens"`)}
 	}
@@ -890,6 +928,14 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.BillingMode(); ok {
 		_spec.SetField(usagelog.FieldBillingMode, field.TypeString, value)
 		_node.BillingMode = &value
+	}
+	if value, ok := _c.mutation.RequestedTierKey(); ok {
+		_spec.SetField(usagelog.FieldRequestedTierKey, field.TypeString, value)
+		_node.RequestedTierKey = &value
+	}
+	if value, ok := _c.mutation.ActualTierKey(); ok {
+		_spec.SetField(usagelog.FieldActualTierKey, field.TypeString, value)
+		_node.ActualTierKey = &value
 	}
 	if value, ok := _c.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)
@@ -1311,6 +1357,42 @@ func (u *UsageLogUpsert) UpdateBillingMode() *UsageLogUpsert {
 // ClearBillingMode clears the value of the "billing_mode" field.
 func (u *UsageLogUpsert) ClearBillingMode() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldBillingMode)
+	return u
+}
+
+// SetRequestedTierKey sets the "requested_tier_key" field.
+func (u *UsageLogUpsert) SetRequestedTierKey(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldRequestedTierKey, v)
+	return u
+}
+
+// UpdateRequestedTierKey sets the "requested_tier_key" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateRequestedTierKey() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldRequestedTierKey)
+	return u
+}
+
+// ClearRequestedTierKey clears the value of the "requested_tier_key" field.
+func (u *UsageLogUpsert) ClearRequestedTierKey() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldRequestedTierKey)
+	return u
+}
+
+// SetActualTierKey sets the "actual_tier_key" field.
+func (u *UsageLogUpsert) SetActualTierKey(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldActualTierKey, v)
+	return u
+}
+
+// UpdateActualTierKey sets the "actual_tier_key" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateActualTierKey() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldActualTierKey)
+	return u
+}
+
+// ClearActualTierKey clears the value of the "actual_tier_key" field.
+func (u *UsageLogUpsert) ClearActualTierKey() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldActualTierKey)
 	return u
 }
 
@@ -2087,6 +2169,48 @@ func (u *UsageLogUpsertOne) UpdateBillingMode() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearBillingMode() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearBillingMode()
+	})
+}
+
+// SetRequestedTierKey sets the "requested_tier_key" field.
+func (u *UsageLogUpsertOne) SetRequestedTierKey(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetRequestedTierKey(v)
+	})
+}
+
+// UpdateRequestedTierKey sets the "requested_tier_key" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateRequestedTierKey() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateRequestedTierKey()
+	})
+}
+
+// ClearRequestedTierKey clears the value of the "requested_tier_key" field.
+func (u *UsageLogUpsertOne) ClearRequestedTierKey() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearRequestedTierKey()
+	})
+}
+
+// SetActualTierKey sets the "actual_tier_key" field.
+func (u *UsageLogUpsertOne) SetActualTierKey(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualTierKey(v)
+	})
+}
+
+// UpdateActualTierKey sets the "actual_tier_key" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateActualTierKey() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualTierKey()
+	})
+}
+
+// ClearActualTierKey clears the value of the "actual_tier_key" field.
+func (u *UsageLogUpsertOne) ClearActualTierKey() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearActualTierKey()
 	})
 }
 
@@ -3117,6 +3241,48 @@ func (u *UsageLogUpsertBulk) UpdateBillingMode() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearBillingMode() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearBillingMode()
+	})
+}
+
+// SetRequestedTierKey sets the "requested_tier_key" field.
+func (u *UsageLogUpsertBulk) SetRequestedTierKey(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetRequestedTierKey(v)
+	})
+}
+
+// UpdateRequestedTierKey sets the "requested_tier_key" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateRequestedTierKey() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateRequestedTierKey()
+	})
+}
+
+// ClearRequestedTierKey clears the value of the "requested_tier_key" field.
+func (u *UsageLogUpsertBulk) ClearRequestedTierKey() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearRequestedTierKey()
+	})
+}
+
+// SetActualTierKey sets the "actual_tier_key" field.
+func (u *UsageLogUpsertBulk) SetActualTierKey(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualTierKey(v)
+	})
+}
+
+// UpdateActualTierKey sets the "actual_tier_key" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateActualTierKey() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualTierKey()
+	})
+}
+
+// ClearActualTierKey clears the value of the "actual_tier_key" field.
+func (u *UsageLogUpsertBulk) ClearActualTierKey() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearActualTierKey()
 	})
 }
 

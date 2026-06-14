@@ -229,6 +229,46 @@ func (_u *UsageLogUpdate) ClearBillingMode() *UsageLogUpdate {
 	return _u
 }
 
+// SetRequestedTierKey sets the "requested_tier_key" field.
+func (_u *UsageLogUpdate) SetRequestedTierKey(v string) *UsageLogUpdate {
+	_u.mutation.SetRequestedTierKey(v)
+	return _u
+}
+
+// SetNillableRequestedTierKey sets the "requested_tier_key" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableRequestedTierKey(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetRequestedTierKey(*v)
+	}
+	return _u
+}
+
+// ClearRequestedTierKey clears the value of the "requested_tier_key" field.
+func (_u *UsageLogUpdate) ClearRequestedTierKey() *UsageLogUpdate {
+	_u.mutation.ClearRequestedTierKey()
+	return _u
+}
+
+// SetActualTierKey sets the "actual_tier_key" field.
+func (_u *UsageLogUpdate) SetActualTierKey(v string) *UsageLogUpdate {
+	_u.mutation.SetActualTierKey(v)
+	return _u
+}
+
+// SetNillableActualTierKey sets the "actual_tier_key" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableActualTierKey(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetActualTierKey(*v)
+	}
+	return _u
+}
+
+// ClearActualTierKey clears the value of the "actual_tier_key" field.
+func (_u *UsageLogUpdate) ClearActualTierKey() *UsageLogUpdate {
+	_u.mutation.ClearActualTierKey()
+	return _u
+}
+
 // SetGroupID sets the "group_id" field.
 func (_u *UsageLogUpdate) SetGroupID(v int64) *UsageLogUpdate {
 	_u.mutation.SetGroupID(v)
@@ -949,6 +989,16 @@ func (_u *UsageLogUpdate) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RequestedTierKey(); ok {
+		if err := usagelog.RequestedTierKeyValidator(v); err != nil {
+			return &ValidationError{Name: "requested_tier_key", err: fmt.Errorf(`ent: validator failed for field "UsageLog.requested_tier_key": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ActualTierKey(); ok {
+		if err := usagelog.ActualTierKeyValidator(v); err != nil {
+			return &ValidationError{Name: "actual_tier_key", err: fmt.Errorf(`ent: validator failed for field "UsageLog.actual_tier_key": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
 			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
@@ -1047,6 +1097,18 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.BillingModeCleared() {
 		_spec.ClearField(usagelog.FieldBillingMode, field.TypeString)
+	}
+	if value, ok := _u.mutation.RequestedTierKey(); ok {
+		_spec.SetField(usagelog.FieldRequestedTierKey, field.TypeString, value)
+	}
+	if _u.mutation.RequestedTierKeyCleared() {
+		_spec.ClearField(usagelog.FieldRequestedTierKey, field.TypeString)
+	}
+	if value, ok := _u.mutation.ActualTierKey(); ok {
+		_spec.SetField(usagelog.FieldActualTierKey, field.TypeString, value)
+	}
+	if _u.mutation.ActualTierKeyCleared() {
+		_spec.ClearField(usagelog.FieldActualTierKey, field.TypeString)
 	}
 	if value, ok := _u.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)
@@ -1572,6 +1634,46 @@ func (_u *UsageLogUpdateOne) SetNillableBillingMode(v *string) *UsageLogUpdateOn
 // ClearBillingMode clears the value of the "billing_mode" field.
 func (_u *UsageLogUpdateOne) ClearBillingMode() *UsageLogUpdateOne {
 	_u.mutation.ClearBillingMode()
+	return _u
+}
+
+// SetRequestedTierKey sets the "requested_tier_key" field.
+func (_u *UsageLogUpdateOne) SetRequestedTierKey(v string) *UsageLogUpdateOne {
+	_u.mutation.SetRequestedTierKey(v)
+	return _u
+}
+
+// SetNillableRequestedTierKey sets the "requested_tier_key" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableRequestedTierKey(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetRequestedTierKey(*v)
+	}
+	return _u
+}
+
+// ClearRequestedTierKey clears the value of the "requested_tier_key" field.
+func (_u *UsageLogUpdateOne) ClearRequestedTierKey() *UsageLogUpdateOne {
+	_u.mutation.ClearRequestedTierKey()
+	return _u
+}
+
+// SetActualTierKey sets the "actual_tier_key" field.
+func (_u *UsageLogUpdateOne) SetActualTierKey(v string) *UsageLogUpdateOne {
+	_u.mutation.SetActualTierKey(v)
+	return _u
+}
+
+// SetNillableActualTierKey sets the "actual_tier_key" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableActualTierKey(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetActualTierKey(*v)
+	}
+	return _u
+}
+
+// ClearActualTierKey clears the value of the "actual_tier_key" field.
+func (_u *UsageLogUpdateOne) ClearActualTierKey() *UsageLogUpdateOne {
+	_u.mutation.ClearActualTierKey()
 	return _u
 }
 
@@ -2308,6 +2410,16 @@ func (_u *UsageLogUpdateOne) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RequestedTierKey(); ok {
+		if err := usagelog.RequestedTierKeyValidator(v); err != nil {
+			return &ValidationError{Name: "requested_tier_key", err: fmt.Errorf(`ent: validator failed for field "UsageLog.requested_tier_key": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ActualTierKey(); ok {
+		if err := usagelog.ActualTierKeyValidator(v); err != nil {
+			return &ValidationError{Name: "actual_tier_key", err: fmt.Errorf(`ent: validator failed for field "UsageLog.actual_tier_key": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
 			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
@@ -2423,6 +2535,18 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if _u.mutation.BillingModeCleared() {
 		_spec.ClearField(usagelog.FieldBillingMode, field.TypeString)
+	}
+	if value, ok := _u.mutation.RequestedTierKey(); ok {
+		_spec.SetField(usagelog.FieldRequestedTierKey, field.TypeString, value)
+	}
+	if _u.mutation.RequestedTierKeyCleared() {
+		_spec.ClearField(usagelog.FieldRequestedTierKey, field.TypeString)
+	}
+	if value, ok := _u.mutation.ActualTierKey(); ok {
+		_spec.SetField(usagelog.FieldActualTierKey, field.TypeString, value)
+	}
+	if _u.mutation.ActualTierKeyCleared() {
+		_spec.ClearField(usagelog.FieldActualTierKey, field.TypeString)
 	}
 	if value, ok := _u.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)

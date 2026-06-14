@@ -152,11 +152,14 @@ type APIKeyAuthCacheInvalidator interface {
 
 // CreateAPIKeyRequest 创建API Key请求
 type CreateAPIKeyRequest struct {
-	Name        string   `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	CustomKey   *string  `json:"custom_key"`   // 可选的自定义key
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
+	Name                string         `json:"name"`
+	GroupID             *int64         `json:"group_id"`
+	CustomKey           *string        `json:"custom_key"`   // 可选的自定义key
+	IPWhitelist         []string       `json:"ip_whitelist"` // IP 白名单
+	IPBlacklist         []string       `json:"ip_blacklist"` // IP 黑名单
+	PreferredTierKey    string         `json:"preferred_tier_key"`
+	TierFallbackEnabled *bool          `json:"tier_fallback_enabled"`
+	TierFallbackPolicy  map[string]any `json:"tier_fallback_policy"`
 
 	// Quota fields
 	Quota         float64 `json:"quota"`           // Quota limit in USD (0 = unlimited)
@@ -170,11 +173,14 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest 更新API Key请求
 type UpdateAPIKeyRequest struct {
-	Name        *string  `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	Status      *string  `json:"status"`
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单（空数组清空）
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单（空数组清空）
+	Name                *string        `json:"name"`
+	GroupID             *int64         `json:"group_id"`
+	Status              *string        `json:"status"`
+	IPWhitelist         []string       `json:"ip_whitelist"` // IP 白名单（空数组清空）
+	IPBlacklist         []string       `json:"ip_blacklist"` // IP 黑名单（空数组清空）
+	PreferredTierKey    *string        `json:"preferred_tier_key"`
+	TierFallbackEnabled *bool          `json:"tier_fallback_enabled"`
+	TierFallbackPolicy  map[string]any `json:"tier_fallback_policy"`
 
 	// Quota fields
 	Quota           *float64   `json:"quota"`       // Quota limit in USD (nil = no change, 0 = unlimited)
@@ -201,6 +207,7 @@ type APIKeyService struct {
 	groupRepo             GroupRepository
 	userSubRepo           UserSubscriptionRepository
 	userGroupRateRepo     UserGroupRateRepository
+	groupRateTierRepo     GroupRateTierRepository
 	cache                 APIKeyCache
 	rateLimitCacheInvalid RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
 	cfg                   *config.Config
@@ -218,6 +225,7 @@ func NewAPIKeyService(
 	groupRepo GroupRepository,
 	userSubRepo UserSubscriptionRepository,
 	userGroupRateRepo UserGroupRateRepository,
+	groupRateTierRepo GroupRateTierRepository,
 	cache APIKeyCache,
 	cfg *config.Config,
 ) *APIKeyService {
@@ -227,6 +235,7 @@ func NewAPIKeyService(
 		groupRepo:         groupRepo,
 		userSubRepo:       userSubRepo,
 		userGroupRateRepo: userGroupRateRepo,
+		groupRateTierRepo: groupRateTierRepo,
 		cache:             cache,
 		cfg:               cfg,
 	}
@@ -400,18 +409,24 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 
 	// 创建API Key记录
 	apiKey := &APIKey{
-		UserID:      userID,
-		Key:         key,
-		Name:        html.EscapeString(req.Name),
-		GroupID:     req.GroupID,
-		Status:      StatusActive,
-		IPWhitelist: req.IPWhitelist,
-		IPBlacklist: req.IPBlacklist,
-		Quota:       req.Quota,
-		QuotaUsed:   0,
-		RateLimit5h: req.RateLimit5h,
-		RateLimit1d: req.RateLimit1d,
-		RateLimit7d: req.RateLimit7d,
+		UserID:              userID,
+		Key:                 key,
+		Name:                html.EscapeString(req.Name),
+		GroupID:             req.GroupID,
+		Status:              StatusActive,
+		PreferredTierKey:    normalizeTierKey(req.PreferredTierKey),
+		TierFallbackEnabled: true,
+		TierFallbackPolicy:  normalizeJSONMap(req.TierFallbackPolicy),
+		IPWhitelist:         req.IPWhitelist,
+		IPBlacklist:         req.IPBlacklist,
+		Quota:               req.Quota,
+		QuotaUsed:           0,
+		RateLimit5h:         req.RateLimit5h,
+		RateLimit1d:         req.RateLimit1d,
+		RateLimit7d:         req.RateLimit7d,
+	}
+	if req.TierFallbackEnabled != nil {
+		apiKey.TierFallbackEnabled = *req.TierFallbackEnabled
 	}
 
 	// Set expiration time if specified
@@ -569,6 +584,15 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		if s.cache != nil {
 			_ = s.cache.DeleteCreateAttemptCount(ctx, apiKey.UserID)
 		}
+	}
+	if req.PreferredTierKey != nil {
+		apiKey.PreferredTierKey = normalizeTierKey(*req.PreferredTierKey)
+	}
+	if req.TierFallbackEnabled != nil {
+		apiKey.TierFallbackEnabled = *req.TierFallbackEnabled
+	}
+	if req.TierFallbackPolicy != nil {
+		apiKey.TierFallbackPolicy = normalizeJSONMap(req.TierFallbackPolicy)
 	}
 
 	// Update quota fields
@@ -808,6 +832,24 @@ func (s *APIKeyService) GetUserGroupRates(ctx context.Context, userID int64) (ma
 		return nil, fmt.Errorf("get user group rates: %w", err)
 	}
 	return rates, nil
+}
+
+func (s *APIKeyService) GetAvailableGroupRateTiers(ctx context.Context, userID int64, groupID int64) ([]GroupRateTier, error) {
+	if s.groupRateTierRepo == nil {
+		return nil, nil
+	}
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	group, err := s.groupRepo.GetByID(ctx, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("get group: %w", err)
+	}
+	if !s.canUserBindGroup(ctx, user, group) {
+		return nil, ErrGroupNotAllowed
+	}
+	return s.groupRateTierRepo.ListActiveByGroupID(ctx, groupID)
 }
 
 // CheckAPIKeyQuotaAndExpiry checks if the API key is valid for use (not expired, quota not exhausted)

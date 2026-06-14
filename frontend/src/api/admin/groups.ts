@@ -185,6 +185,20 @@ export interface GroupRateMultiplierEntry {
   rpm_override?: number | null
 }
 
+export interface GroupRateTier {
+  id?: number
+  group_id?: number
+  tier_key: string
+  display_name: string
+  rate_multiplier: number
+  priority: number
+  enabled: boolean
+  is_default: boolean
+  fallback_policy?: Record<string, unknown>
+  created_at?: string
+  updated_at?: string
+}
+
 /**
  * Get rate multipliers for users in a group
  * @param id - Group ID
@@ -233,6 +247,21 @@ export async function batchSetGroupRateMultipliers(
     `/admin/groups/${id}/rate-multipliers`,
     { entries }
   )
+  return data
+}
+
+export async function getGroupRateTiers(id: number): Promise<GroupRateTier[]> {
+  const { data } = await apiClient.get<GroupRateTier[]>(`/admin/groups/${id}/rate-tiers`)
+  return data
+}
+
+export async function batchSetGroupRateTiers(
+  id: number,
+  tiers: GroupRateTier[]
+): Promise<{ message: string }> {
+  const { data } = await apiClient.put<{ message: string }>(`/admin/groups/${id}/rate-tiers`, {
+    tiers
+  })
   return data
 }
 
@@ -333,6 +362,8 @@ export const groupsAPI = {
   getGroupRateMultipliers,
   clearGroupRateMultipliers,
   batchSetGroupRateMultipliers,
+  getGroupRateTiers,
+  batchSetGroupRateTiers,
   getGroupRPMOverrides,
   clearGroupRPMOverrides,
   batchSetGroupRPMOverrides,

@@ -45,6 +45,8 @@ const (
 	FieldPriority = "priority"
 	// FieldRateMultiplier holds the string denoting the rate_multiplier field in the database.
 	FieldRateMultiplier = "rate_multiplier"
+	// FieldServiceTierKey holds the string denoting the service_tier_key field in the database.
+	FieldServiceTierKey = "service_tier_key"
 	// FieldSupportsImageGeneration holds the string denoting the supports_image_generation field in the database.
 	FieldSupportsImageGeneration = "supports_image_generation"
 	// FieldStatus holds the string denoting the status field in the database.
@@ -131,6 +133,7 @@ var Columns = []string{
 	FieldLoadFactor,
 	FieldPriority,
 	FieldRateMultiplier,
+	FieldServiceTierKey,
 	FieldSupportsImageGeneration,
 	FieldStatus,
 	FieldErrorMessage,
@@ -194,6 +197,10 @@ var (
 	DefaultPriority int
 	// DefaultRateMultiplier holds the default value on creation for the "rate_multiplier" field.
 	DefaultRateMultiplier float64
+	// DefaultServiceTierKey holds the default value on creation for the "service_tier_key" field.
+	DefaultServiceTierKey string
+	// ServiceTierKeyValidator is a validator for the "service_tier_key" field. It is called by the builders before save.
+	ServiceTierKeyValidator func(string) error
 	// DefaultSupportsImageGeneration holds the default value on creation for the "supports_image_generation" field.
 	DefaultSupportsImageGeneration bool
 	// DefaultStatus holds the default value on creation for the "status" field.
@@ -279,6 +286,11 @@ func ByPriority(opts ...sql.OrderTermOption) OrderOption {
 // ByRateMultiplier orders the results by the rate_multiplier field.
 func ByRateMultiplier(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRateMultiplier, opts...).ToFunc()
+}
+
+// ByServiceTierKey orders the results by the service_tier_key field.
+func ByServiceTierKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldServiceTierKey, opts...).ToFunc()
 }
 
 // BySupportsImageGeneration orders the results by the supports_image_generation field.

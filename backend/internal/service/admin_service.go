@@ -61,6 +61,8 @@ type AdminService interface {
 	GetGroupRateMultipliers(ctx context.Context, groupID int64) ([]UserGroupRateEntry, error)
 	ClearGroupRateMultipliers(ctx context.Context, groupID int64) error
 	BatchSetGroupRateMultipliers(ctx context.Context, groupID int64, entries []GroupRateMultiplierInput) error
+	GetGroupRateTiers(ctx context.Context, groupID int64) ([]GroupRateTier, error)
+	BatchSetGroupRateTiers(ctx context.Context, groupID int64, tiers []GroupRateTierInput) error
 	ClearGroupRPMOverrides(ctx context.Context, groupID int64) error
 	BatchSetGroupRPMOverrides(ctx context.Context, groupID int64, entries []GroupRPMOverrideInput) error
 	UpdateGroupSortOrders(ctx context.Context, updates []GroupSortOrderUpdate) error
@@ -283,6 +285,7 @@ type CreateAccountInput struct {
 	Concurrency             int
 	Priority                int
 	RateMultiplier          *float64 // 账号计费倍率（>=0，允许 0）
+	ServiceTierKey          string
 	LoadFactor              *int
 	SupportsImageGeneration bool
 	GroupIDs                []int64
@@ -305,6 +308,7 @@ type UpdateAccountInput struct {
 	Concurrency             *int     // 使用指针区分"未提供"和"设置为0"
 	Priority                *int     // 使用指针区分"未提供"和"设置为0"
 	RateMultiplier          *float64 // 账号计费倍率（>=0，允许 0）
+	ServiceTierKey          *string
 	LoadFactor              *int
 	SupportsImageGeneration *bool
 	Status                  string
@@ -323,6 +327,7 @@ type BulkUpdateAccountsInput struct {
 	Concurrency             *int
 	Priority                *int
 	RateMultiplier          *float64 // 账号计费倍率（>=0，允许 0）
+	ServiceTierKey          *string
 	LoadFactor              *int
 	SupportsImageGeneration *bool
 	Status                  string
@@ -547,6 +552,7 @@ type adminServiceImpl struct {
 	apiKeyRepo           APIKeyRepository
 	redeemCodeRepo       RedeemCodeRepository
 	userGroupRateRepo    UserGroupRateRepository
+	groupRateTierRepo    GroupRateTierAdminRepository
 	userRPMCache         UserRPMCache
 	billingCacheService  *BillingCacheService
 	proxyProber          ProxyExitInfoProber
@@ -573,6 +579,7 @@ func NewAdminService(
 	apiKeyRepo APIKeyRepository,
 	redeemCodeRepo RedeemCodeRepository,
 	userGroupRateRepo UserGroupRateRepository,
+	groupRateTierRepo GroupRateTierAdminRepository,
 	userRPMCache UserRPMCache,
 	billingCacheService *BillingCacheService,
 	proxyProber ProxyExitInfoProber,
@@ -593,6 +600,7 @@ func NewAdminService(
 		apiKeyRepo:           apiKeyRepo,
 		redeemCodeRepo:       redeemCodeRepo,
 		userGroupRateRepo:    userGroupRateRepo,
+		groupRateTierRepo:    groupRateTierRepo,
 		userRPMCache:         userRPMCache,
 		billingCacheService:  billingCacheService,
 		proxyProber:          proxyProber,
@@ -2305,6 +2313,66 @@ func (s *adminServiceImpl) BatchSetGroupRateMultipliers(ctx context.Context, gro
 	return s.userGroupRateRepo.SyncGroupRateMultipliers(ctx, groupID, entries)
 }
 
+func (s *adminServiceImpl) GetGroupRateTiers(ctx context.Context, groupID int64) ([]GroupRateTier, error) {
+	if s.groupRateTierRepo == nil {
+		return nil, nil
+	}
+	return s.groupRateTierRepo.ListByGroupID(ctx, groupID)
+}
+
+func (s *adminServiceImpl) BatchSetGroupRateTiers(ctx context.Context, groupID int64, tiers []GroupRateTierInput) error {
+	if s.groupRateTierRepo == nil {
+		return nil
+	}
+	normalized, err := normalizeGroupRateTierInputs(tiers)
+	if err != nil {
+		return err
+	}
+	return s.groupRateTierRepo.SyncGroupRateTiers(ctx, groupID, normalized)
+}
+
+func normalizeGroupRateTierInputs(tiers []GroupRateTierInput) ([]GroupRateTierInput, error) {
+	normalized := make([]GroupRateTierInput, 0, len(tiers))
+	seen := make(map[string]struct{}, len(tiers))
+	defaultCount := 0
+	for i, tier := range tiers {
+		key := normalizeTierKey(tier.TierKey)
+		if key == "" {
+			return nil, infraerrors.BadRequest("INVALID_TIER_KEY", fmt.Sprintf("tier_key is required at index %d", i))
+		}
+		if _, exists := seen[key]; exists {
+			return nil, infraerrors.BadRequest("DUPLICATE_TIER_KEY", fmt.Sprintf("duplicate tier_key %q", key))
+		}
+		seen[key] = struct{}{}
+		displayName := strings.TrimSpace(tier.DisplayName)
+		if displayName == "" {
+			displayName = key
+		}
+		if tier.RateMultiplier < 0 {
+			return nil, infraerrors.BadRequest("INVALID_TIER_RATE_MULTIPLIER", fmt.Sprintf("rate_multiplier must be >= 0 (tier_key=%s)", key))
+		}
+		if tier.IsDefault {
+			defaultCount++
+		}
+		normalized = append(normalized, GroupRateTierInput{
+			TierKey:        key,
+			DisplayName:    displayName,
+			RateMultiplier: tier.RateMultiplier,
+			Priority:       tier.Priority,
+			Enabled:        tier.Enabled,
+			IsDefault:      tier.IsDefault,
+			FallbackPolicy: normalizeJSONMap(tier.FallbackPolicy),
+		})
+	}
+	if defaultCount > 1 {
+		return nil, infraerrors.BadRequest("MULTIPLE_DEFAULT_TIERS", "only one service tier can be default")
+	}
+	if len(normalized) > 0 && defaultCount == 0 {
+		normalized[0].IsDefault = true
+	}
+	return normalized, nil
+}
+
 func (s *adminServiceImpl) ClearGroupRPMOverrides(ctx context.Context, groupID int64) error {
 	if s.userGroupRateRepo == nil {
 		return nil
@@ -2597,6 +2665,7 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 		ProxyID:                 input.ProxyID,
 		Concurrency:             input.Concurrency,
 		Priority:                input.Priority,
+		ServiceTierKey:          normalizeTierKey(input.ServiceTierKey),
 		Status:                  StatusActive,
 		Schedulable:             true,
 		SupportsImageGeneration: input.SupportsImageGeneration,
@@ -2740,6 +2809,9 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			return nil, errors.New("rate_multiplier must be >= 0")
 		}
 		account.RateMultiplier = input.RateMultiplier
+	}
+	if input.ServiceTierKey != nil {
+		account.ServiceTierKey = normalizeTierKey(*input.ServiceTierKey)
 	}
 	if input.LoadFactor != nil {
 		if *input.LoadFactor <= 0 {
@@ -2890,6 +2962,10 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 	if input.RateMultiplier != nil {
 		repoUpdates.RateMultiplier = input.RateMultiplier
+	}
+	if input.ServiceTierKey != nil {
+		normalized := normalizeTierKey(*input.ServiceTierKey)
+		repoUpdates.ServiceTierKey = &normalized
 	}
 	if input.LoadFactor != nil {
 		if *input.LoadFactor <= 0 {

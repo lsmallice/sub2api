@@ -2510,6 +2510,16 @@
         v-if="form.platform === 'openai'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
+        <div class="mb-4">
+          <label class="input-label">{{ t('admin.accounts.serviceTierKey') }}</label>
+          <input
+            v-model.trim="form.service_tier_key"
+            type="text"
+            class="input font-mono text-sm"
+            placeholder="pro / plus / pro2"
+          />
+          <p class="input-hint">{{ t('admin.accounts.serviceTierKeyHint') }}</p>
+        </div>
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.supportsImageGeneration') }}</label>
@@ -3721,6 +3731,7 @@ const form = reactive({
   load_factor: null as number | null,
   priority: 1,
   rate_multiplier: 1,
+  service_tier_key: '',
   supports_image_generation: false,
   group_ids: [] as number[],
   expires_at: null as number | null
@@ -4172,6 +4183,7 @@ const withAntigravityConfirmFlag = (payload: CreateAccountRequest): CreateAccoun
 
 const withOpenAIImageGenerationSupport = (payload: CreateAccountRequest): CreateAccountRequest => ({
   ...payload,
+  service_tier_key: payload.platform === 'openai' ? form.service_tier_key.trim().toLowerCase() : '',
   supports_image_generation: payload.platform === 'openai' && form.supports_image_generation
 })
 
@@ -4242,6 +4254,7 @@ const resetForm = () => {
   form.load_factor = null
   form.priority = 1
   form.rate_multiplier = 1
+  form.service_tier_key = ''
   form.supports_image_generation = false
   form.group_ids = []
   form.expires_at = null
@@ -4817,6 +4830,7 @@ const createAccountAndFinish = async (
     load_factor: form.load_factor ?? undefined,
     priority: form.priority,
     rate_multiplier: form.rate_multiplier,
+    service_tier_key: platform === 'openai' ? form.service_tier_key.trim().toLowerCase() : '',
     group_ids: form.group_ids,
     expires_at: form.expires_at,
     auto_pause_on_expired: autoPauseOnExpired.value
@@ -4884,6 +4898,7 @@ const handleOpenAIExchange = async (authCode: string) => {
         load_factor: form.load_factor ?? undefined,
         priority: form.priority,
         rate_multiplier: form.rate_multiplier,
+        service_tier_key: form.service_tier_key.trim().toLowerCase(),
         group_ids: form.group_ids,
         expires_at: form.expires_at,
         auto_pause_on_expired: autoPauseOnExpired.value
@@ -4961,6 +4976,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
       load_factor: form.load_factor ?? undefined,
       priority: form.priority,
       rate_multiplier: form.rate_multiplier,
+      service_tier_key: form.service_tier_key.trim().toLowerCase(),
       supports_image_generation: form.supports_image_generation,
       group_ids: form.group_ids,
       expires_at: form.expires_at,
@@ -5089,6 +5105,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
             load_factor: form.load_factor ?? undefined,
             priority: form.priority,
             rate_multiplier: form.rate_multiplier,
+            service_tier_key: form.service_tier_key.trim().toLowerCase(),
             group_ids: form.group_ids,
             expires_at: form.expires_at,
             auto_pause_on_expired: autoPauseOnExpired.value
@@ -5187,6 +5204,7 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
+          service_tier_key: form.service_tier_key.trim().toLowerCase(),
           group_ids: form.group_ids,
           expires_at: form.expires_at,
           auto_pause_on_expired: autoPauseOnExpired.value
@@ -5528,6 +5546,7 @@ const handleCookieAuth = async (sessionKey: string) => {
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
+          service_tier_key: form.service_tier_key.trim().toLowerCase(),
           group_ids: form.group_ids,
           expires_at: form.expires_at,
           auto_pause_on_expired: autoPauseOnExpired.value

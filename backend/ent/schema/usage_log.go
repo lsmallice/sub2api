@@ -57,6 +57,8 @@ func (UsageLog) Fields() []ent.Field {
 		field.String("model_mapping_chain").MaxLen(500).Optional().Nillable().Comment("模型映射链"),
 		field.String("billing_tier").MaxLen(50).Optional().Nillable().Comment("计费层级标签"),
 		field.String("billing_mode").MaxLen(20).Optional().Nillable().Comment("计费模式：token/per_request/image"),
+		field.String("requested_tier_key").MaxLen(50).Optional().Nillable().Comment("Requested custom service tier before fallback"),
+		field.String("actual_tier_key").MaxLen(50).Optional().Nillable().Comment("Actual custom service tier selected for routing and billing"),
 		field.Int64("group_id").
 			Optional().
 			Nillable(),
@@ -201,6 +203,7 @@ func (UsageLog) Indexes() []ent.Index {
 		index.Fields("created_at"),
 		index.Fields("model"),
 		index.Fields("requested_model"),
+		index.Fields("actual_tier_key", "created_at"),
 		index.Fields("request_id"),
 		// 复合索引用于时间范围查询
 		index.Fields("user_id", "created_at"),

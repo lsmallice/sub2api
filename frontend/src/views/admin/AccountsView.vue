@@ -242,6 +242,12 @@
                 >
                   {{ t('admin.accounts.supportsImageGeneration') }}
                 </span>
+                <span
+                  v-if="row.platform === 'openai' && row.service_tier_key"
+                  class="inline-block rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-violet-700 ring-1 ring-violet-100 dark:bg-violet-900/20 dark:text-violet-300 dark:ring-violet-800"
+                >
+                  {{ row.service_tier_key }}
+                </span>
               </div>
               <div
                 v-if="getOpenAICompactMeta(row)"

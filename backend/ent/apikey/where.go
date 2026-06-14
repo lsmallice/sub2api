@@ -95,6 +95,16 @@ func Status(v string) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldStatus, v))
 }
 
+// PreferredTierKey applies equality check predicate on the "preferred_tier_key" field. It's identical to PreferredTierKeyEQ.
+func PreferredTierKey(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldPreferredTierKey, v))
+}
+
+// TierFallbackEnabled applies equality check predicate on the "tier_fallback_enabled" field. It's identical to TierFallbackEnabledEQ.
+func TierFallbackEnabled(v bool) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldTierFallbackEnabled, v))
+}
+
 // LastUsedAt applies equality check predicate on the "last_used_at" field. It's identical to LastUsedAtEQ.
 func LastUsedAt(v time.Time) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldLastUsedAt, v))
@@ -533,6 +543,91 @@ func StatusEqualFold(v string) predicate.APIKey {
 // StatusContainsFold applies the ContainsFold predicate on the "status" field.
 func StatusContainsFold(v string) predicate.APIKey {
 	return predicate.APIKey(sql.FieldContainsFold(FieldStatus, v))
+}
+
+// PreferredTierKeyEQ applies the EQ predicate on the "preferred_tier_key" field.
+func PreferredTierKeyEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldPreferredTierKey, v))
+}
+
+// PreferredTierKeyNEQ applies the NEQ predicate on the "preferred_tier_key" field.
+func PreferredTierKeyNEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldPreferredTierKey, v))
+}
+
+// PreferredTierKeyIn applies the In predicate on the "preferred_tier_key" field.
+func PreferredTierKeyIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldPreferredTierKey, vs...))
+}
+
+// PreferredTierKeyNotIn applies the NotIn predicate on the "preferred_tier_key" field.
+func PreferredTierKeyNotIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldPreferredTierKey, vs...))
+}
+
+// PreferredTierKeyGT applies the GT predicate on the "preferred_tier_key" field.
+func PreferredTierKeyGT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldPreferredTierKey, v))
+}
+
+// PreferredTierKeyGTE applies the GTE predicate on the "preferred_tier_key" field.
+func PreferredTierKeyGTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldPreferredTierKey, v))
+}
+
+// PreferredTierKeyLT applies the LT predicate on the "preferred_tier_key" field.
+func PreferredTierKeyLT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldPreferredTierKey, v))
+}
+
+// PreferredTierKeyLTE applies the LTE predicate on the "preferred_tier_key" field.
+func PreferredTierKeyLTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldPreferredTierKey, v))
+}
+
+// PreferredTierKeyContains applies the Contains predicate on the "preferred_tier_key" field.
+func PreferredTierKeyContains(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContains(FieldPreferredTierKey, v))
+}
+
+// PreferredTierKeyHasPrefix applies the HasPrefix predicate on the "preferred_tier_key" field.
+func PreferredTierKeyHasPrefix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasPrefix(FieldPreferredTierKey, v))
+}
+
+// PreferredTierKeyHasSuffix applies the HasSuffix predicate on the "preferred_tier_key" field.
+func PreferredTierKeyHasSuffix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasSuffix(FieldPreferredTierKey, v))
+}
+
+// PreferredTierKeyEqualFold applies the EqualFold predicate on the "preferred_tier_key" field.
+func PreferredTierKeyEqualFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEqualFold(FieldPreferredTierKey, v))
+}
+
+// PreferredTierKeyContainsFold applies the ContainsFold predicate on the "preferred_tier_key" field.
+func PreferredTierKeyContainsFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContainsFold(FieldPreferredTierKey, v))
+}
+
+// TierFallbackEnabledEQ applies the EQ predicate on the "tier_fallback_enabled" field.
+func TierFallbackEnabledEQ(v bool) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldTierFallbackEnabled, v))
+}
+
+// TierFallbackEnabledNEQ applies the NEQ predicate on the "tier_fallback_enabled" field.
+func TierFallbackEnabledNEQ(v bool) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldTierFallbackEnabled, v))
+}
+
+// TierFallbackPolicyIsNil applies the IsNil predicate on the "tier_fallback_policy" field.
+func TierFallbackPolicyIsNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldIsNull(FieldTierFallbackPolicy))
+}
+
+// TierFallbackPolicyNotNil applies the NotNil predicate on the "tier_fallback_policy" field.
+func TierFallbackPolicyNotNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotNull(FieldTierFallbackPolicy))
 }
 
 // LastUsedAtEQ applies the EQ predicate on the "last_used_at" field.

@@ -90,6 +90,7 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 		SetExtra(normalizeJSONMap(account.Extra)).
 		SetConcurrency(account.Concurrency).
 		SetPriority(account.Priority).
+		SetServiceTierKey(account.ServiceTierKey).
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(account.Schedulable).
@@ -332,6 +333,7 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 		SetExtra(normalizeJSONMap(account.Extra)).
 		SetConcurrency(account.Concurrency).
 		SetPriority(account.Priority).
+		SetServiceTierKey(account.ServiceTierKey).
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(schedulable).
@@ -1445,6 +1447,11 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		args = append(args, *updates.RateMultiplier)
 		idx++
 	}
+	if updates.ServiceTierKey != nil {
+		setClauses = append(setClauses, "service_tier_key = $"+itoa(idx))
+		args = append(args, strings.ToLower(strings.TrimSpace(*updates.ServiceTierKey)))
+		idx++
+	}
 	if updates.LoadFactor != nil {
 		if *updates.LoadFactor <= 0 {
 			setClauses = append(setClauses, "load_factor = NULL")
@@ -1792,6 +1799,7 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		Concurrency:             m.Concurrency,
 		Priority:                m.Priority,
 		RateMultiplier:          &rateMultiplier,
+		ServiceTierKey:          m.ServiceTierKey,
 		LoadFactor:              m.LoadFactor,
 		Status:                  m.Status,
 		ErrorMessage:            derefString(m.ErrorMessage),

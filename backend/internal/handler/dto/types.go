@@ -49,20 +49,23 @@ type AdminUser struct {
 }
 
 type APIKey struct {
-	ID          int64      `json:"id"`
-	UserID      int64      `json:"user_id"`
-	Key         string     `json:"key"`
-	Name        string     `json:"name"`
-	GroupID     *int64     `json:"group_id"`
-	Status      string     `json:"status"`
-	IPWhitelist []string   `json:"ip_whitelist"`
-	IPBlacklist []string   `json:"ip_blacklist"`
-	LastUsedAt  *time.Time `json:"last_used_at"`
-	Quota       float64    `json:"quota"`      // Quota limit in USD (0 = unlimited)
-	QuotaUsed   float64    `json:"quota_used"` // Used quota amount in USD
-	ExpiresAt   *time.Time `json:"expires_at"` // Expiration time (nil = never expires)
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID                  int64          `json:"id"`
+	UserID              int64          `json:"user_id"`
+	Key                 string         `json:"key"`
+	Name                string         `json:"name"`
+	GroupID             *int64         `json:"group_id"`
+	Status              string         `json:"status"`
+	PreferredTierKey    string         `json:"preferred_tier_key"`
+	TierFallbackEnabled bool           `json:"tier_fallback_enabled"`
+	TierFallbackPolicy  map[string]any `json:"tier_fallback_policy"`
+	IPWhitelist         []string       `json:"ip_whitelist"`
+	IPBlacklist         []string       `json:"ip_blacklist"`
+	LastUsedAt          *time.Time     `json:"last_used_at"`
+	Quota               float64        `json:"quota"`      // Quota limit in USD (0 = unlimited)
+	QuotaUsed           float64        `json:"quota_used"` // Used quota amount in USD
+	ExpiresAt           *time.Time     `json:"expires_at"` // Expiration time (nil = never expires)
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
 
 	// Rate limit fields
 	RateLimit5h   float64    `json:"rate_limit_5h"`
@@ -170,6 +173,7 @@ type Account struct {
 	LoadFactor              *int            `json:"load_factor,omitempty"`
 	Priority                int             `json:"priority"`
 	RateMultiplier          float64         `json:"rate_multiplier"`
+	ServiceTierKey          string          `json:"service_tier_key"`
 	Status                  string          `json:"status"`
 	ErrorMessage            string          `json:"error_message"`
 	LastUsedAt              *time.Time      `json:"last_used_at"`
@@ -434,6 +438,10 @@ type UsageLog struct {
 	Model     string `json:"model"`
 	// ServiceTier records the OpenAI service tier used for billing, e.g. "priority" / "flex".
 	ServiceTier *string `json:"service_tier,omitempty"`
+	// RequestedTierKey is the preferred multi-tier routing key requested by the API key/group policy.
+	RequestedTierKey *string `json:"requested_tier_key,omitempty"`
+	// ActualTierKey is the multi-tier routing key that actually served and billed the request.
+	ActualTierKey *string `json:"actual_tier_key,omitempty"`
 	// ReasoningEffort is the request's reasoning effort level.
 	// OpenAI: "low"/"medium"/"high"/"xhigh"; Claude: "low"/"medium"/"high"/"max".
 	ReasoningEffort *string `json:"reasoning_effort,omitempty"`

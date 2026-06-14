@@ -227,6 +227,24 @@
             </span>
           </template>
 
+          <template #cell-routing_tier="{ row }">
+            <div class="flex min-w-[92px] items-center gap-1.5 text-xs">
+              <span
+                class="inline-flex items-center rounded px-1.5 py-0.5 font-medium"
+                :class="getRoutingTierBadgeClass(row.actual_tier_key || row.requested_tier_key)"
+              >
+                {{ formatRoutingTier(row.actual_tier_key || row.requested_tier_key) }}
+              </span>
+              <span
+                v-if="isTierFallback(row)"
+                class="text-gray-400 dark:text-gray-500"
+                :title="t('usage.tierFallbackHint', { requested: formatRoutingTier(row.requested_tier_key), actual: formatRoutingTier(row.actual_tier_key) })"
+              >
+                ← {{ formatRoutingTier(row.requested_tier_key) }}
+              </span>
+            </div>
+          </template>
+
           <template #cell-tokens="{ row }">
             <!-- 图片生成请求 -->
             <div v-if="isImageUsage(row)" class="flex items-center gap-1.5">
@@ -685,6 +703,7 @@ const columns = computed<Column[]>(() => [
   { key: 'endpoint', label: t('usage.endpoint'), sortable: false },
   { key: 'stream', label: t('usage.type'), sortable: false },
   { key: 'billing_mode', label: t('admin.usage.billingMode'), sortable: false },
+  { key: 'routing_tier', label: t('usage.routingTier'), sortable: false },
   { key: 'tokens', label: t('usage.tokens'), sortable: false },
   { key: 'cost', label: t('usage.cost'), sortable: false },
   { key: 'first_token', label: t('usage.firstToken'), sortable: false },
@@ -799,6 +818,25 @@ const getRequestTypeExportText = (log: UsageLog): string => {
 const formatUsageEndpoints = (log: UsageLog): string => {
   const inbound = log.inbound_endpoint?.trim()
   return inbound || '-'
+}
+
+const normalizeTierKey = (value: string | null | undefined): string => value?.trim() || ''
+
+const formatRoutingTier = (value: string | null | undefined): string => {
+  const normalized = normalizeTierKey(value)
+  return normalized || '-'
+}
+
+const isTierFallback = (log: UsageLog): boolean => {
+  const requested = normalizeTierKey(log.requested_tier_key)
+  const actual = normalizeTierKey(log.actual_tier_key)
+  return requested !== '' && actual !== '' && requested !== actual
+}
+
+const getRoutingTierBadgeClass = (value: string | null | undefined): string => {
+  const normalized = normalizeTierKey(value)
+  if (!normalized) return 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300'
+  return 'bg-cyan-100 text-cyan-700 ring-1 ring-inset ring-cyan-200 dark:bg-cyan-500/15 dark:text-cyan-300 dark:ring-cyan-500/30'
 }
 
 const formatTokens = (value: number): string => {
@@ -980,6 +1018,8 @@ const exportToCSV = async () => {
       'Inbound Endpoint',
       'Type',
       'Billing Mode',
+      'Requested Tier',
+      'Actual Tier',
       'Input Tokens',
       'Output Tokens',
       'Cache Read Tokens',
@@ -999,6 +1039,8 @@ const exportToCSV = async () => {
         log.inbound_endpoint || '',
         getRequestTypeExportText(log),
         getBillingModeLabel(getDisplayBillingMode(log), t),
+        log.requested_tier_key || '',
+        log.actual_tier_key || '',
         log.input_tokens,
         log.output_tokens,
         log.cache_read_tokens,

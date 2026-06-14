@@ -131,6 +131,13 @@
                   />
                 </svg>
               </button>
+              <div v-if="row.preferred_tier_key" class="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                <span class="rounded bg-primary-50 px-1.5 py-0.5 font-mono text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                  {{ row.preferred_tier_key }}
+                </span>
+                <span v-if="row.tier_fallback_enabled">{{ t('keys.tierRouting.fallbackOn') }}</span>
+                <span v-else>{{ t('keys.tierRouting.fallbackOff') }}</span>
+              </div>
             </div>
           </template>
 
@@ -437,6 +444,132 @@
               />
             </template>
           </Select>
+        </div>
+
+        <div
+          v-if="availableRateTiers.length > 0"
+          class="space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-600 dark:bg-dark-800"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <label class="input-label mb-0">{{ t('keys.tierRouting.title') }}</label>
+              <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                <span>{{ t('keys.tierRouting.preferredTier') }}</span>
+                <span class="text-gray-300 dark:text-gray-600">/</span>
+                <span>{{ t('keys.tierRouting.fallbackOrder') }}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span
+                :class="[
+                  'rounded-full px-2 py-0.5 text-xs font-medium',
+                  formData.tier_fallback_enabled
+                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20'
+                    : 'bg-gray-100 text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:ring-dark-600'
+                ]"
+              >
+                {{ formData.tier_fallback_enabled ? t('keys.tierRouting.fallbackOn') : t('keys.tierRouting.fallbackOff') }}
+              </span>
+              <button
+                type="button"
+                @click="formData.tier_fallback_enabled = !formData.tier_fallback_enabled"
+                :class="[
+                  'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                  formData.tier_fallback_enabled ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-dark-600'
+                ]"
+              >
+                <span
+                  :class="[
+                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                    formData.tier_fallback_enabled ? 'translate-x-4' : 'translate-x-0'
+                  ]"
+                />
+              </button>
+            </div>
+          </div>
+
+          <div class="grid gap-2 sm:grid-cols-2">
+            <button
+              v-for="tier in availableRateTiers"
+              :key="tier.tier_key"
+              type="button"
+              @click="formData.preferred_tier_key = tier.tier_key"
+              :class="[
+                'flex min-h-[52px] items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                formData.preferred_tier_key === tier.tier_key
+                  ? 'border-primary-400 bg-primary-50 text-primary-900 shadow-sm ring-1 ring-primary-300 dark:border-primary-500 dark:bg-primary-500/10 dark:text-primary-100 dark:ring-primary-500/40'
+                  : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:bg-white dark:border-dark-600 dark:bg-dark-700/50 dark:text-gray-200 dark:hover:border-dark-500 dark:hover:bg-dark-700'
+              ]"
+            >
+              <span class="min-w-0">
+                <span class="block truncate text-sm font-semibold">
+                  {{ tier.display_name || tier.tier_key }}
+                </span>
+                <span class="mt-0.5 block truncate font-mono text-xs text-gray-500 dark:text-gray-400">
+                  {{ tier.tier_key }}
+                </span>
+              </span>
+              <span class="flex flex-shrink-0 items-center gap-1.5">
+                <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-200 dark:bg-dark-800 dark:text-gray-200 dark:ring-dark-600">
+                  {{ tier.rate_multiplier }}x
+                </span>
+                <span
+                  v-if="tier.is_default"
+                  class="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20"
+                >
+                  {{ t('keys.tierRouting.default') }}
+                </span>
+              </span>
+            </button>
+          </div>
+
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-600 dark:bg-dark-700/40">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <div class="text-sm font-semibold text-gray-900 dark:text-white">
+                  {{ t('keys.tierRouting.fallbackOrder') }}
+                </div>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('keys.tierRouting.fallbackOrderHint') }}
+                </p>
+              </div>
+            </div>
+
+            <div v-if="formData.tier_fallback_enabled" class="space-y-3">
+              <div>
+                <label class="input-label">{{ t('keys.tierRouting.fallbackOrder') }}</label>
+                <input
+                  v-model.trim="formData.tier_fallback_order"
+                  type="text"
+                  class="input h-10 font-mono text-sm"
+                  placeholder="plus,pro2"
+                />
+              </div>
+
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label class="input-label">{{ t('keys.tierRouting.firstTokenThreshold') }}</label>
+                  <input v-model.number="formData.tier_first_token_threshold_ms" type="number" min="0" step="100" class="input h-10" placeholder="3000" />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('keys.tierRouting.errorThreshold') }}</label>
+                  <input v-model.number="formData.tier_degrade_after_errors" type="number" min="0" step="1" class="input h-10" placeholder="2" />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('keys.tierRouting.cooldown') }}</label>
+                  <input v-model.number="formData.tier_cooldown_seconds" type="number" min="0" step="30" class="input h-10" placeholder="300" />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('keys.tierRouting.recovery') }}</label>
+                  <input v-model.number="formData.tier_recovery_successes" type="number" min="0" step="1" class="input h-10" placeholder="2" />
+                </div>
+              </div>
+            </div>
+
+            <p v-else class="rounded-md bg-white px-3 py-2 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-dark-800 dark:text-gray-400 dark:ring-dark-600">
+              {{ t('keys.tierRouting.fallbackOff') }}
+            </p>
+          </div>
         </div>
 
         <!-- Custom Key Section (only for create) -->
@@ -1045,7 +1178,7 @@
 </template>
 
 <script setup lang="ts">
-	import { ref, computed, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
+	import { ref, computed, onMounted, onUnmounted, watch, type ComponentPublicInstance } from 'vue'
 	import { useI18n } from 'vue-i18n'
 	import { useAppStore } from '@/stores/app'
 	import { useOnboardingStore } from '@/stores/onboarding'
@@ -1068,7 +1201,7 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 	import GroupBadge from '@/components/common/GroupBadge.vue'
 	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
-	import type { ApiKey, Group, PublicSettings, SubscriptionType, GroupPlatform } from '@/types'
+	import type { ApiKey, Group, GroupRateTier, PublicSettings, SubscriptionType, GroupPlatform } from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
@@ -1114,6 +1247,7 @@ const columns = computed<Column[]>(() => [
 
 const apiKeys = ref<ApiKey[]>([])
 const groups = ref<Group[]>([])
+const availableRateTiers = ref<GroupRateTier[]>([])
 const loading = ref(false)
 const submitting = ref(false)
 const now = ref(new Date())
@@ -1153,6 +1287,7 @@ const dropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
 const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
 let abortController: AbortController | null = null
+let rateTierLoadSeq = 0
 
 // Get the currently selected key for group change
 const selectedKeyForGroup = computed(() => {
@@ -1187,7 +1322,14 @@ const formData = ref({
   rate_limit_7d: null as number | null,
   enable_expiration: false,
   expiration_preset: '30' as '7' | '30' | '90' | 'custom',
-  expiration_date: ''
+  expiration_date: '',
+  preferred_tier_key: '',
+  tier_fallback_enabled: true,
+  tier_fallback_order: '',
+  tier_first_token_threshold_ms: null as number | null,
+  tier_degrade_after_errors: null as number | null,
+  tier_cooldown_seconds: null as number | null,
+  tier_recovery_successes: null as number | null
 })
 
 // 自定义Key验证
@@ -1253,6 +1395,51 @@ const groupOptions = computed(() =>
     platform: group.platform
   }))
 )
+
+const policyNumber = (policy: Record<string, unknown> | undefined, key: string): number | null => {
+  const value = policy?.[key]
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+const policyOrder = (policy: Record<string, unknown> | undefined): string => {
+  const value = policy?.fallback_order || policy?.fallback_tiers || policy?.order || policy?.tiers
+  if (Array.isArray(value)) {
+    return value.filter(item => typeof item === 'string').join(',')
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  return ''
+}
+
+const buildTierFallbackPolicy = (): Record<string, unknown> => {
+  const policy: Record<string, unknown> = {}
+  const fallbackOrder = formData.value.tier_fallback_order
+    .split(',')
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean)
+  if (fallbackOrder.length > 0) policy.fallback_order = fallbackOrder
+  const firstTokenThreshold = formData.value.tier_first_token_threshold_ms
+  if (firstTokenThreshold != null && firstTokenThreshold > 0) {
+    policy.first_token_threshold_ms = firstTokenThreshold
+    policy.degrade_enabled = true
+  }
+  const errorThreshold = formData.value.tier_degrade_after_errors
+  if (errorThreshold != null && errorThreshold > 0) {
+    policy.degrade_after_errors = errorThreshold
+    policy.degrade_enabled = true
+  }
+  const cooldown = formData.value.tier_cooldown_seconds
+  if (cooldown != null && cooldown > 0) policy.cooldown_seconds = cooldown
+  const recovery = formData.value.tier_recovery_successes
+  if (recovery != null && recovery > 0) policy.recovery_successes = recovery
+  return policy
+}
 
 // Group dropdown search
 const groupSearchQuery = ref('')
@@ -1351,6 +1538,40 @@ const loadUserGroupRates = async () => {
   }
 }
 
+const loadRateTiersForGroup = async (groupId: number | null) => {
+  const seq = ++rateTierLoadSeq
+  availableRateTiers.value = []
+  if (!groupId) {
+    formData.value.preferred_tier_key = ''
+    return
+  }
+  const group = groups.value.find(item => item.id === groupId)
+  if (group?.platform !== 'openai') {
+    formData.value.preferred_tier_key = ''
+    formData.value.tier_fallback_order = ''
+    return
+  }
+  try {
+    const tiers = await userGroupsAPI.getRateTiers(groupId)
+    if (seq !== rateTierLoadSeq) return
+    availableRateTiers.value = tiers
+    if (tiers.length === 0) {
+      formData.value.preferred_tier_key = ''
+      formData.value.tier_fallback_order = ''
+      return
+    }
+    const current = formData.value.preferred_tier_key
+    if (!current || !tiers.some(tier => tier.tier_key === current)) {
+      formData.value.preferred_tier_key =
+        tiers.find(tier => tier.is_default)?.tier_key || tiers[0]?.tier_key || ''
+    }
+  } catch (error) {
+    if (seq !== rateTierLoadSeq) return
+    availableRateTiers.value = []
+    console.error('Failed to load group rate tiers:', error)
+  }
+}
+
 const loadPublicSettings = async () => {
   try {
     publicSettings.value = await authAPI.getPublicSettings()
@@ -1408,8 +1629,16 @@ const editKey = (key: ApiKey) => {
     rate_limit_7d: key.rate_limit_7d || null,
     enable_expiration: hasExpiration,
     expiration_preset: 'custom',
-    expiration_date: key.expires_at ? formatDateTimeLocal(key.expires_at) : ''
+    expiration_date: key.expires_at ? formatDateTimeLocal(key.expires_at) : '',
+    preferred_tier_key: key.preferred_tier_key || '',
+    tier_fallback_enabled: key.tier_fallback_enabled ?? true,
+    tier_fallback_order: policyOrder(key.tier_fallback_policy),
+    tier_first_token_threshold_ms: policyNumber(key.tier_fallback_policy, 'first_token_threshold_ms'),
+    tier_degrade_after_errors: policyNumber(key.tier_fallback_policy, 'degrade_after_errors'),
+    tier_cooldown_seconds: policyNumber(key.tier_fallback_policy, 'cooldown_seconds'),
+    tier_recovery_successes: policyNumber(key.tier_fallback_policy, 'recovery_successes')
   }
+  void loadRateTiersForGroup(key.group_id)
   showEditModal.value = true
 }
 
@@ -1538,6 +1767,12 @@ const handleSubmit = async () => {
     rate_limit_1d: formData.value.rate_limit_1d && formData.value.rate_limit_1d > 0 ? formData.value.rate_limit_1d : 0,
     rate_limit_7d: formData.value.rate_limit_7d && formData.value.rate_limit_7d > 0 ? formData.value.rate_limit_7d : 0,
   } : { rate_limit_5h: 0, rate_limit_1d: 0, rate_limit_7d: 0 }
+  const hasTierRouting = availableRateTiers.value.length > 0
+  const tierData = {
+    preferred_tier_key: hasTierRouting ? formData.value.preferred_tier_key : '',
+    tier_fallback_enabled: hasTierRouting ? formData.value.tier_fallback_enabled : true,
+    tier_fallback_policy: hasTierRouting ? buildTierFallbackPolicy() : {}
+  }
 
   submitting.value = true
   try {
@@ -1553,6 +1788,9 @@ const handleSubmit = async () => {
         rate_limit_5h: rateLimitData.rate_limit_5h,
         rate_limit_1d: rateLimitData.rate_limit_1d,
         rate_limit_7d: rateLimitData.rate_limit_7d,
+        preferred_tier_key: tierData.preferred_tier_key,
+        tier_fallback_enabled: tierData.tier_fallback_enabled,
+        tier_fallback_policy: tierData.tier_fallback_policy
       })
       appStore.showSuccess(t('keys.keyUpdatedSuccess'))
     } else {
@@ -1565,7 +1803,8 @@ const handleSubmit = async () => {
         ipBlacklist,
         quota,
         expiresInDays,
-        rateLimitData
+        rateLimitData,
+        tierData
       )
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
@@ -1625,9 +1864,34 @@ const closeModals = () => {
     rate_limit_7d: null,
     enable_expiration: false,
     expiration_preset: '30',
-    expiration_date: ''
+    expiration_date: '',
+    preferred_tier_key: '',
+    tier_fallback_enabled: true,
+    tier_fallback_order: '',
+    tier_first_token_threshold_ms: null,
+    tier_degrade_after_errors: null,
+    tier_cooldown_seconds: null,
+    tier_recovery_successes: null
   }
+  availableRateTiers.value = []
 }
+
+watch(
+  () => formData.value.group_id,
+  (groupId) => {
+    if (!showCreateModal.value && !showEditModal.value) return
+    void loadRateTiersForGroup(groupId)
+  }
+)
+
+watch(
+  () => showCreateModal.value,
+  (show) => {
+    if (show) {
+      void loadRateTiersForGroup(formData.value.group_id)
+    }
+  }
+)
 
 // Show reset quota confirmation dialog
 const confirmResetQuota = () => {

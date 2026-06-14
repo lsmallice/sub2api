@@ -583,6 +583,20 @@ export interface Group {
   updated_at: string
 }
 
+export interface GroupRateTier {
+  id?: number
+  group_id?: number
+  tier_key: string
+  display_name: string
+  rate_multiplier: number
+  priority: number
+  enabled: boolean
+  is_default: boolean
+  fallback_policy?: Record<string, unknown>
+  created_at?: string
+  updated_at?: string
+}
+
 export interface AdminGroup extends Group {
   // 模型路由配置（仅管理员可见，内部信息）
   model_routing: Record<string, number[]> | null
@@ -619,6 +633,9 @@ export interface ApiKey {
   key: string
   name: string
   group_id: number | null
+  preferred_tier_key: string
+  tier_fallback_enabled: boolean
+  tier_fallback_policy: Record<string, unknown>
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
   ip_whitelist: string[]
   ip_blacklist: string[]
@@ -646,6 +663,9 @@ export interface ApiKey {
 export interface CreateApiKeyRequest {
   name: string
   group_id?: number | null
+  preferred_tier_key?: string
+  tier_fallback_enabled?: boolean
+  tier_fallback_policy?: Record<string, unknown>
   custom_key?: string // Optional custom API Key
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -659,6 +679,9 @@ export interface CreateApiKeyRequest {
 export interface UpdateApiKeyRequest {
   name?: string
   group_id?: number | null
+  preferred_tier_key?: string
+  tier_fallback_enabled?: boolean
+  tier_fallback_policy?: Record<string, unknown>
   status?: 'active' | 'inactive'
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -893,6 +916,7 @@ export interface Account {
   current_concurrency?: number // Real-time concurrency count from Redis
   priority: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
+  service_tier_key: string
   status: 'active' | 'inactive' | 'error'
   error_message: string | null
   last_used_at: string | null
@@ -1085,6 +1109,7 @@ export interface CreateAccountRequest {
   load_factor?: number | null
   priority?: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
+  service_tier_key?: string
   supports_image_generation?: boolean
   group_ids?: number[]
   expires_at?: number | null
@@ -1103,6 +1128,7 @@ export interface UpdateAccountRequest {
   load_factor?: number | null
   priority?: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
+  service_tier_key?: string
   supports_image_generation?: boolean
   schedulable?: boolean
   status?: 'active' | 'inactive' | 'error'
@@ -1219,6 +1245,7 @@ export interface CodexSessionImportRequest {
   concurrency?: number
   priority?: number
   rate_multiplier?: number
+  service_tier_key?: string
   load_factor?: number | null
   supports_image_generation?: boolean
   expires_at?: number | null
@@ -1270,6 +1297,8 @@ export interface UsageLog {
   request_id: string
   model: string
   service_tier?: string | null
+  requested_tier_key?: string | null
+  actual_tier_key?: string | null
   reasoning_effort?: string | null
   inbound_endpoint?: string | null
   upstream_endpoint?: string | null

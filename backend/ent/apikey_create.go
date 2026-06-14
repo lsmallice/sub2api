@@ -113,6 +113,40 @@ func (_c *APIKeyCreate) SetNillableStatus(v *string) *APIKeyCreate {
 	return _c
 }
 
+// SetPreferredTierKey sets the "preferred_tier_key" field.
+func (_c *APIKeyCreate) SetPreferredTierKey(v string) *APIKeyCreate {
+	_c.mutation.SetPreferredTierKey(v)
+	return _c
+}
+
+// SetNillablePreferredTierKey sets the "preferred_tier_key" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillablePreferredTierKey(v *string) *APIKeyCreate {
+	if v != nil {
+		_c.SetPreferredTierKey(*v)
+	}
+	return _c
+}
+
+// SetTierFallbackEnabled sets the "tier_fallback_enabled" field.
+func (_c *APIKeyCreate) SetTierFallbackEnabled(v bool) *APIKeyCreate {
+	_c.mutation.SetTierFallbackEnabled(v)
+	return _c
+}
+
+// SetNillableTierFallbackEnabled sets the "tier_fallback_enabled" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableTierFallbackEnabled(v *bool) *APIKeyCreate {
+	if v != nil {
+		_c.SetTierFallbackEnabled(*v)
+	}
+	return _c
+}
+
+// SetTierFallbackPolicy sets the "tier_fallback_policy" field.
+func (_c *APIKeyCreate) SetTierFallbackPolicy(v map[string]interface{}) *APIKeyCreate {
+	_c.mutation.SetTierFallbackPolicy(v)
+	return _c
+}
+
 // SetLastUsedAt sets the "last_used_at" field.
 func (_c *APIKeyCreate) SetLastUsedAt(v time.Time) *APIKeyCreate {
 	_c.mutation.SetLastUsedAt(v)
@@ -387,6 +421,21 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.PreferredTierKey(); !ok {
+		v := apikey.DefaultPreferredTierKey
+		_c.mutation.SetPreferredTierKey(v)
+	}
+	if _, ok := _c.mutation.TierFallbackEnabled(); !ok {
+		v := apikey.DefaultTierFallbackEnabled
+		_c.mutation.SetTierFallbackEnabled(v)
+	}
+	if _, ok := _c.mutation.TierFallbackPolicy(); !ok {
+		if apikey.DefaultTierFallbackPolicy == nil {
+			return fmt.Errorf("ent: uninitialized apikey.DefaultTierFallbackPolicy (forgotten import ent/runtime?)")
+		}
+		v := apikey.DefaultTierFallbackPolicy()
+		_c.mutation.SetTierFallbackPolicy(v)
+	}
 	if _, ok := _c.mutation.Quota(); !ok {
 		v := apikey.DefaultQuota
 		_c.mutation.SetQuota(v)
@@ -456,6 +505,17 @@ func (_c *APIKeyCreate) check() error {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.PreferredTierKey(); !ok {
+		return &ValidationError{Name: "preferred_tier_key", err: errors.New(`ent: missing required field "APIKey.preferred_tier_key"`)}
+	}
+	if v, ok := _c.mutation.PreferredTierKey(); ok {
+		if err := apikey.PreferredTierKeyValidator(v); err != nil {
+			return &ValidationError{Name: "preferred_tier_key", err: fmt.Errorf(`ent: validator failed for field "APIKey.preferred_tier_key": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.TierFallbackEnabled(); !ok {
+		return &ValidationError{Name: "tier_fallback_enabled", err: errors.New(`ent: missing required field "APIKey.tier_fallback_enabled"`)}
 	}
 	if _, ok := _c.mutation.Quota(); !ok {
 		return &ValidationError{Name: "quota", err: errors.New(`ent: missing required field "APIKey.quota"`)}
@@ -534,6 +594,18 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.PreferredTierKey(); ok {
+		_spec.SetField(apikey.FieldPreferredTierKey, field.TypeString, value)
+		_node.PreferredTierKey = value
+	}
+	if value, ok := _c.mutation.TierFallbackEnabled(); ok {
+		_spec.SetField(apikey.FieldTierFallbackEnabled, field.TypeBool, value)
+		_node.TierFallbackEnabled = value
+	}
+	if value, ok := _c.mutation.TierFallbackPolicy(); ok {
+		_spec.SetField(apikey.FieldTierFallbackPolicy, field.TypeJSON, value)
+		_node.TierFallbackPolicy = value
 	}
 	if value, ok := _c.mutation.LastUsedAt(); ok {
 		_spec.SetField(apikey.FieldLastUsedAt, field.TypeTime, value)
@@ -790,6 +862,48 @@ func (u *APIKeyUpsert) SetStatus(v string) *APIKeyUpsert {
 // UpdateStatus sets the "status" field to the value that was provided on create.
 func (u *APIKeyUpsert) UpdateStatus() *APIKeyUpsert {
 	u.SetExcluded(apikey.FieldStatus)
+	return u
+}
+
+// SetPreferredTierKey sets the "preferred_tier_key" field.
+func (u *APIKeyUpsert) SetPreferredTierKey(v string) *APIKeyUpsert {
+	u.Set(apikey.FieldPreferredTierKey, v)
+	return u
+}
+
+// UpdatePreferredTierKey sets the "preferred_tier_key" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdatePreferredTierKey() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldPreferredTierKey)
+	return u
+}
+
+// SetTierFallbackEnabled sets the "tier_fallback_enabled" field.
+func (u *APIKeyUpsert) SetTierFallbackEnabled(v bool) *APIKeyUpsert {
+	u.Set(apikey.FieldTierFallbackEnabled, v)
+	return u
+}
+
+// UpdateTierFallbackEnabled sets the "tier_fallback_enabled" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateTierFallbackEnabled() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldTierFallbackEnabled)
+	return u
+}
+
+// SetTierFallbackPolicy sets the "tier_fallback_policy" field.
+func (u *APIKeyUpsert) SetTierFallbackPolicy(v map[string]interface{}) *APIKeyUpsert {
+	u.Set(apikey.FieldTierFallbackPolicy, v)
+	return u
+}
+
+// UpdateTierFallbackPolicy sets the "tier_fallback_policy" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateTierFallbackPolicy() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldTierFallbackPolicy)
+	return u
+}
+
+// ClearTierFallbackPolicy clears the value of the "tier_fallback_policy" field.
+func (u *APIKeyUpsert) ClearTierFallbackPolicy() *APIKeyUpsert {
+	u.SetNull(apikey.FieldTierFallbackPolicy)
 	return u
 }
 
@@ -1217,6 +1331,55 @@ func (u *APIKeyUpsertOne) SetStatus(v string) *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) UpdateStatus() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetPreferredTierKey sets the "preferred_tier_key" field.
+func (u *APIKeyUpsertOne) SetPreferredTierKey(v string) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetPreferredTierKey(v)
+	})
+}
+
+// UpdatePreferredTierKey sets the "preferred_tier_key" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdatePreferredTierKey() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdatePreferredTierKey()
+	})
+}
+
+// SetTierFallbackEnabled sets the "tier_fallback_enabled" field.
+func (u *APIKeyUpsertOne) SetTierFallbackEnabled(v bool) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetTierFallbackEnabled(v)
+	})
+}
+
+// UpdateTierFallbackEnabled sets the "tier_fallback_enabled" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateTierFallbackEnabled() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateTierFallbackEnabled()
+	})
+}
+
+// SetTierFallbackPolicy sets the "tier_fallback_policy" field.
+func (u *APIKeyUpsertOne) SetTierFallbackPolicy(v map[string]interface{}) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetTierFallbackPolicy(v)
+	})
+}
+
+// UpdateTierFallbackPolicy sets the "tier_fallback_policy" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateTierFallbackPolicy() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateTierFallbackPolicy()
+	})
+}
+
+// ClearTierFallbackPolicy clears the value of the "tier_fallback_policy" field.
+func (u *APIKeyUpsertOne) ClearTierFallbackPolicy() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearTierFallbackPolicy()
 	})
 }
 
@@ -1855,6 +2018,55 @@ func (u *APIKeyUpsertBulk) SetStatus(v string) *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) UpdateStatus() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetPreferredTierKey sets the "preferred_tier_key" field.
+func (u *APIKeyUpsertBulk) SetPreferredTierKey(v string) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetPreferredTierKey(v)
+	})
+}
+
+// UpdatePreferredTierKey sets the "preferred_tier_key" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdatePreferredTierKey() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdatePreferredTierKey()
+	})
+}
+
+// SetTierFallbackEnabled sets the "tier_fallback_enabled" field.
+func (u *APIKeyUpsertBulk) SetTierFallbackEnabled(v bool) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetTierFallbackEnabled(v)
+	})
+}
+
+// UpdateTierFallbackEnabled sets the "tier_fallback_enabled" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateTierFallbackEnabled() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateTierFallbackEnabled()
+	})
+}
+
+// SetTierFallbackPolicy sets the "tier_fallback_policy" field.
+func (u *APIKeyUpsertBulk) SetTierFallbackPolicy(v map[string]interface{}) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetTierFallbackPolicy(v)
+	})
+}
+
+// UpdateTierFallbackPolicy sets the "tier_fallback_policy" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateTierFallbackPolicy() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateTierFallbackPolicy()
+	})
+}
+
+// ClearTierFallbackPolicy clears the value of the "tier_fallback_policy" field.
+func (u *APIKeyUpsertBulk) ClearTierFallbackPolicy() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearTierFallbackPolicy()
 	})
 }
 

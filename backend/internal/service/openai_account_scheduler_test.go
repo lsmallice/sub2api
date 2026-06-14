@@ -24,6 +24,24 @@ type schedulerTestOpenAIAccountRepo struct {
 	accounts []Account
 }
 
+type schedulerTestGroupRateTierRepo struct {
+	tiers []GroupRateTier
+	err   error
+}
+
+func (r schedulerTestGroupRateTierRepo) ListActiveByGroupID(ctx context.Context, groupID int64) ([]GroupRateTier, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	out := make([]GroupRateTier, 0, len(r.tiers))
+	for _, tier := range r.tiers {
+		if tier.GroupID == groupID && tier.Enabled {
+			out = append(out, tier)
+		}
+	}
+	return out, nil
+}
+
 func (r schedulerTestOpenAIAccountRepo) GetByID(ctx context.Context, id int64) (*Account, error) {
 	for i := range r.accounts {
 		if r.accounts[i].ID == id {
@@ -565,6 +583,460 @@ func TestOpenAIGatewayService_SelectAccountWithSchedulerForImageIntent_NoCapable
 	require.ErrorIs(t, err, ErrNoImageCapableAccount)
 	require.Nil(t, selection)
 	require.Equal(t, openAIAccountScheduleLayerLoadBalance, decision.Layer)
+}
+
+func TestOpenAIGatewayService_SelectAccountWithTierRouting_NoTiersPreservesLegacySelection(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(12001)
+	cfg := &config.Config{}
+	cfg.Gateway.Scheduling.LoadBatchEnabled = false
+	svc := &OpenAIGatewayService{
+		accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{
+			{
+				ID:             47001,
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeAPIKey,
+				Status:         StatusActive,
+				Schedulable:    true,
+				Concurrency:    1,
+				Priority:       0,
+				ServiceTierKey: "plus",
+			},
+			{
+				ID:             47002,
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeAPIKey,
+				Status:         StatusActive,
+				Schedulable:    true,
+				Concurrency:    1,
+				Priority:       10,
+				ServiceTierKey: "pro",
+			},
+		}},
+		groupRateTierRepo:  schedulerTestGroupRateTierRepo{},
+		cache:              &schedulerTestGatewayCache{},
+		cfg:                cfg,
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
+	}
+
+	selection, err := svc.SelectAccountWithTierRoutingForCapability(
+		ctx,
+		&APIKey{ID: 1, GroupID: &groupID, PreferredTierKey: "pro", TierFallbackEnabled: true},
+		"",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Selection)
+	require.Equal(t, int64(47001), selection.Selection.Account.ID)
+	require.Empty(t, selection.RequestedTierKey)
+	require.Empty(t, selection.ActualTierKey)
+	require.Nil(t, selection.TierRateMultiplier)
+}
+
+func TestOpenAIGatewayService_SelectAccountWithTierRouting_PreferredTierFiltersAccounts(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(12002)
+	cfg := &config.Config{}
+	cfg.Gateway.Scheduling.LoadBatchEnabled = false
+	svc := &OpenAIGatewayService{
+		accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{
+			{
+				ID:             47011,
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeAPIKey,
+				Status:         StatusActive,
+				Schedulable:    true,
+				Concurrency:    1,
+				Priority:       0,
+				ServiceTierKey: "plus",
+			},
+			{
+				ID:             47012,
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeAPIKey,
+				Status:         StatusActive,
+				Schedulable:    true,
+				Concurrency:    1,
+				Priority:       10,
+				ServiceTierKey: "pro",
+			},
+		}},
+		groupRateTierRepo: schedulerTestGroupRateTierRepo{tiers: []GroupRateTier{
+			{ID: 1, GroupID: groupID, TierKey: "pro", DisplayName: "PRO", RateMultiplier: 2, Priority: 10, Enabled: true, IsDefault: true},
+			{ID: 2, GroupID: groupID, TierKey: "plus", DisplayName: "Plus", RateMultiplier: 1, Priority: 20, Enabled: true},
+		}},
+		cache:              &schedulerTestGatewayCache{},
+		cfg:                cfg,
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
+	}
+
+	selection, err := svc.SelectAccountWithTierRoutingForCapability(
+		ctx,
+		&APIKey{ID: 1, GroupID: &groupID, PreferredTierKey: "pro", TierFallbackEnabled: true},
+		"",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Selection)
+	require.Equal(t, int64(47012), selection.Selection.Account.ID)
+	require.Equal(t, "pro", selection.RequestedTierKey)
+	require.Equal(t, "pro", selection.ActualTierKey)
+	require.NotNil(t, selection.TierRateMultiplier)
+	require.Equal(t, 2.0, *selection.TierRateMultiplier)
+}
+
+func TestOpenAIGatewayService_SelectAccountWithTierRouting_FallbackUsesNextTier(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(12003)
+	cfg := &config.Config{}
+	cfg.Gateway.Scheduling.LoadBatchEnabled = false
+	svc := &OpenAIGatewayService{
+		accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{
+			{
+				ID:             47021,
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeAPIKey,
+				Status:         StatusError,
+				Schedulable:    false,
+				Concurrency:    1,
+				Priority:       0,
+				ServiceTierKey: "pro",
+			},
+			{
+				ID:             47022,
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeAPIKey,
+				Status:         StatusActive,
+				Schedulable:    true,
+				Concurrency:    1,
+				Priority:       5,
+				ServiceTierKey: "plus",
+			},
+		}},
+		groupRateTierRepo: schedulerTestGroupRateTierRepo{tiers: []GroupRateTier{
+			{ID: 1, GroupID: groupID, TierKey: "pro", DisplayName: "PRO", RateMultiplier: 2, Priority: 10, Enabled: true, IsDefault: true},
+			{ID: 2, GroupID: groupID, TierKey: "plus", DisplayName: "Plus", RateMultiplier: 1, Priority: 20, Enabled: true},
+		}},
+		cache:              &schedulerTestGatewayCache{},
+		cfg:                cfg,
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
+	}
+
+	selection, err := svc.SelectAccountWithTierRoutingForCapability(
+		ctx,
+		&APIKey{ID: 1, GroupID: &groupID, PreferredTierKey: "pro", TierFallbackEnabled: true},
+		"",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Selection)
+	require.Equal(t, int64(47022), selection.Selection.Account.ID)
+	require.Equal(t, "pro", selection.RequestedTierKey)
+	require.Equal(t, "plus", selection.ActualTierKey)
+	require.NotNil(t, selection.TierRateMultiplier)
+	require.Equal(t, 1.0, *selection.TierRateMultiplier)
+}
+
+func TestOpenAIGatewayService_SelectAccountWithTierRouting_FallbackDisabledFails(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(12004)
+	cfg := &config.Config{}
+	cfg.Gateway.Scheduling.LoadBatchEnabled = false
+	svc := &OpenAIGatewayService{
+		accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{
+			{
+				ID:             47031,
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeAPIKey,
+				Status:         StatusActive,
+				Schedulable:    true,
+				Concurrency:    1,
+				Priority:       0,
+				ServiceTierKey: "plus",
+			},
+		}},
+		groupRateTierRepo: schedulerTestGroupRateTierRepo{tiers: []GroupRateTier{
+			{ID: 1, GroupID: groupID, TierKey: "pro", DisplayName: "PRO", RateMultiplier: 2, Priority: 10, Enabled: true, IsDefault: true},
+			{ID: 2, GroupID: groupID, TierKey: "plus", DisplayName: "Plus", RateMultiplier: 1, Priority: 20, Enabled: true},
+		}},
+		cache:              &schedulerTestGatewayCache{},
+		cfg:                cfg,
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
+	}
+
+	selection, err := svc.SelectAccountWithTierRoutingForCapability(
+		ctx,
+		&APIKey{ID: 1, GroupID: &groupID, PreferredTierKey: "pro", TierFallbackEnabled: false},
+		"",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+	)
+	require.Error(t, err)
+	require.Nil(t, selection.Selection)
+	require.Equal(t, "pro", selection.RequestedTierKey)
+}
+
+func TestOpenAIGatewayService_SelectAccountWithTierRouting_SlowTTFTDegradesAndRecovers(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(12005)
+	cfg := &config.Config{}
+	cfg.Gateway.Scheduling.LoadBatchEnabled = false
+	svc := &OpenAIGatewayService{
+		accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{
+			{
+				ID:             47041,
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeAPIKey,
+				Status:         StatusActive,
+				Schedulable:    true,
+				Concurrency:    1,
+				Priority:       0,
+				ServiceTierKey: "pro",
+			},
+			{
+				ID:             47042,
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeAPIKey,
+				Status:         StatusActive,
+				Schedulable:    true,
+				Concurrency:    1,
+				Priority:       5,
+				ServiceTierKey: "plus",
+			},
+		}},
+		groupRateTierRepo: schedulerTestGroupRateTierRepo{tiers: []GroupRateTier{
+			{ID: 1, GroupID: groupID, TierKey: "pro", DisplayName: "PRO", RateMultiplier: 2, Priority: 10, Enabled: true, IsDefault: true},
+			{ID: 2, GroupID: groupID, TierKey: "plus", DisplayName: "Plus", RateMultiplier: 1, Priority: 20, Enabled: true},
+		}},
+		cache:              &schedulerTestGatewayCache{},
+		cfg:                cfg,
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
+	}
+	apiKey := &APIKey{
+		ID:                  1,
+		GroupID:             &groupID,
+		PreferredTierKey:    "pro",
+		TierFallbackEnabled: true,
+		TierFallbackPolicy: map[string]any{
+			"first_token_threshold_ms":   100,
+			"degrade_after_slow_samples": 1,
+			"cooldown_seconds":           1,
+			"recovery_successes":         2,
+		},
+	}
+
+	first, err := svc.SelectAccountWithTierRoutingForCapability(
+		ctx,
+		apiKey,
+		"",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, first.Selection)
+	require.Equal(t, int64(47041), first.Selection.Account.ID)
+	require.Equal(t, "pro", first.ActualTierKey)
+
+	slowTTFT := 250
+	svc.ReportOpenAIServiceTierResult(ctx, apiKey, first, "gpt-5.1", true, &slowTTFT)
+
+	second, err := svc.SelectAccountWithTierRoutingForCapability(
+		ctx,
+		apiKey,
+		"",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, second.Selection)
+	require.Equal(t, int64(47042), second.Selection.Account.ID)
+	require.Equal(t, "plus", second.ActualTierKey)
+
+	state := svc.getOpenAIServiceTierHealthState(groupID, "pro", "gpt-5.1", "chat_completions")
+	require.NotNil(t, state)
+	state.mu.Lock()
+	state.degradedUntil = time.Now().Add(-time.Millisecond)
+	state.mu.Unlock()
+
+	probe, err := svc.SelectAccountWithTierRoutingForCapability(
+		ctx,
+		apiKey,
+		"",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, probe.Selection)
+	require.Equal(t, int64(47041), probe.Selection.Account.ID)
+	require.Equal(t, "pro", probe.ActualTierKey)
+	require.True(t, probe.TierProbe)
+	require.Equal(t, openAIServiceTierHealthStateProbing, probe.HealthState)
+
+	fastTTFT := 30
+	svc.ReportOpenAIServiceTierResult(ctx, apiKey, probe, "gpt-5.1", true, &fastTTFT)
+
+	stillFallback, err := svc.SelectAccountWithTierRoutingForCapability(
+		ctx,
+		apiKey,
+		"",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, stillFallback.Selection)
+	require.Equal(t, int64(47041), stillFallback.Selection.Account.ID)
+	require.True(t, stillFallback.TierProbe)
+
+	svc.ReportOpenAIServiceTierResult(ctx, apiKey, stillFallback, "gpt-5.1", true, &fastTTFT)
+
+	recovered, err := svc.SelectAccountWithTierRoutingForCapability(
+		ctx,
+		apiKey,
+		"",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, recovered.Selection)
+	require.Equal(t, int64(47041), recovered.Selection.Account.ID)
+	require.Equal(t, "pro", recovered.ActualTierKey)
+	require.False(t, recovered.TierProbe)
+	require.Equal(t, openAIServiceTierHealthStateHealthy, recovered.HealthState)
+}
+
+func TestOpenAIGatewayService_SelectAccountWithTierRouting_ErrorThresholdDegrades(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(12006)
+	cfg := &config.Config{}
+	cfg.Gateway.Scheduling.LoadBatchEnabled = false
+	svc := &OpenAIGatewayService{
+		accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{
+			{
+				ID:             47051,
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeAPIKey,
+				Status:         StatusActive,
+				Schedulable:    true,
+				Concurrency:    1,
+				Priority:       0,
+				ServiceTierKey: "pro",
+			},
+			{
+				ID:             47052,
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeAPIKey,
+				Status:         StatusActive,
+				Schedulable:    true,
+				Concurrency:    1,
+				Priority:       5,
+				ServiceTierKey: "plus",
+			},
+		}},
+		groupRateTierRepo: schedulerTestGroupRateTierRepo{tiers: []GroupRateTier{
+			{ID: 1, GroupID: groupID, TierKey: "pro", DisplayName: "PRO", RateMultiplier: 2, Priority: 10, Enabled: true, IsDefault: true},
+			{ID: 2, GroupID: groupID, TierKey: "plus", DisplayName: "Plus", RateMultiplier: 1, Priority: 20, Enabled: true},
+		}},
+		cache:              &schedulerTestGatewayCache{},
+		cfg:                cfg,
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
+	}
+	apiKey := &APIKey{
+		ID:                  1,
+		GroupID:             &groupID,
+		PreferredTierKey:    "pro",
+		TierFallbackEnabled: true,
+		TierFallbackPolicy: map[string]any{
+			"degrade_after_errors": 1,
+			"cooldown_seconds":     60,
+		},
+	}
+
+	selected, err := svc.SelectAccountWithTierRoutingForCapability(
+		ctx,
+		apiKey,
+		"",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selected.Selection)
+	require.Equal(t, "pro", selected.ActualTierKey)
+
+	svc.ReportOpenAIServiceTierResult(ctx, apiKey, selected, "gpt-5.1", false, nil)
+
+	fallback, err := svc.SelectAccountWithTierRoutingForCapability(
+		ctx,
+		apiKey,
+		"",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, fallback.Selection)
+	require.Equal(t, int64(47052), fallback.Selection.Account.ID)
+	require.Equal(t, "plus", fallback.ActualTierKey)
 }
 
 func TestOpenAIGatewayService_SelectAccountWithScheduler_EnabledUsesAdvancedPreviousResponseRouting(t *testing.T) {

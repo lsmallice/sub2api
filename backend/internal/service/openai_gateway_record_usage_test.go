@@ -142,6 +142,7 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 		subRepo,
 		rateRepo,
 		nil,
+		nil,
 		cfg,
 		nil,
 		nil,
@@ -409,6 +410,55 @@ func TestOpenAIGatewayServiceRecordUsage_FallsBackToGroupDefaultRateOnResolverEr
 	require.Equal(t, groupRate, usageRepo.lastLog.RateMultiplier)
 
 	expected := expectedOpenAICost(t, svc, "gpt-5.1", usage, groupRate)
+	require.InDelta(t, expected.ActualCost, userRepo.lastAmount, 1e-12)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_UsesActualTierRateMultiplier(t *testing.T) {
+	groupID := int64(12005)
+	groupRate := 2.0
+	actualTierRate := 1.0
+	userRate := 3.0
+	usage := OpenAIUsage{InputTokens: 10, OutputTokens: 5, CacheReadInputTokens: 2}
+
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	subRepo := &openAIRecordUsageSubRepoStub{}
+	rateRepo := &openAIUserGroupRateRepoStub{rate: &userRate}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, rateRepo)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_actual_tier_rate",
+			Usage:     usage,
+			Model:     "gpt-5.1",
+			Duration:  time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      1003,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:             groupID,
+				RateMultiplier: groupRate,
+			},
+		},
+		User:               &User{ID: 2003},
+		Account:            &Account{ID: 3003},
+		RequestedTierKey:   "pro",
+		ActualTierKey:      "plus",
+		TierRateMultiplier: &actualTierRate,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, rateRepo.calls)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, actualTierRate, usageRepo.lastLog.RateMultiplier)
+	require.NotNil(t, usageRepo.lastLog.RequestedTierKey)
+	require.Equal(t, "pro", *usageRepo.lastLog.RequestedTierKey)
+	require.NotNil(t, usageRepo.lastLog.ActualTierKey)
+	require.Equal(t, "plus", *usageRepo.lastLog.ActualTierKey)
+
+	expected := expectedOpenAICost(t, svc, "gpt-5.1", usage, actualTierRate)
+	require.InDelta(t, expected.ActualCost, usageRepo.lastLog.ActualCost, 1e-12)
 	require.InDelta(t, expected.ActualCost, userRepo.lastAmount, 1e-12)
 }
 

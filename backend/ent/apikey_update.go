@@ -134,6 +134,46 @@ func (_u *APIKeyUpdate) SetNillableStatus(v *string) *APIKeyUpdate {
 	return _u
 }
 
+// SetPreferredTierKey sets the "preferred_tier_key" field.
+func (_u *APIKeyUpdate) SetPreferredTierKey(v string) *APIKeyUpdate {
+	_u.mutation.SetPreferredTierKey(v)
+	return _u
+}
+
+// SetNillablePreferredTierKey sets the "preferred_tier_key" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillablePreferredTierKey(v *string) *APIKeyUpdate {
+	if v != nil {
+		_u.SetPreferredTierKey(*v)
+	}
+	return _u
+}
+
+// SetTierFallbackEnabled sets the "tier_fallback_enabled" field.
+func (_u *APIKeyUpdate) SetTierFallbackEnabled(v bool) *APIKeyUpdate {
+	_u.mutation.SetTierFallbackEnabled(v)
+	return _u
+}
+
+// SetNillableTierFallbackEnabled sets the "tier_fallback_enabled" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableTierFallbackEnabled(v *bool) *APIKeyUpdate {
+	if v != nil {
+		_u.SetTierFallbackEnabled(*v)
+	}
+	return _u
+}
+
+// SetTierFallbackPolicy sets the "tier_fallback_policy" field.
+func (_u *APIKeyUpdate) SetTierFallbackPolicy(v map[string]interface{}) *APIKeyUpdate {
+	_u.mutation.SetTierFallbackPolicy(v)
+	return _u
+}
+
+// ClearTierFallbackPolicy clears the value of the "tier_fallback_policy" field.
+func (_u *APIKeyUpdate) ClearTierFallbackPolicy() *APIKeyUpdate {
+	_u.mutation.ClearTierFallbackPolicy()
+	return _u
+}
+
 // SetLastUsedAt sets the "last_used_at" field.
 func (_u *APIKeyUpdate) SetLastUsedAt(v time.Time) *APIKeyUpdate {
 	_u.mutation.SetLastUsedAt(v)
@@ -560,6 +600,11 @@ func (_u *APIKeyUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.PreferredTierKey(); ok {
+		if err := apikey.PreferredTierKeyValidator(v); err != nil {
+			return &ValidationError{Name: "preferred_tier_key", err: fmt.Errorf(`ent: validator failed for field "APIKey.preferred_tier_key": %w`, err)}
+		}
+	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "APIKey.user"`)
 	}
@@ -595,6 +640,18 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.PreferredTierKey(); ok {
+		_spec.SetField(apikey.FieldPreferredTierKey, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.TierFallbackEnabled(); ok {
+		_spec.SetField(apikey.FieldTierFallbackEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.TierFallbackPolicy(); ok {
+		_spec.SetField(apikey.FieldTierFallbackPolicy, field.TypeJSON, value)
+	}
+	if _u.mutation.TierFallbackPolicyCleared() {
+		_spec.ClearField(apikey.FieldTierFallbackPolicy, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.LastUsedAt(); ok {
 		_spec.SetField(apikey.FieldLastUsedAt, field.TypeTime, value)
@@ -918,6 +975,46 @@ func (_u *APIKeyUpdateOne) SetNillableStatus(v *string) *APIKeyUpdateOne {
 	if v != nil {
 		_u.SetStatus(*v)
 	}
+	return _u
+}
+
+// SetPreferredTierKey sets the "preferred_tier_key" field.
+func (_u *APIKeyUpdateOne) SetPreferredTierKey(v string) *APIKeyUpdateOne {
+	_u.mutation.SetPreferredTierKey(v)
+	return _u
+}
+
+// SetNillablePreferredTierKey sets the "preferred_tier_key" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillablePreferredTierKey(v *string) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetPreferredTierKey(*v)
+	}
+	return _u
+}
+
+// SetTierFallbackEnabled sets the "tier_fallback_enabled" field.
+func (_u *APIKeyUpdateOne) SetTierFallbackEnabled(v bool) *APIKeyUpdateOne {
+	_u.mutation.SetTierFallbackEnabled(v)
+	return _u
+}
+
+// SetNillableTierFallbackEnabled sets the "tier_fallback_enabled" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableTierFallbackEnabled(v *bool) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetTierFallbackEnabled(*v)
+	}
+	return _u
+}
+
+// SetTierFallbackPolicy sets the "tier_fallback_policy" field.
+func (_u *APIKeyUpdateOne) SetTierFallbackPolicy(v map[string]interface{}) *APIKeyUpdateOne {
+	_u.mutation.SetTierFallbackPolicy(v)
+	return _u
+}
+
+// ClearTierFallbackPolicy clears the value of the "tier_fallback_policy" field.
+func (_u *APIKeyUpdateOne) ClearTierFallbackPolicy() *APIKeyUpdateOne {
+	_u.mutation.ClearTierFallbackPolicy()
 	return _u
 }
 
@@ -1360,6 +1457,11 @@ func (_u *APIKeyUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.PreferredTierKey(); ok {
+		if err := apikey.PreferredTierKeyValidator(v); err != nil {
+			return &ValidationError{Name: "preferred_tier_key", err: fmt.Errorf(`ent: validator failed for field "APIKey.preferred_tier_key": %w`, err)}
+		}
+	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "APIKey.user"`)
 	}
@@ -1412,6 +1514,18 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.PreferredTierKey(); ok {
+		_spec.SetField(apikey.FieldPreferredTierKey, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.TierFallbackEnabled(); ok {
+		_spec.SetField(apikey.FieldTierFallbackEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.TierFallbackPolicy(); ok {
+		_spec.SetField(apikey.FieldTierFallbackPolicy, field.TypeJSON, value)
+	}
+	if _u.mutation.TierFallbackPolicyCleared() {
+		_spec.ClearField(apikey.FieldTierFallbackPolicy, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.LastUsedAt(); ok {
 		_spec.SetField(apikey.FieldLastUsedAt, field.TypeTime, value)

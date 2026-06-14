@@ -36,6 +36,12 @@ type APIKey struct {
 	GroupID *int64 `json:"group_id,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
+	// Preferred custom service tier for this API key.
+	PreferredTierKey string `json:"preferred_tier_key,omitempty"`
+	// Whether this API key may fall back to another custom service tier.
+	TierFallbackEnabled bool `json:"tier_fallback_enabled,omitempty"`
+	// Custom service tier fallback policy, e.g. ordered fallback tiers and TTFT thresholds.
+	TierFallbackPolicy map[string]interface{} `json:"tier_fallback_policy,omitempty"`
 	// Last usage time of this API key
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 	// Allowed IPs/CIDRs, e.g. ["192.168.1.100", "10.0.0.0/8"]
@@ -121,13 +127,15 @@ func (*APIKey) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case apikey.FieldIPWhitelist, apikey.FieldIPBlacklist:
+		case apikey.FieldTierFallbackPolicy, apikey.FieldIPWhitelist, apikey.FieldIPBlacklist:
 			values[i] = new([]byte)
+		case apikey.FieldTierFallbackEnabled:
+			values[i] = new(sql.NullBool)
 		case apikey.FieldQuota, apikey.FieldQuotaUsed, apikey.FieldRateLimit5h, apikey.FieldRateLimit1d, apikey.FieldRateLimit7d, apikey.FieldUsage5h, apikey.FieldUsage1d, apikey.FieldUsage7d:
 			values[i] = new(sql.NullFloat64)
 		case apikey.FieldID, apikey.FieldUserID, apikey.FieldGroupID:
 			values[i] = new(sql.NullInt64)
-		case apikey.FieldKey, apikey.FieldName, apikey.FieldStatus:
+		case apikey.FieldKey, apikey.FieldName, apikey.FieldStatus, apikey.FieldPreferredTierKey:
 			values[i] = new(sql.NullString)
 		case apikey.FieldCreatedAt, apikey.FieldUpdatedAt, apikey.FieldDeletedAt, apikey.FieldLastUsedAt, apikey.FieldExpiresAt, apikey.FieldWindow5hStart, apikey.FieldWindow1dStart, apikey.FieldWindow7dStart:
 			values[i] = new(sql.NullTime)
@@ -201,6 +209,26 @@ func (_m *APIKey) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = value.String
+			}
+		case apikey.FieldPreferredTierKey:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field preferred_tier_key", values[i])
+			} else if value.Valid {
+				_m.PreferredTierKey = value.String
+			}
+		case apikey.FieldTierFallbackEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field tier_fallback_enabled", values[i])
+			} else if value.Valid {
+				_m.TierFallbackEnabled = value.Bool
+			}
+		case apikey.FieldTierFallbackPolicy:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field tier_fallback_policy", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.TierFallbackPolicy); err != nil {
+					return fmt.Errorf("unmarshal field tier_fallback_policy: %w", err)
+				}
 			}
 		case apikey.FieldLastUsedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -379,6 +407,15 @@ func (_m *APIKey) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
+	builder.WriteString(", ")
+	builder.WriteString("preferred_tier_key=")
+	builder.WriteString(_m.PreferredTierKey)
+	builder.WriteString(", ")
+	builder.WriteString("tier_fallback_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TierFallbackEnabled))
+	builder.WriteString(", ")
+	builder.WriteString("tier_fallback_policy=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TierFallbackPolicy))
 	builder.WriteString(", ")
 	if v := _m.LastUsedAt; v != nil {
 		builder.WriteString("last_used_at=")

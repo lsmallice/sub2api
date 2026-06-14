@@ -100,51 +100,54 @@ const (
 // APIKeyMutation represents an operation that mutates the APIKey nodes in the graph.
 type APIKeyMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *int64
-	created_at         *time.Time
-	updated_at         *time.Time
-	deleted_at         *time.Time
-	key                *string
-	name               *string
-	status             *string
-	last_used_at       *time.Time
-	ip_whitelist       *[]string
-	appendip_whitelist []string
-	ip_blacklist       *[]string
-	appendip_blacklist []string
-	quota              *float64
-	addquota           *float64
-	quota_used         *float64
-	addquota_used      *float64
-	expires_at         *time.Time
-	rate_limit_5h      *float64
-	addrate_limit_5h   *float64
-	rate_limit_1d      *float64
-	addrate_limit_1d   *float64
-	rate_limit_7d      *float64
-	addrate_limit_7d   *float64
-	usage_5h           *float64
-	addusage_5h        *float64
-	usage_1d           *float64
-	addusage_1d        *float64
-	usage_7d           *float64
-	addusage_7d        *float64
-	window_5h_start    *time.Time
-	window_1d_start    *time.Time
-	window_7d_start    *time.Time
-	clearedFields      map[string]struct{}
-	user               *int64
-	cleareduser        bool
-	group              *int64
-	clearedgroup       bool
-	usage_logs         map[int64]struct{}
-	removedusage_logs  map[int64]struct{}
-	clearedusage_logs  bool
-	done               bool
-	oldValue           func(context.Context) (*APIKey, error)
-	predicates         []predicate.APIKey
+	op                    Op
+	typ                   string
+	id                    *int64
+	created_at            *time.Time
+	updated_at            *time.Time
+	deleted_at            *time.Time
+	key                   *string
+	name                  *string
+	status                *string
+	preferred_tier_key    *string
+	tier_fallback_enabled *bool
+	tier_fallback_policy  *map[string]interface{}
+	last_used_at          *time.Time
+	ip_whitelist          *[]string
+	appendip_whitelist    []string
+	ip_blacklist          *[]string
+	appendip_blacklist    []string
+	quota                 *float64
+	addquota              *float64
+	quota_used            *float64
+	addquota_used         *float64
+	expires_at            *time.Time
+	rate_limit_5h         *float64
+	addrate_limit_5h      *float64
+	rate_limit_1d         *float64
+	addrate_limit_1d      *float64
+	rate_limit_7d         *float64
+	addrate_limit_7d      *float64
+	usage_5h              *float64
+	addusage_5h           *float64
+	usage_1d              *float64
+	addusage_1d           *float64
+	usage_7d              *float64
+	addusage_7d           *float64
+	window_5h_start       *time.Time
+	window_1d_start       *time.Time
+	window_7d_start       *time.Time
+	clearedFields         map[string]struct{}
+	user                  *int64
+	cleareduser           bool
+	group                 *int64
+	clearedgroup          bool
+	usage_logs            map[int64]struct{}
+	removedusage_logs     map[int64]struct{}
+	clearedusage_logs     bool
+	done                  bool
+	oldValue              func(context.Context) (*APIKey, error)
+	predicates            []predicate.APIKey
 }
 
 var _ ent.Mutation = (*APIKeyMutation)(nil)
@@ -557,6 +560,127 @@ func (m *APIKeyMutation) OldStatus(ctx context.Context) (v string, err error) {
 // ResetStatus resets all changes to the "status" field.
 func (m *APIKeyMutation) ResetStatus() {
 	m.status = nil
+}
+
+// SetPreferredTierKey sets the "preferred_tier_key" field.
+func (m *APIKeyMutation) SetPreferredTierKey(s string) {
+	m.preferred_tier_key = &s
+}
+
+// PreferredTierKey returns the value of the "preferred_tier_key" field in the mutation.
+func (m *APIKeyMutation) PreferredTierKey() (r string, exists bool) {
+	v := m.preferred_tier_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPreferredTierKey returns the old "preferred_tier_key" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldPreferredTierKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPreferredTierKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPreferredTierKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPreferredTierKey: %w", err)
+	}
+	return oldValue.PreferredTierKey, nil
+}
+
+// ResetPreferredTierKey resets all changes to the "preferred_tier_key" field.
+func (m *APIKeyMutation) ResetPreferredTierKey() {
+	m.preferred_tier_key = nil
+}
+
+// SetTierFallbackEnabled sets the "tier_fallback_enabled" field.
+func (m *APIKeyMutation) SetTierFallbackEnabled(b bool) {
+	m.tier_fallback_enabled = &b
+}
+
+// TierFallbackEnabled returns the value of the "tier_fallback_enabled" field in the mutation.
+func (m *APIKeyMutation) TierFallbackEnabled() (r bool, exists bool) {
+	v := m.tier_fallback_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTierFallbackEnabled returns the old "tier_fallback_enabled" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldTierFallbackEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTierFallbackEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTierFallbackEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTierFallbackEnabled: %w", err)
+	}
+	return oldValue.TierFallbackEnabled, nil
+}
+
+// ResetTierFallbackEnabled resets all changes to the "tier_fallback_enabled" field.
+func (m *APIKeyMutation) ResetTierFallbackEnabled() {
+	m.tier_fallback_enabled = nil
+}
+
+// SetTierFallbackPolicy sets the "tier_fallback_policy" field.
+func (m *APIKeyMutation) SetTierFallbackPolicy(value map[string]interface{}) {
+	m.tier_fallback_policy = &value
+}
+
+// TierFallbackPolicy returns the value of the "tier_fallback_policy" field in the mutation.
+func (m *APIKeyMutation) TierFallbackPolicy() (r map[string]interface{}, exists bool) {
+	v := m.tier_fallback_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTierFallbackPolicy returns the old "tier_fallback_policy" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldTierFallbackPolicy(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTierFallbackPolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTierFallbackPolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTierFallbackPolicy: %w", err)
+	}
+	return oldValue.TierFallbackPolicy, nil
+}
+
+// ClearTierFallbackPolicy clears the value of the "tier_fallback_policy" field.
+func (m *APIKeyMutation) ClearTierFallbackPolicy() {
+	m.tier_fallback_policy = nil
+	m.clearedFields[apikey.FieldTierFallbackPolicy] = struct{}{}
+}
+
+// TierFallbackPolicyCleared returns if the "tier_fallback_policy" field was cleared in this mutation.
+func (m *APIKeyMutation) TierFallbackPolicyCleared() bool {
+	_, ok := m.clearedFields[apikey.FieldTierFallbackPolicy]
+	return ok
+}
+
+// ResetTierFallbackPolicy resets all changes to the "tier_fallback_policy" field.
+func (m *APIKeyMutation) ResetTierFallbackPolicy() {
+	m.tier_fallback_policy = nil
+	delete(m.clearedFields, apikey.FieldTierFallbackPolicy)
 }
 
 // SetLastUsedAt sets the "last_used_at" field.
@@ -1524,7 +1648,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 23)
+	fields := make([]string, 0, 26)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -1548,6 +1672,15 @@ func (m *APIKeyMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, apikey.FieldStatus)
+	}
+	if m.preferred_tier_key != nil {
+		fields = append(fields, apikey.FieldPreferredTierKey)
+	}
+	if m.tier_fallback_enabled != nil {
+		fields = append(fields, apikey.FieldTierFallbackEnabled)
+	}
+	if m.tier_fallback_policy != nil {
+		fields = append(fields, apikey.FieldTierFallbackPolicy)
 	}
 	if m.last_used_at != nil {
 		fields = append(fields, apikey.FieldLastUsedAt)
@@ -1618,6 +1751,12 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.GroupID()
 	case apikey.FieldStatus:
 		return m.Status()
+	case apikey.FieldPreferredTierKey:
+		return m.PreferredTierKey()
+	case apikey.FieldTierFallbackEnabled:
+		return m.TierFallbackEnabled()
+	case apikey.FieldTierFallbackPolicy:
+		return m.TierFallbackPolicy()
 	case apikey.FieldLastUsedAt:
 		return m.LastUsedAt()
 	case apikey.FieldIPWhitelist:
@@ -1673,6 +1812,12 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldGroupID(ctx)
 	case apikey.FieldStatus:
 		return m.OldStatus(ctx)
+	case apikey.FieldPreferredTierKey:
+		return m.OldPreferredTierKey(ctx)
+	case apikey.FieldTierFallbackEnabled:
+		return m.OldTierFallbackEnabled(ctx)
+	case apikey.FieldTierFallbackPolicy:
+		return m.OldTierFallbackPolicy(ctx)
 	case apikey.FieldLastUsedAt:
 		return m.OldLastUsedAt(ctx)
 	case apikey.FieldIPWhitelist:
@@ -1767,6 +1912,27 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case apikey.FieldPreferredTierKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPreferredTierKey(v)
+		return nil
+	case apikey.FieldTierFallbackEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTierFallbackEnabled(v)
+		return nil
+	case apikey.FieldTierFallbackPolicy:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTierFallbackPolicy(v)
 		return nil
 	case apikey.FieldLastUsedAt:
 		v, ok := value.(time.Time)
@@ -2008,6 +2174,9 @@ func (m *APIKeyMutation) ClearedFields() []string {
 	if m.FieldCleared(apikey.FieldGroupID) {
 		fields = append(fields, apikey.FieldGroupID)
 	}
+	if m.FieldCleared(apikey.FieldTierFallbackPolicy) {
+		fields = append(fields, apikey.FieldTierFallbackPolicy)
+	}
 	if m.FieldCleared(apikey.FieldLastUsedAt) {
 		fields = append(fields, apikey.FieldLastUsedAt)
 	}
@@ -2048,6 +2217,9 @@ func (m *APIKeyMutation) ClearField(name string) error {
 		return nil
 	case apikey.FieldGroupID:
 		m.ClearGroupID()
+		return nil
+	case apikey.FieldTierFallbackPolicy:
+		m.ClearTierFallbackPolicy()
 		return nil
 	case apikey.FieldLastUsedAt:
 		m.ClearLastUsedAt()
@@ -2101,6 +2273,15 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case apikey.FieldPreferredTierKey:
+		m.ResetPreferredTierKey()
+		return nil
+	case apikey.FieldTierFallbackEnabled:
+		m.ResetTierFallbackEnabled()
+		return nil
+	case apikey.FieldTierFallbackPolicy:
+		m.ResetTierFallbackPolicy()
 		return nil
 	case apikey.FieldLastUsedAt:
 		m.ResetLastUsedAt()
@@ -2296,6 +2477,7 @@ type AccountMutation struct {
 	addpriority                 *int
 	rate_multiplier             *float64
 	addrate_multiplier          *float64
+	service_tier_key            *string
 	supports_image_generation   *bool
 	status                      *string
 	error_message               *string
@@ -3128,6 +3310,42 @@ func (m *AccountMutation) AddedRateMultiplier() (r float64, exists bool) {
 func (m *AccountMutation) ResetRateMultiplier() {
 	m.rate_multiplier = nil
 	m.addrate_multiplier = nil
+}
+
+// SetServiceTierKey sets the "service_tier_key" field.
+func (m *AccountMutation) SetServiceTierKey(s string) {
+	m.service_tier_key = &s
+}
+
+// ServiceTierKey returns the value of the "service_tier_key" field in the mutation.
+func (m *AccountMutation) ServiceTierKey() (r string, exists bool) {
+	v := m.service_tier_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldServiceTierKey returns the old "service_tier_key" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldServiceTierKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldServiceTierKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldServiceTierKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldServiceTierKey: %w", err)
+	}
+	return oldValue.ServiceTierKey, nil
+}
+
+// ResetServiceTierKey resets all changes to the "service_tier_key" field.
+func (m *AccountMutation) ResetServiceTierKey() {
+	m.service_tier_key = nil
 }
 
 // SetSupportsImageGeneration sets the "supports_image_generation" field.
@@ -3982,7 +4200,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 29)
+	fields := make([]string, 0, 31)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -4027,6 +4245,9 @@ func (m *AccountMutation) Fields() []string {
 	}
 	if m.rate_multiplier != nil {
 		fields = append(fields, account.FieldRateMultiplier)
+	}
+	if m.service_tier_key != nil {
+		fields = append(fields, account.FieldServiceTierKey)
 	}
 	if m.supports_image_generation != nil {
 		fields = append(fields, account.FieldSupportsImageGeneration)
@@ -4111,6 +4332,8 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.Priority()
 	case account.FieldRateMultiplier:
 		return m.RateMultiplier()
+	case account.FieldServiceTierKey:
+		return m.ServiceTierKey()
 	case account.FieldSupportsImageGeneration:
 		return m.SupportsImageGeneration()
 	case account.FieldStatus:
@@ -4180,6 +4403,8 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldPriority(ctx)
 	case account.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
+	case account.FieldServiceTierKey:
+		return m.OldServiceTierKey(ctx)
 	case account.FieldSupportsImageGeneration:
 		return m.OldSupportsImageGeneration(ctx)
 	case account.FieldStatus:
@@ -4323,6 +4548,13 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRateMultiplier(v)
+		return nil
+	case account.FieldServiceTierKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetServiceTierKey(v)
 		return nil
 	case account.FieldSupportsImageGeneration:
 		v, ok := value.(bool)
@@ -4684,6 +4916,9 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldRateMultiplier:
 		m.ResetRateMultiplier()
+		return nil
+	case account.FieldServiceTierKey:
+		m.ResetServiceTierKey()
 		return nil
 	case account.FieldSupportsImageGeneration:
 		m.ResetSupportsImageGeneration()
@@ -34951,6 +35186,8 @@ type UsageLogMutation struct {
 	model_mapping_chain         *string
 	billing_tier                *string
 	billing_mode                *string
+	requested_tier_key          *string
+	actual_tier_key             *string
 	input_tokens                *int
 	addinput_tokens             *int
 	output_tokens               *int
@@ -35604,6 +35841,104 @@ func (m *UsageLogMutation) BillingModeCleared() bool {
 func (m *UsageLogMutation) ResetBillingMode() {
 	m.billing_mode = nil
 	delete(m.clearedFields, usagelog.FieldBillingMode)
+}
+
+// SetRequestedTierKey sets the "requested_tier_key" field.
+func (m *UsageLogMutation) SetRequestedTierKey(s string) {
+	m.requested_tier_key = &s
+}
+
+// RequestedTierKey returns the value of the "requested_tier_key" field in the mutation.
+func (m *UsageLogMutation) RequestedTierKey() (r string, exists bool) {
+	v := m.requested_tier_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestedTierKey returns the old "requested_tier_key" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldRequestedTierKey(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestedTierKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestedTierKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestedTierKey: %w", err)
+	}
+	return oldValue.RequestedTierKey, nil
+}
+
+// ClearRequestedTierKey clears the value of the "requested_tier_key" field.
+func (m *UsageLogMutation) ClearRequestedTierKey() {
+	m.requested_tier_key = nil
+	m.clearedFields[usagelog.FieldRequestedTierKey] = struct{}{}
+}
+
+// RequestedTierKeyCleared returns if the "requested_tier_key" field was cleared in this mutation.
+func (m *UsageLogMutation) RequestedTierKeyCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldRequestedTierKey]
+	return ok
+}
+
+// ResetRequestedTierKey resets all changes to the "requested_tier_key" field.
+func (m *UsageLogMutation) ResetRequestedTierKey() {
+	m.requested_tier_key = nil
+	delete(m.clearedFields, usagelog.FieldRequestedTierKey)
+}
+
+// SetActualTierKey sets the "actual_tier_key" field.
+func (m *UsageLogMutation) SetActualTierKey(s string) {
+	m.actual_tier_key = &s
+}
+
+// ActualTierKey returns the value of the "actual_tier_key" field in the mutation.
+func (m *UsageLogMutation) ActualTierKey() (r string, exists bool) {
+	v := m.actual_tier_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualTierKey returns the old "actual_tier_key" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldActualTierKey(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualTierKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualTierKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualTierKey: %w", err)
+	}
+	return oldValue.ActualTierKey, nil
+}
+
+// ClearActualTierKey clears the value of the "actual_tier_key" field.
+func (m *UsageLogMutation) ClearActualTierKey() {
+	m.actual_tier_key = nil
+	m.clearedFields[usagelog.FieldActualTierKey] = struct{}{}
+}
+
+// ActualTierKeyCleared returns if the "actual_tier_key" field was cleared in this mutation.
+func (m *UsageLogMutation) ActualTierKeyCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldActualTierKey]
+	return ok
+}
+
+// ResetActualTierKey resets all changes to the "actual_tier_key" field.
+func (m *UsageLogMutation) ResetActualTierKey() {
+	m.actual_tier_key = nil
+	delete(m.clearedFields, usagelog.FieldActualTierKey)
 }
 
 // SetGroupID sets the "group_id" field.
@@ -37374,7 +37709,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 41)
+	fields := make([]string, 0, 43)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -37407,6 +37742,12 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.billing_mode != nil {
 		fields = append(fields, usagelog.FieldBillingMode)
+	}
+	if m.requested_tier_key != nil {
+		fields = append(fields, usagelog.FieldRequestedTierKey)
+	}
+	if m.actual_tier_key != nil {
+		fields = append(fields, usagelog.FieldActualTierKey)
 	}
 	if m.group != nil {
 		fields = append(fields, usagelog.FieldGroupID)
@@ -37528,6 +37869,10 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.BillingTier()
 	case usagelog.FieldBillingMode:
 		return m.BillingMode()
+	case usagelog.FieldRequestedTierKey:
+		return m.RequestedTierKey()
+	case usagelog.FieldActualTierKey:
+		return m.ActualTierKey()
 	case usagelog.FieldGroupID:
 		return m.GroupID()
 	case usagelog.FieldSubscriptionID:
@@ -37619,6 +37964,10 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldBillingTier(ctx)
 	case usagelog.FieldBillingMode:
 		return m.OldBillingMode(ctx)
+	case usagelog.FieldRequestedTierKey:
+		return m.OldRequestedTierKey(ctx)
+	case usagelog.FieldActualTierKey:
+		return m.OldActualTierKey(ctx)
 	case usagelog.FieldGroupID:
 		return m.OldGroupID(ctx)
 	case usagelog.FieldSubscriptionID:
@@ -37764,6 +38113,20 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetBillingMode(v)
+		return nil
+	case usagelog.FieldRequestedTierKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestedTierKey(v)
+		return nil
+	case usagelog.FieldActualTierKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualTierKey(v)
 		return nil
 	case usagelog.FieldGroupID:
 		v, ok := value.(int64)
@@ -38254,6 +38617,12 @@ func (m *UsageLogMutation) ClearedFields() []string {
 	if m.FieldCleared(usagelog.FieldBillingMode) {
 		fields = append(fields, usagelog.FieldBillingMode)
 	}
+	if m.FieldCleared(usagelog.FieldRequestedTierKey) {
+		fields = append(fields, usagelog.FieldRequestedTierKey)
+	}
+	if m.FieldCleared(usagelog.FieldActualTierKey) {
+		fields = append(fields, usagelog.FieldActualTierKey)
+	}
 	if m.FieldCleared(usagelog.FieldGroupID) {
 		fields = append(fields, usagelog.FieldGroupID)
 	}
@@ -38321,6 +38690,12 @@ func (m *UsageLogMutation) ClearField(name string) error {
 		return nil
 	case usagelog.FieldBillingMode:
 		m.ClearBillingMode()
+		return nil
+	case usagelog.FieldRequestedTierKey:
+		m.ClearRequestedTierKey()
+		return nil
+	case usagelog.FieldActualTierKey:
+		m.ClearActualTierKey()
 		return nil
 	case usagelog.FieldGroupID:
 		m.ClearGroupID()
@@ -38398,6 +38773,12 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldBillingMode:
 		m.ResetBillingMode()
+		return nil
+	case usagelog.FieldRequestedTierKey:
+		m.ResetRequestedTierKey()
+		return nil
+	case usagelog.FieldActualTierKey:
+		m.ResetActualTierKey()
 		return nil
 	case usagelog.FieldGroupID:
 		m.ResetGroupID()

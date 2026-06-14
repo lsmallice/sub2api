@@ -47,6 +47,18 @@ func (APIKey) Fields() []ent.Field {
 		field.String("status").
 			MaxLen(20).
 			Default(domain.StatusActive),
+		field.String("preferred_tier_key").
+			MaxLen(50).
+			Default("").
+			Comment("Preferred custom service tier for this API key."),
+		field.Bool("tier_fallback_enabled").
+			Default(true).
+			Comment("Whether this API key may fall back to another custom service tier."),
+		field.JSON("tier_fallback_policy", map[string]any{}).
+			Optional().
+			Default(func() map[string]any { return map[string]any{} }).
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
+			Comment("Custom service tier fallback policy, e.g. ordered fallback tiers and TTFT thresholds."),
 		field.Time("last_used_at").
 			Optional().
 			Nillable().
@@ -139,6 +151,7 @@ func (APIKey) Indexes() []ent.Index {
 		index.Fields("user_id"),
 		index.Fields("group_id"),
 		index.Fields("status"),
+		index.Fields("preferred_tier_key"),
 		index.Fields("deleted_at"),
 		index.Fields("last_used_at"),
 		// Index for quota queries

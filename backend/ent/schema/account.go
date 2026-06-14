@@ -113,6 +113,13 @@ func (Account) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(1.0),
 
+		// service_tier_key: 账号承接的服务档位，如 pro、plus、pro2。
+		// 空字符串表示旧版未分档账号，仅在未请求档位过滤时参与调度。
+		field.String("service_tier_key").
+			MaxLen(50).
+			Default("").
+			Comment("Custom service tier this account serves, such as pro, plus, or pro2."),
+
 		// supports_image_generation: 是否允许该账号承接 OpenAI 生图请求
 		field.Bool("supports_image_generation").
 			Default(false).
@@ -231,6 +238,7 @@ func (Account) Indexes() []ent.Index {
 		index.Fields("status"),              // 按状态筛选
 		index.Fields("proxy_id"),            // 按代理筛选
 		index.Fields("priority"),            // 按优先级排序
+		index.Fields("service_tier_key"),    // 按自定义服务档位筛选
 		index.Fields("last_used_at"),        // 按最后使用时间排序
 		index.Fields("schedulable"),         // 筛选可调度账户
 		index.Fields("rate_limited_at"),     // 筛选速率限制账户

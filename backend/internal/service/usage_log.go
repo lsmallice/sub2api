@@ -112,6 +112,10 @@ type UsageLog struct {
 	BillingTier *string
 	// BillingMode 计费模式：token/image
 	BillingMode *string
+	// RequestedTierKey is the preferred/default custom tier before fallback.
+	RequestedTierKey *string
+	// ActualTierKey is the custom tier actually selected for routing and billing.
+	ActualTierKey *string
 	// ServiceTier records the OpenAI service tier used for billing, e.g. "priority" / "flex".
 	ServiceTier *string
 	// ReasoningEffort is the request's reasoning effort level.

@@ -29,6 +29,32 @@ type userGroupRateRepoStubForGroupRate struct {
 	rpmSyncErr       error
 }
 
+type groupRateTierRepoStubForGroupRate struct {
+	tiersByGroup map[int64][]GroupRateTier
+	getErr       error
+
+	syncedGroupID int64
+	syncedTiers   []GroupRateTierInput
+	syncErr       error
+}
+
+func (s *groupRateTierRepoStubForGroupRate) ListActiveByGroupID(ctx context.Context, groupID int64) ([]GroupRateTier, error) {
+	return s.ListByGroupID(ctx, groupID)
+}
+
+func (s *groupRateTierRepoStubForGroupRate) ListByGroupID(_ context.Context, groupID int64) ([]GroupRateTier, error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	return s.tiersByGroup[groupID], nil
+}
+
+func (s *groupRateTierRepoStubForGroupRate) SyncGroupRateTiers(_ context.Context, groupID int64, tiers []GroupRateTierInput) error {
+	s.syncedGroupID = groupID
+	s.syncedTiers = tiers
+	return s.syncErr
+}
+
 func (s *userGroupRateRepoStubForGroupRate) GetByUserID(_ context.Context, _ int64) (map[int64]float64, error) {
 	panic("unexpected GetByUserID call")
 }
@@ -194,6 +220,78 @@ func TestAdminService_BatchSetGroupRateMultipliers(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "sync failed")
+	})
+}
+
+func TestAdminService_GroupRateTiers(t *testing.T) {
+	t.Run("returns tiers", func(t *testing.T) {
+		repo := &groupRateTierRepoStubForGroupRate{
+			tiersByGroup: map[int64][]GroupRateTier{
+				10: {
+					{GroupID: 10, TierKey: "pro", DisplayName: "PRO", RateMultiplier: 2, Enabled: true, IsDefault: true},
+					{GroupID: 10, TierKey: "plus", DisplayName: "Plus", RateMultiplier: 1, Enabled: true},
+				},
+			},
+		}
+		svc := &adminServiceImpl{groupRateTierRepo: repo}
+
+		tiers, err := svc.GetGroupRateTiers(context.Background(), 10)
+		require.NoError(t, err)
+		require.Len(t, tiers, 2)
+		require.Equal(t, "pro", tiers[0].TierKey)
+		require.Equal(t, 2.0, tiers[0].RateMultiplier)
+	})
+
+	t.Run("normalizes and auto default", func(t *testing.T) {
+		repo := &groupRateTierRepoStubForGroupRate{}
+		svc := &adminServiceImpl{groupRateTierRepo: repo}
+
+		err := svc.BatchSetGroupRateTiers(context.Background(), 10, []GroupRateTierInput{
+			{TierKey: " PRO ", DisplayName: "", RateMultiplier: 2, Priority: 10, Enabled: true},
+			{TierKey: "Plus", DisplayName: "Plus", RateMultiplier: 1, Priority: 20, Enabled: true},
+		})
+		require.NoError(t, err)
+		require.Equal(t, int64(10), repo.syncedGroupID)
+		require.Len(t, repo.syncedTiers, 2)
+		require.Equal(t, "pro", repo.syncedTiers[0].TierKey)
+		require.Equal(t, "pro", repo.syncedTiers[0].DisplayName)
+		require.True(t, repo.syncedTiers[0].IsDefault)
+		require.Equal(t, "plus", repo.syncedTiers[1].TierKey)
+	})
+
+	t.Run("rejects duplicate keys", func(t *testing.T) {
+		repo := &groupRateTierRepoStubForGroupRate{}
+		svc := &adminServiceImpl{groupRateTierRepo: repo}
+
+		err := svc.BatchSetGroupRateTiers(context.Background(), 10, []GroupRateTierInput{
+			{TierKey: "pro", RateMultiplier: 2},
+			{TierKey: " PRO ", RateMultiplier: 1},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate tier_key")
+	})
+
+	t.Run("rejects multiple defaults", func(t *testing.T) {
+		repo := &groupRateTierRepoStubForGroupRate{}
+		svc := &adminServiceImpl{groupRateTierRepo: repo}
+
+		err := svc.BatchSetGroupRateTiers(context.Background(), 10, []GroupRateTierInput{
+			{TierKey: "pro", RateMultiplier: 2, IsDefault: true},
+			{TierKey: "plus", RateMultiplier: 1, IsDefault: true},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "only one service tier")
+	})
+
+	t.Run("rejects negative multiplier", func(t *testing.T) {
+		repo := &groupRateTierRepoStubForGroupRate{}
+		svc := &adminServiceImpl{groupRateTierRepo: repo}
+
+		err := svc.BatchSetGroupRateTiers(context.Background(), 10, []GroupRateTierInput{
+			{TierKey: "pro", RateMultiplier: -1},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "rate_multiplier must be >= 0")
 	})
 }
 

@@ -297,11 +297,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		reqLog.Debug("openai.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
 		var selection *service.AccountSelectionResult
 		var scheduleDecision service.OpenAIAccountScheduleDecision
+		var tierSelection *service.OpenAIAccountTierSelection
 		var err error
 		if imageIntent {
-			selection, scheduleDecision, err = h.gatewayService.SelectAccountWithSchedulerForImageIntent(
+			tierSelection, err = h.gatewayService.SelectAccountWithTierRoutingForImageIntent(
 				c.Request.Context(),
-				apiKey.GroupID,
+				apiKey,
 				previousResponseID,
 				sessionHash,
 				reqModel,
@@ -310,9 +311,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 				requireCompact,
 			)
 		} else {
-			selection, scheduleDecision, err = h.gatewayService.SelectAccountWithSchedulerForCapability(
+			tierSelection, err = h.gatewayService.SelectAccountWithTierRoutingForCapability(
 				c.Request.Context(),
-				apiKey.GroupID,
+				apiKey,
 				previousResponseID,
 				sessionHash,
 				reqModel,
@@ -322,10 +323,15 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 				requireCompact,
 			)
 		}
+		if tierSelection != nil {
+			selection = tierSelection.Selection
+			scheduleDecision = tierSelection.Decision
+		}
 		if err != nil {
 			reqLog.Warn("openai.account_select_failed",
 				zap.Error(err),
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
+				zap.String("requested_tier_key", tierSelectionRequestedKey(tierSelection)),
 			)
 			if len(failedAccountIDs) == 0 {
 				if errors.Is(err, service.ErrNoImageCapableAccount) {
@@ -369,6 +375,8 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		accountSelectedFields := []zap.Field{
 			zap.Int64("account_id", account.ID),
 			zap.String("account_name", account.Name),
+			zap.String("requested_tier_key", tierSelectionRequestedKey(tierSelection)),
+			zap.String("actual_tier_key", tierSelectionActualKey(tierSelection)),
 		}
 		accountSelectedFields = append(accountSelectedFields, selectedImageGenerationAccountLogFields(account, requestCapability)...)
 		reqLog.Debug("openai.account_selected", accountSelectedFields...)
@@ -421,6 +429,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 						return
 					}
 					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+					h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, false, nil)
 					// 池模式：同账号重试
 					if failoverErr.RetryableOnSameAccount {
 						retryLimit := account.GetPoolModeRetryCount()
@@ -461,6 +470,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					continue
 				}
 				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+				h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, false, nil)
 				upstreamErrorAlreadyCommunicated := openAIForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
 				wroteFallback := false
 				if !upstreamErrorAlreadyCommunicated {
@@ -485,8 +495,10 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 				h.gatewayService.UpdateCodexUsageSnapshotFromHeaders(c.Request.Context(), account.ID, result.ResponseHeaders)
 			}
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, result.FirstTokenMs)
+			h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, true, result.FirstTokenMs)
 		} else {
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, nil)
+			h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, true, nil)
 		}
 
 		// 捕获请求信息（用于异步记录，避免在 goroutine 中访问 gin.Context）
@@ -510,6 +522,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 				IPAddress:          clientIP,
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      h.apiKeyService,
+				RequestedTierKey:   tierSelectionRequestedKey(tierSelection),
+				ActualTierKey:      tierSelectionActualKey(tierSelection),
+				TierRateMultiplier: tierSelectionRateMultiplier(tierSelection),
 				ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),
 			}); err != nil {
 				logger.L().With(
@@ -735,9 +750,9 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			currentRoutingModel = effectiveMappedModel
 		}
 		reqLog.Debug("openai_messages.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
+		tierSelection, err := h.gatewayService.SelectAccountWithTierRoutingForCapability(
 			c.Request.Context(),
-			apiKey.GroupID,
+			apiKey,
 			"", // no previous_response_id
 			sessionHash,
 			currentRoutingModel,
@@ -746,10 +761,17 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			service.OpenAIEndpointCapabilityChatCompletions,
 			false,
 		)
+		var selection *service.AccountSelectionResult
+		var scheduleDecision service.OpenAIAccountScheduleDecision
+		if tierSelection != nil {
+			selection = tierSelection.Selection
+			scheduleDecision = tierSelection.Decision
+		}
 		if err != nil {
 			reqLog.Warn("openai_messages.account_select_failed",
 				zap.Error(err),
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
+				zap.String("requested_tier_key", tierSelectionRequestedKey(tierSelection)),
 			)
 			if len(failedAccountIDs) == 0 {
 				if err != nil {
@@ -773,7 +795,12 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		}
 		account := selection.Account
 		sessionHash = ensureOpenAIPoolModeSessionHash(sessionHash, account)
-		reqLog.Debug("openai_messages.account_selected", zap.Int64("account_id", account.ID), zap.String("account_name", account.Name))
+		reqLog.Debug("openai_messages.account_selected",
+			zap.Int64("account_id", account.ID),
+			zap.String("account_name", account.Name),
+			zap.String("requested_tier_key", tierSelectionRequestedKey(tierSelection)),
+			zap.String("actual_tier_key", tierSelectionActualKey(tierSelection)),
+		)
 		_ = scheduleDecision
 		setOpsSelectedAccount(c, account.ID, account.Platform)
 
@@ -826,6 +853,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 						return
 					}
 					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+					h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, false, nil)
 					// 池模式：同账号重试
 					if failoverErr.RetryableOnSameAccount {
 						retryLimit := account.GetPoolModeRetryCount()
@@ -873,6 +901,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 					return
 				}
 				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+				h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, false, nil)
 				wroteFallback := h.ensureAnthropicErrorResponse(c, streamStarted)
 				reqLog.Warn("openai_messages.forward_failed",
 					zap.Int64("account_id", account.ID),
@@ -884,8 +913,10 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		}
 		if result != nil {
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, result.FirstTokenMs)
+			h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, true, result.FirstTokenMs)
 		} else {
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, nil)
+			h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, true, nil)
 		}
 
 		userAgent := c.GetHeader("User-Agent")
@@ -907,6 +938,9 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 				IPAddress:          clientIP,
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      h.apiKeyService,
+				RequestedTierKey:   tierSelectionRequestedKey(tierSelection),
+				ActualTierKey:      tierSelectionActualKey(tierSelection),
+				TierRateMultiplier: tierSelectionRateMultiplier(tierSelection),
 				ChannelUsageFields: channelMappingMsg.ToUsageFields(reqModel, result.UpstreamModel),
 			}); err != nil {
 				logger.L().With(
@@ -1346,11 +1380,12 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		reqLog.Debug("openai.websocket_account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
 		var selection *service.AccountSelectionResult
 		var scheduleDecision service.OpenAIAccountScheduleDecision
+		var tierSelection *service.OpenAIAccountTierSelection
 		var err error
 		if imageIntent {
-			selection, scheduleDecision, err = h.gatewayService.SelectAccountWithSchedulerForImageIntent(
+			tierSelection, err = h.gatewayService.SelectAccountWithTierRoutingForImageIntent(
 				ctx,
-				apiKey.GroupID,
+				apiKey,
 				previousResponseID,
 				sessionHash,
 				reqModel,
@@ -1359,9 +1394,9 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				false,
 			)
 		} else {
-			selection, scheduleDecision, err = h.gatewayService.SelectAccountWithSchedulerForCapability(
+			tierSelection, err = h.gatewayService.SelectAccountWithTierRoutingForCapability(
 				ctx,
-				apiKey.GroupID,
+				apiKey,
 				previousResponseID,
 				sessionHash,
 				reqModel,
@@ -1371,10 +1406,15 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				false,
 			)
 		}
+		if tierSelection != nil {
+			selection = tierSelection.Selection
+			scheduleDecision = tierSelection.Decision
+		}
 		if err != nil {
 			reqLog.Warn("openai.websocket_account_select_failed",
 				zap.Error(err),
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
+				zap.String("requested_tier_key", tierSelectionRequestedKey(tierSelection)),
 			)
 			if errors.Is(err, service.ErrNoImageCapableAccount) {
 				closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, service.NoImageCapableAccountMessage())
@@ -1440,6 +1480,8 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			zap.String("account_name", account.Name),
 			zap.String("schedule_layer", scheduleDecision.Layer),
 			zap.Int("candidate_count", scheduleDecision.CandidateCount),
+			zap.String("requested_tier_key", tierSelectionRequestedKey(tierSelection)),
+			zap.String("actual_tier_key", tierSelectionActualKey(tierSelection)),
 		}
 		websocketAccountSelectedFields = append(websocketAccountSelectedFields, selectedImageGenerationAccountLogFields(account, requestCapability)...)
 		reqLog.Debug("openai.websocket_account_selected", websocketAccountSelectedFields...)
@@ -1517,6 +1559,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 					h.gatewayService.UpdateCodexUsageSnapshotFromHeaders(ctx, account.ID, result.ResponseHeaders)
 				}
 				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, result.FirstTokenMs)
+				h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, true, result.FirstTokenMs)
 				inboundEndpoint := GetInboundEndpoint(c)
 				upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 				h.submitOpenAIUsageRecordTask(ctx, result, func(taskCtx context.Context) {
@@ -1532,6 +1575,9 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 						IPAddress:          clientIP,
 						RequestPayloadHash: requestPayloadHash,
 						APIKeyService:      h.apiKeyService,
+						RequestedTierKey:   tierSelectionRequestedKey(tierSelection),
+						ActualTierKey:      tierSelectionActualKey(tierSelection),
+						TierRateMultiplier: tierSelectionRateMultiplier(tierSelection),
 						ChannelUsageFields: channelMappingWS.ToUsageFields(reqModel, result.UpstreamModel),
 					}); err != nil {
 						reqLog.Error("openai.websocket_record_usage_failed",
@@ -1569,6 +1615,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			var failoverErr *service.UpstreamFailoverError
 			if errors.As(err, &failoverErr) {
 				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+				h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, false, nil)
 				releaseAccountSlot()
 				failedAccountIDs[account.ID] = struct{}{}
 				lastFailoverErr = failoverErr
@@ -1595,6 +1642,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			}
 
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+			h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, false, nil)
 			closeStatus, closeReason := summarizeWSCloseErrorForLog(err)
 			reqLog.Warn("openai.websocket_proxy_failed",
 				zap.Int64("account_id", account.ID),

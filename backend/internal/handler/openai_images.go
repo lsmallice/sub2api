@@ -149,18 +149,25 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 
 	for {
 		reqLog.Debug("openai.images.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForImages(
+		tierSelection, err := h.gatewayService.SelectAccountWithTierRoutingForImages(
 			requestCtx,
-			apiKey.GroupID,
+			apiKey,
 			sessionHash,
 			requestModel,
 			failedAccountIDs,
 			parsed.RequiredCapability,
 		)
+		var selection *service.AccountSelectionResult
+		var scheduleDecision service.OpenAIAccountScheduleDecision
+		if tierSelection != nil {
+			selection = tierSelection.Selection
+			scheduleDecision = tierSelection.Decision
+		}
 		if err != nil {
 			reqLog.Warn("openai.images.account_select_failed",
 				zap.Error(err),
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
+				zap.String("requested_tier_key", tierSelectionRequestedKey(tierSelection)),
 			)
 			if len(failedAccountIDs) == 0 {
 				if errors.Is(err, service.ErrNoImageCapableAccount) {
@@ -198,6 +205,8 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		accountSelectedFields := []zap.Field{
 			zap.Int64("account_id", account.ID),
 			zap.String("account_name", account.Name),
+			zap.String("requested_tier_key", tierSelectionRequestedKey(tierSelection)),
+			zap.String("actual_tier_key", tierSelectionActualKey(tierSelection)),
 		}
 		accountSelectedFields = append(accountSelectedFields, selectedImageGenerationAccountLogFields(account, requestCapability)...)
 		reqLog.Debug("openai.images.account_selected", accountSelectedFields...)
@@ -240,6 +249,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				var imageUpstreamErr *service.OpenAIImagesUpstreamError
 				if errors.As(err, &imageUpstreamErr) {
 					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, nil)
+					h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, requestModel, true, nil)
 					reqLog.Warn("openai.images.upstream_user_error",
 						zap.Int64("account_id", account.ID),
 						zap.Int("status_code", imageUpstreamErr.StatusCode),
@@ -252,6 +262,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				var failoverErr *service.UpstreamFailoverError
 				if errors.As(err, &failoverErr) {
 					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+					h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, requestModel, false, nil)
 					if failoverErr.RetryableOnSameAccount {
 						retryLimit := account.GetPoolModeRetryCount()
 						if sameAccountRetryCount[account.ID] < retryLimit {
@@ -291,6 +302,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 					continue
 				}
 				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+				h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, requestModel, false, nil)
 				upstreamErrorAlreadyCommunicated := openAIForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
 				wroteFallback := false
 				if !upstreamErrorAlreadyCommunicated {
@@ -315,8 +327,10 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				h.gatewayService.UpdateCodexUsageSnapshotFromHeaders(c.Request.Context(), account.ID, result.ResponseHeaders)
 			}
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, result.FirstTokenMs)
+			h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, requestModel, true, result.FirstTokenMs)
 		} else {
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, nil)
+			h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, requestModel, true, nil)
 		}
 
 		userAgent := c.GetHeader("User-Agent")
@@ -345,6 +359,9 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				IPAddress:          clientIP,
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      h.apiKeyService,
+				RequestedTierKey:   tierSelectionRequestedKey(tierSelection),
+				ActualTierKey:      tierSelectionActualKey(tierSelection),
+				TierRateMultiplier: tierSelectionRateMultiplier(tierSelection),
 				ChannelUsageFields: channelMapping.ToUsageFields(requestModel, upstreamModel),
 			}); err != nil {
 				logger.L().With(

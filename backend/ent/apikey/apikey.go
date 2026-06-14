@@ -31,6 +31,12 @@ const (
 	FieldGroupID = "group_id"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldPreferredTierKey holds the string denoting the preferred_tier_key field in the database.
+	FieldPreferredTierKey = "preferred_tier_key"
+	// FieldTierFallbackEnabled holds the string denoting the tier_fallback_enabled field in the database.
+	FieldTierFallbackEnabled = "tier_fallback_enabled"
+	// FieldTierFallbackPolicy holds the string denoting the tier_fallback_policy field in the database.
+	FieldTierFallbackPolicy = "tier_fallback_policy"
 	// FieldLastUsedAt holds the string denoting the last_used_at field in the database.
 	FieldLastUsedAt = "last_used_at"
 	// FieldIPWhitelist holds the string denoting the ip_whitelist field in the database.
@@ -103,6 +109,9 @@ var Columns = []string{
 	FieldName,
 	FieldGroupID,
 	FieldStatus,
+	FieldPreferredTierKey,
+	FieldTierFallbackEnabled,
+	FieldTierFallbackPolicy,
 	FieldLastUsedAt,
 	FieldIPWhitelist,
 	FieldIPBlacklist,
@@ -152,6 +161,14 @@ var (
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	StatusValidator func(string) error
+	// DefaultPreferredTierKey holds the default value on creation for the "preferred_tier_key" field.
+	DefaultPreferredTierKey string
+	// PreferredTierKeyValidator is a validator for the "preferred_tier_key" field. It is called by the builders before save.
+	PreferredTierKeyValidator func(string) error
+	// DefaultTierFallbackEnabled holds the default value on creation for the "tier_fallback_enabled" field.
+	DefaultTierFallbackEnabled bool
+	// DefaultTierFallbackPolicy holds the default value on creation for the "tier_fallback_policy" field.
+	DefaultTierFallbackPolicy func() map[string]interface{}
 	// DefaultQuota holds the default value on creation for the "quota" field.
 	DefaultQuota float64
 	// DefaultQuotaUsed holds the default value on creation for the "quota_used" field.
@@ -216,6 +233,16 @@ func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByPreferredTierKey orders the results by the preferred_tier_key field.
+func ByPreferredTierKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPreferredTierKey, opts...).ToFunc()
+}
+
+// ByTierFallbackEnabled orders the results by the tier_fallback_enabled field.
+func ByTierFallbackEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTierFallbackEnabled, opts...).ToFunc()
 }
 
 // ByLastUsedAt orders the results by the last_used_at field.

@@ -1329,6 +1329,16 @@
         v-if="account?.platform === 'openai'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
+        <div class="mb-4">
+          <label class="input-label">{{ t('admin.accounts.serviceTierKey') }}</label>
+          <input
+            v-model.trim="form.service_tier_key"
+            type="text"
+            class="input font-mono text-sm"
+            placeholder="pro / plus / pro2"
+          />
+          <p class="input-hint">{{ t('admin.accounts.serviceTierKeyHint') }}</p>
+        </div>
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.supportsImageGeneration') }}</label>
@@ -2889,6 +2899,7 @@ const form = reactive({
   load_factor: null as number | null,
   priority: 1,
   rate_multiplier: 1,
+  service_tier_key: '',
   supports_image_generation: false,
   status: 'active' as 'active' | 'inactive' | 'error',
   group_ids: [] as number[],
@@ -2957,6 +2968,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   form.load_factor = newAccount.load_factor ?? null
   form.priority = newAccount.priority
   form.rate_multiplier = newAccount.rate_multiplier ?? 1
+  form.service_tier_key = newAccount.platform === 'openai' ? (newAccount.service_tier_key || '') : ''
   form.supports_image_generation = newAccount.platform === 'openai' && newAccount.supports_image_generation === true
   form.status = (newAccount.status === 'active' || newAccount.status === 'inactive' || newAccount.status === 'error')
     ? newAccount.status
@@ -3705,6 +3717,9 @@ const handleSubmit = async () => {
     if (form.expires_at === null) {
       updatePayload.expires_at = 0
     }
+    updatePayload.service_tier_key = props.account.platform === 'openai'
+      ? form.service_tier_key.trim().toLowerCase()
+      : ''
     // load_factor: 空值/NaN/0/负数 时发送 0（后端约定 <= 0 = 清除）
     const lf = form.load_factor
     if (lf == null || Number.isNaN(lf) || lf <= 0) {

@@ -89,6 +89,8 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			sqlmock.AnyArg(), // model_mapping_chain
 			sqlmock.AnyArg(), // billing_tier
 			sqlmock.AnyArg(), // billing_mode
+			sqlmock.AnyArg(), // requested_tier_key
+			sqlmock.AnyArg(), // actual_tier_key
 			sqlmock.AnyArg(), // account_stats_cost
 			createdAt,
 		).
@@ -172,6 +174,8 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			sqlmock.AnyArg(), // model_mapping_chain
 			sqlmock.AnyArg(), // billing_tier
 			sqlmock.AnyArg(), // billing_mode
+			sqlmock.AnyArg(), // requested_tier_key
+			sqlmock.AnyArg(), // actual_tier_key
 			sqlmock.AnyArg(), // account_stats_cost
 			createdAt,
 		).
@@ -199,8 +203,36 @@ func TestBuildUsageLogBestEffortInsertQuery_IncludesRequestedModelColumn(t *test
 	require.Contains(t, query, "INSERT INTO usage_logs (")
 	require.Contains(t, query, "\n\t\t\tmodel,\n\t\t\trequested_model,\n\t\t\tupstream_model,")
 	require.Contains(t, query, "\n\t\t\trequest_id,\n\t\t\tmodel,\n\t\t\trequested_model,\n\t\t\tupstream_model,")
+	require.Contains(t, query, "\n\t\t\trequested_tier_key,\n\t\t\tactual_tier_key,")
 	require.Len(t, args, len(prepared.args))
 	require.Equal(t, prepared.args[5], args[5])
+}
+
+func TestBuildUsageLogBatchInsertQuery_IncludesTierColumns(t *testing.T) {
+	requestedTierKey := "pro"
+	actualTierKey := "plus"
+	prepared := prepareUsageLogInsert(&service.UsageLog{
+		UserID:           1,
+		APIKeyID:         2,
+		AccountID:        3,
+		RequestID:        "req-batch-tier-query",
+		Model:            "gpt-5",
+		RequestedModel:   "gpt-5",
+		RequestedTierKey: &requestedTierKey,
+		ActualTierKey:    &actualTierKey,
+		CreatedAt:        time.Date(2025, 1, 3, 12, 0, 0, 0, time.UTC),
+	})
+	key := usageLogBatchKey(prepared.requestID, 2)
+
+	query, args := buildUsageLogBatchInsertQuery([]string{key}, map[string]usageLogInsertPrepared{
+		key: prepared,
+	})
+
+	require.Contains(t, query, "\n\t\t\trequested_tier_key,\n\t\t\tactual_tier_key,")
+	require.Contains(t, query, "\n\t\t\t\trequested_tier_key,\n\t\t\t\tactual_tier_key,")
+	require.Len(t, args, len(prepared.args)+1)
+	require.Equal(t, sql.NullString{String: requestedTierKey, Valid: true}, args[1+48])
+	require.Equal(t, sql.NullString{String: actualTierKey, Valid: true}, args[1+49])
 }
 
 func TestExecUsageLogInsertNoResult_PersistsRequestedModel(t *testing.T) {
@@ -639,6 +671,8 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},
 			sql.NullString{},
 			sql.NullString{},
+			sql.NullString{},
+			sql.NullString{},
 			sql.NullFloat64{},
 			now,
 		}})
@@ -707,6 +741,8 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},  // model_mapping_chain
 			sql.NullString{},  // billing_tier
 			sql.NullString{},  // billing_mode
+			sql.NullString{},  // requested_tier_key
+			sql.NullString{},  // actual_tier_key
 			sql.NullFloat64{}, // account_stats_cost
 			now,
 		}})
@@ -759,6 +795,8 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},  // model_mapping_chain
 			sql.NullString{},  // billing_tier
 			sql.NullString{},  // billing_mode
+			sql.NullString{},  // requested_tier_key
+			sql.NullString{},  // actual_tier_key
 			sql.NullFloat64{}, // account_stats_cost
 			now,
 		}})
@@ -807,16 +845,22 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},
 			sql.NullString{},
 			false,
-			sql.NullInt64{},   // channel_id
-			sql.NullString{},  // model_mapping_chain
-			sql.NullString{},  // billing_tier
-			sql.NullString{},  // billing_mode
-			sql.NullFloat64{}, // account_stats_cost
+			sql.NullInt64{},  // channel_id
+			sql.NullString{}, // model_mapping_chain
+			sql.NullString{}, // billing_tier
+			sql.NullString{}, // billing_mode
+			sql.NullString{Valid: true, String: "pro"},  // requested_tier_key
+			sql.NullString{Valid: true, String: "plus"}, // actual_tier_key
+			sql.NullFloat64{},                           // account_stats_cost
 			now,
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, log.ServiceTier)
 		require.Equal(t, "priority", *log.ServiceTier)
+		require.NotNil(t, log.RequestedTierKey)
+		require.Equal(t, "pro", *log.RequestedTierKey)
+		require.NotNil(t, log.ActualTierKey)
+		require.Equal(t, "plus", *log.ActualTierKey)
 	})
 
 }

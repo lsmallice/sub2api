@@ -105,6 +105,7 @@ type CreateAccountRequest struct {
 	Concurrency             int            `json:"concurrency"`
 	Priority                int            `json:"priority"`
 	RateMultiplier          *float64       `json:"rate_multiplier"`
+	ServiceTierKey          string         `json:"service_tier_key"`
 	LoadFactor              *int           `json:"load_factor"`
 	SupportsImageGeneration *bool          `json:"supports_image_generation"`
 	GroupIDs                []int64        `json:"group_ids"`
@@ -125,6 +126,7 @@ type UpdateAccountRequest struct {
 	Concurrency             *int           `json:"concurrency"`
 	Priority                *int           `json:"priority"`
 	RateMultiplier          *float64       `json:"rate_multiplier"`
+	ServiceTierKey          *string        `json:"service_tier_key"`
 	LoadFactor              *int           `json:"load_factor"`
 	SupportsImageGeneration *bool          `json:"supports_image_generation"`
 	Status                  string         `json:"status" binding:"omitempty,oneof=active inactive error"`
@@ -143,6 +145,7 @@ type BulkUpdateAccountsRequest struct {
 	Concurrency             *int                      `json:"concurrency"`
 	Priority                *int                      `json:"priority"`
 	RateMultiplier          *float64                  `json:"rate_multiplier"`
+	ServiceTierKey          *string                   `json:"service_tier_key"`
 	LoadFactor              *int                      `json:"load_factor"`
 	SupportsImageGeneration *bool                     `json:"supports_image_generation"`
 	Status                  string                    `json:"status" binding:"omitempty,oneof=active inactive error"`
@@ -553,6 +556,7 @@ func (h *AccountHandler) Create(c *gin.Context) {
 			Concurrency:             req.Concurrency,
 			Priority:                req.Priority,
 			RateMultiplier:          req.RateMultiplier,
+			ServiceTierKey:          req.ServiceTierKey,
 			LoadFactor:              req.LoadFactor,
 			SupportsImageGeneration: req.SupportsImageGeneration != nil && *req.SupportsImageGeneration,
 			GroupIDs:                req.GroupIDs,
@@ -632,6 +636,7 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		Concurrency:             req.Concurrency, // 指针类型，nil 表示未提供
 		Priority:                req.Priority,    // 指针类型，nil 表示未提供
 		RateMultiplier:          req.RateMultiplier,
+		ServiceTierKey:          req.ServiceTierKey,
 		LoadFactor:              req.LoadFactor,
 		SupportsImageGeneration: req.SupportsImageGeneration,
 		Status:                  req.Status,
@@ -1555,6 +1560,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		req.Concurrency != nil ||
 		req.Priority != nil ||
 		req.RateMultiplier != nil ||
+		req.ServiceTierKey != nil ||
 		req.LoadFactor != nil ||
 		req.SupportsImageGeneration != nil ||
 		req.Status != "" ||
@@ -1576,6 +1582,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		Concurrency:             req.Concurrency,
 		Priority:                req.Priority,
 		RateMultiplier:          req.RateMultiplier,
+		ServiceTierKey:          req.ServiceTierKey,
 		LoadFactor:              req.LoadFactor,
 		SupportsImageGeneration: req.SupportsImageGeneration,
 		Status:                  req.Status,

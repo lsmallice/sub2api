@@ -120,6 +120,11 @@ func RateMultiplier(v float64) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldRateMultiplier, v))
 }
 
+// ServiceTierKey applies equality check predicate on the "service_tier_key" field. It's identical to ServiceTierKeyEQ.
+func ServiceTierKey(v string) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldServiceTierKey, v))
+}
+
 // SupportsImageGeneration applies equality check predicate on the "supports_image_generation" field. It's identical to SupportsImageGenerationEQ.
 func SupportsImageGeneration(v bool) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldSupportsImageGeneration, v))
@@ -843,6 +848,71 @@ func RateMultiplierLT(v float64) predicate.Account {
 // RateMultiplierLTE applies the LTE predicate on the "rate_multiplier" field.
 func RateMultiplierLTE(v float64) predicate.Account {
 	return predicate.Account(sql.FieldLTE(FieldRateMultiplier, v))
+}
+
+// ServiceTierKeyEQ applies the EQ predicate on the "service_tier_key" field.
+func ServiceTierKeyEQ(v string) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldServiceTierKey, v))
+}
+
+// ServiceTierKeyNEQ applies the NEQ predicate on the "service_tier_key" field.
+func ServiceTierKeyNEQ(v string) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldServiceTierKey, v))
+}
+
+// ServiceTierKeyIn applies the In predicate on the "service_tier_key" field.
+func ServiceTierKeyIn(vs ...string) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldServiceTierKey, vs...))
+}
+
+// ServiceTierKeyNotIn applies the NotIn predicate on the "service_tier_key" field.
+func ServiceTierKeyNotIn(vs ...string) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldServiceTierKey, vs...))
+}
+
+// ServiceTierKeyGT applies the GT predicate on the "service_tier_key" field.
+func ServiceTierKeyGT(v string) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldServiceTierKey, v))
+}
+
+// ServiceTierKeyGTE applies the GTE predicate on the "service_tier_key" field.
+func ServiceTierKeyGTE(v string) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldServiceTierKey, v))
+}
+
+// ServiceTierKeyLT applies the LT predicate on the "service_tier_key" field.
+func ServiceTierKeyLT(v string) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldServiceTierKey, v))
+}
+
+// ServiceTierKeyLTE applies the LTE predicate on the "service_tier_key" field.
+func ServiceTierKeyLTE(v string) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldServiceTierKey, v))
+}
+
+// ServiceTierKeyContains applies the Contains predicate on the "service_tier_key" field.
+func ServiceTierKeyContains(v string) predicate.Account {
+	return predicate.Account(sql.FieldContains(FieldServiceTierKey, v))
+}
+
+// ServiceTierKeyHasPrefix applies the HasPrefix predicate on the "service_tier_key" field.
+func ServiceTierKeyHasPrefix(v string) predicate.Account {
+	return predicate.Account(sql.FieldHasPrefix(FieldServiceTierKey, v))
+}
+
+// ServiceTierKeyHasSuffix applies the HasSuffix predicate on the "service_tier_key" field.
+func ServiceTierKeyHasSuffix(v string) predicate.Account {
+	return predicate.Account(sql.FieldHasSuffix(FieldServiceTierKey, v))
+}
+
+// ServiceTierKeyEqualFold applies the EqualFold predicate on the "service_tier_key" field.
+func ServiceTierKeyEqualFold(v string) predicate.Account {
+	return predicate.Account(sql.FieldEqualFold(FieldServiceTierKey, v))
+}
+
+// ServiceTierKeyContainsFold applies the ContainsFold predicate on the "service_tier_key" field.
+func ServiceTierKeyContainsFold(v string) predicate.Account {
+	return predicate.Account(sql.FieldContainsFold(FieldServiceTierKey, v))
 }
 
 // SupportsImageGenerationEQ applies the EQ predicate on the "supports_image_generation" field.

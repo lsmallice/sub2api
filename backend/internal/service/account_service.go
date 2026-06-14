@@ -105,6 +105,7 @@ type AccountBulkUpdate struct {
 	Concurrency             *int
 	Priority                *int
 	RateMultiplier          *float64
+	ServiceTierKey          *string
 	LoadFactor              *int
 	Status                  *string
 	Schedulable             *bool
@@ -128,6 +129,7 @@ type CreateAccountRequest struct {
 	ExpiresAt               *time.Time     `json:"expires_at"`
 	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
 	SupportsImageGeneration bool           `json:"supports_image_generation"`
+	ServiceTierKey          string         `json:"service_tier_key"`
 }
 
 // UpdateAccountRequest 更新账号请求
@@ -144,6 +146,7 @@ type UpdateAccountRequest struct {
 	ExpiresAt               *time.Time      `json:"expires_at"`
 	AutoPauseOnExpired      *bool           `json:"auto_pause_on_expired"`
 	SupportsImageGeneration *bool           `json:"supports_image_generation"`
+	ServiceTierKey          *string         `json:"service_tier_key"`
 }
 
 // AccountService 账号管理服务
@@ -187,6 +190,7 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 		Status:                  StatusActive,
 		ExpiresAt:               req.ExpiresAt,
 		SupportsImageGeneration: req.SupportsImageGeneration,
+		ServiceTierKey:          normalizeTierKey(req.ServiceTierKey),
 	}
 	if req.AutoPauseOnExpired != nil {
 		account.AutoPauseOnExpired = *req.AutoPauseOnExpired
@@ -303,6 +307,9 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 	}
 	if req.SupportsImageGeneration != nil {
 		account.SupportsImageGeneration = *req.SupportsImageGeneration
+	}
+	if req.ServiceTierKey != nil {
+		account.ServiceTierKey = normalizeTierKey(*req.ServiceTierKey)
 	}
 
 	// 先验证分组是否存在（在任何写操作之前）

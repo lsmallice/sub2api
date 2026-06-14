@@ -268,6 +268,20 @@ func (_u *AccountUpdate) AddRateMultiplier(v float64) *AccountUpdate {
 	return _u
 }
 
+// SetServiceTierKey sets the "service_tier_key" field.
+func (_u *AccountUpdate) SetServiceTierKey(v string) *AccountUpdate {
+	_u.mutation.SetServiceTierKey(v)
+	return _u
+}
+
+// SetNillableServiceTierKey sets the "service_tier_key" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableServiceTierKey(v *string) *AccountUpdate {
+	if v != nil {
+		_u.SetServiceTierKey(*v)
+	}
+	return _u
+}
+
 // SetSupportsImageGeneration sets the "supports_image_generation" field.
 func (_u *AccountUpdate) SetSupportsImageGeneration(v bool) *AccountUpdate {
 	_u.mutation.SetSupportsImageGeneration(v)
@@ -691,6 +705,11 @@ func (_u *AccountUpdate) check() error {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ServiceTierKey(); ok {
+		if err := account.ServiceTierKeyValidator(v); err != nil {
+			return &ValidationError{Name: "service_tier_key", err: fmt.Errorf(`ent: validator failed for field "Account.service_tier_key": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
@@ -781,6 +800,9 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(account.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.ServiceTierKey(); ok {
+		_spec.SetField(account.FieldServiceTierKey, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.SupportsImageGeneration(); ok {
 		_spec.SetField(account.FieldSupportsImageGeneration, field.TypeBool, value)
@@ -1248,6 +1270,20 @@ func (_u *AccountUpdateOne) AddRateMultiplier(v float64) *AccountUpdateOne {
 	return _u
 }
 
+// SetServiceTierKey sets the "service_tier_key" field.
+func (_u *AccountUpdateOne) SetServiceTierKey(v string) *AccountUpdateOne {
+	_u.mutation.SetServiceTierKey(v)
+	return _u
+}
+
+// SetNillableServiceTierKey sets the "service_tier_key" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableServiceTierKey(v *string) *AccountUpdateOne {
+	if v != nil {
+		_u.SetServiceTierKey(*v)
+	}
+	return _u
+}
+
 // SetSupportsImageGeneration sets the "supports_image_generation" field.
 func (_u *AccountUpdateOne) SetSupportsImageGeneration(v bool) *AccountUpdateOne {
 	_u.mutation.SetSupportsImageGeneration(v)
@@ -1684,6 +1720,11 @@ func (_u *AccountUpdateOne) check() error {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ServiceTierKey(); ok {
+		if err := account.ServiceTierKeyValidator(v); err != nil {
+			return &ValidationError{Name: "service_tier_key", err: fmt.Errorf(`ent: validator failed for field "Account.service_tier_key": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
@@ -1791,6 +1832,9 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(account.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.ServiceTierKey(); ok {
+		_spec.SetField(account.FieldServiceTierKey, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.SupportsImageGeneration(); ok {
 		_spec.SetField(account.FieldSupportsImageGeneration, field.TypeBool, value)

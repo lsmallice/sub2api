@@ -30,13 +30,16 @@ func NewAPIKeyHandler(apiKeyService *service.APIKeyService) *APIKeyHandler {
 
 // CreateAPIKeyRequest represents the create API key request payload
 type CreateAPIKeyRequest struct {
-	Name          string   `json:"name" binding:"required"`
-	GroupID       *int64   `json:"group_id"`        // nullable
-	CustomKey     *string  `json:"custom_key"`      // 可选的自定义key
-	IPWhitelist   []string `json:"ip_whitelist"`    // IP 白名单
-	IPBlacklist   []string `json:"ip_blacklist"`    // IP 黑名单
-	Quota         *float64 `json:"quota"`           // 配额限制 (USD)
-	ExpiresInDays *int     `json:"expires_in_days"` // 过期天数
+	Name                string         `json:"name" binding:"required"`
+	GroupID             *int64         `json:"group_id"`     // nullable
+	CustomKey           *string        `json:"custom_key"`   // 可选的自定义key
+	IPWhitelist         []string       `json:"ip_whitelist"` // IP 白名单
+	IPBlacklist         []string       `json:"ip_blacklist"` // IP 黑名单
+	PreferredTierKey    string         `json:"preferred_tier_key"`
+	TierFallbackEnabled *bool          `json:"tier_fallback_enabled"`
+	TierFallbackPolicy  map[string]any `json:"tier_fallback_policy"`
+	Quota               *float64       `json:"quota"`           // 配额限制 (USD)
+	ExpiresInDays       *int           `json:"expires_in_days"` // 过期天数
 
 	// Rate limit fields (0 = unlimited)
 	RateLimit5h *float64 `json:"rate_limit_5h"`
@@ -46,14 +49,17 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest represents the update API key request payload
 type UpdateAPIKeyRequest struct {
-	Name        string   `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	Status      string   `json:"status" binding:"omitempty,oneof=active inactive"`
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
-	Quota       *float64 `json:"quota"`        // 配额限制 (USD), 0=无限制
-	ExpiresAt   *string  `json:"expires_at"`   // 过期时间 (ISO 8601)
-	ResetQuota  *bool    `json:"reset_quota"`  // 重置已用配额
+	Name                string         `json:"name"`
+	GroupID             *int64         `json:"group_id"`
+	Status              string         `json:"status" binding:"omitempty,oneof=active inactive"`
+	IPWhitelist         []string       `json:"ip_whitelist"` // IP 白名单
+	IPBlacklist         []string       `json:"ip_blacklist"` // IP 黑名单
+	PreferredTierKey    *string        `json:"preferred_tier_key"`
+	TierFallbackEnabled *bool          `json:"tier_fallback_enabled"`
+	TierFallbackPolicy  map[string]any `json:"tier_fallback_policy"`
+	Quota               *float64       `json:"quota"`       // 配额限制 (USD), 0=无限制
+	ExpiresAt           *string        `json:"expires_at"`  // 过期时间 (ISO 8601)
+	ResetQuota          *bool          `json:"reset_quota"` // 重置已用配额
 
 	// Rate limit fields (nil = no change, 0 = unlimited)
 	RateLimit5h         *float64 `json:"rate_limit_5h"`
@@ -154,12 +160,15 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 	}
 
 	svcReq := service.CreateAPIKeyRequest{
-		Name:          req.Name,
-		GroupID:       req.GroupID,
-		CustomKey:     req.CustomKey,
-		IPWhitelist:   req.IPWhitelist,
-		IPBlacklist:   req.IPBlacklist,
-		ExpiresInDays: req.ExpiresInDays,
+		Name:                req.Name,
+		GroupID:             req.GroupID,
+		CustomKey:           req.CustomKey,
+		IPWhitelist:         req.IPWhitelist,
+		IPBlacklist:         req.IPBlacklist,
+		PreferredTierKey:    req.PreferredTierKey,
+		TierFallbackEnabled: req.TierFallbackEnabled,
+		TierFallbackPolicy:  req.TierFallbackPolicy,
+		ExpiresInDays:       req.ExpiresInDays,
 	}
 	if req.Quota != nil {
 		svcReq.Quota = *req.Quota
@@ -207,6 +216,9 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	svcReq := service.UpdateAPIKeyRequest{
 		IPWhitelist:         req.IPWhitelist,
 		IPBlacklist:         req.IPBlacklist,
+		PreferredTierKey:    req.PreferredTierKey,
+		TierFallbackEnabled: req.TierFallbackEnabled,
+		TierFallbackPolicy:  req.TierFallbackPolicy,
 		Quota:               req.Quota,
 		ResetQuota:          req.ResetQuota,
 		RateLimit5h:         req.RateLimit5h,
@@ -308,4 +320,29 @@ func (h *APIKeyHandler) GetUserGroupRates(c *gin.Context) {
 	}
 
 	response.Success(c, rates)
+}
+
+// GetAvailableGroupRateTiers 获取当前用户可见分组的倍率档位
+// GET /api/v1/groups/:id/rate-tiers
+func (h *APIKeyHandler) GetAvailableGroupRateTiers(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || groupID <= 0 {
+		response.BadRequest(c, "Invalid group ID")
+		return
+	}
+
+	tiers, err := h.apiKeyService.GetAvailableGroupRateTiers(c.Request.Context(), subject.UserID, groupID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if tiers == nil {
+		tiers = []service.GroupRateTier{}
+	}
+	response.Success(c, tiers)
 }
