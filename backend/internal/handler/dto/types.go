@@ -145,14 +145,29 @@ type AdminGroup struct {
 	ModelsListConfig            domain.GroupModelsListConfig             `json:"models_list_config"`
 
 	// 支持的模型系列（仅 antigravity 平台使用）
-	SupportedModelScopes    []string       `json:"supported_model_scopes"`
-	AccountGroups           []AccountGroup `json:"account_groups,omitempty"`
-	AccountCount            int64          `json:"account_count,omitempty"`
-	ActiveAccountCount      int64          `json:"active_account_count,omitempty"`
-	RateLimitedAccountCount int64          `json:"rate_limited_account_count,omitempty"`
+	SupportedModelScopes    []string        `json:"supported_model_scopes"`
+	AccountGroups           []AccountGroup  `json:"account_groups,omitempty"`
+	RateTiers               []GroupRateTier `json:"rate_tiers,omitempty"`
+	AccountCount            int64           `json:"account_count,omitempty"`
+	ActiveAccountCount      int64           `json:"active_account_count,omitempty"`
+	RateLimitedAccountCount int64           `json:"rate_limited_account_count,omitempty"`
 
 	// 分组排序
 	SortOrder int `json:"sort_order"`
+}
+
+type GroupRateTier struct {
+	ID             int64          `json:"id,omitempty"`
+	GroupID        int64          `json:"group_id,omitempty"`
+	TierKey        string         `json:"tier_key"`
+	DisplayName    string         `json:"display_name"`
+	RateMultiplier float64        `json:"rate_multiplier"`
+	Priority       int            `json:"priority"`
+	Enabled        bool           `json:"enabled"`
+	IsDefault      bool           `json:"is_default"`
+	FallbackPolicy map[string]any `json:"fallback_policy,omitempty"`
+	CreatedAt      time.Time      `json:"created_at,omitempty"`
+	UpdatedAt      time.Time      `json:"updated_at,omitempty"`
 }
 
 type Account struct {

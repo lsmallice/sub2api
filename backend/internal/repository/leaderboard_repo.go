@@ -198,7 +198,7 @@ func (r *leaderboardRepository) GetRanking(ctx context.Context, window string, s
 	if err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	top := make([]service.LeaderboardRankRow, 0, limit)
 	var me *service.LeaderboardRankRow
@@ -249,7 +249,7 @@ func (r *leaderboardRepository) GetHonorStats(ctx context.Context, userIDs []int
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var userID int64
 		var periodWindow string
@@ -690,7 +690,7 @@ func (r *leaderboardRepository) scanParticipant(ctx context.Context, query strin
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	if !rows.Next() {
 		if err := rows.Err(); err != nil {
 			return nil, err

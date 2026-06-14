@@ -448,16 +448,14 @@
 
         <div
           v-if="availableRateTiers.length > 0"
-          class="space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-600 dark:bg-dark-800"
+          class="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-600 dark:bg-dark-800"
         >
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="min-w-0">
               <label class="input-label mb-0">{{ t('keys.tierRouting.title') }}</label>
-              <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                <span>{{ t('keys.tierRouting.preferredTier') }}</span>
-                <span class="text-gray-300 dark:text-gray-600">/</span>
-                <span>{{ t('keys.tierRouting.fallbackOrder') }}</span>
-              </div>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('keys.tierRouting.description') }}
+              </p>
             </div>
             <div class="flex items-center gap-2">
               <span
@@ -488,87 +486,164 @@
             </div>
           </div>
 
-          <div class="grid gap-2 sm:grid-cols-2">
-            <button
-              v-for="tier in availableRateTiers"
-              :key="tier.tier_key"
-              type="button"
-              @click="formData.preferred_tier_key = tier.tier_key"
-              :class="[
-                'flex min-h-[52px] items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
-                formData.preferred_tier_key === tier.tier_key
-                  ? 'border-primary-400 bg-primary-50 text-primary-900 shadow-sm ring-1 ring-primary-300 dark:border-primary-500 dark:bg-primary-500/10 dark:text-primary-100 dark:ring-primary-500/40'
-                  : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:bg-white dark:border-dark-600 dark:bg-dark-700/50 dark:text-gray-200 dark:hover:border-dark-500 dark:hover:bg-dark-700'
-              ]"
-            >
-              <span class="min-w-0">
-                <span class="block truncate text-sm font-semibold">
-                  {{ tier.display_name || tier.tier_key }}
-                </span>
-                <span class="mt-0.5 block truncate font-mono text-xs text-gray-500 dark:text-gray-400">
-                  {{ tier.tier_key }}
-                </span>
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-600 dark:bg-dark-700/40">
+            <div class="mb-2 flex items-center justify-between gap-3">
+              <span class="text-sm font-semibold text-gray-900 dark:text-white">
+                {{ t('keys.tierRouting.preferredTier') }}
               </span>
-              <span class="flex flex-shrink-0 items-center gap-1.5">
-                <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-200 dark:bg-dark-800 dark:text-gray-200 dark:ring-dark-600">
-                  {{ tier.rate_multiplier }}x
-                </span>
-                <span
-                  v-if="tier.is_default"
-                  class="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20"
-                >
-                  {{ t('keys.tierRouting.default') }}
-                </span>
+              <span class="truncate text-xs text-gray-500 dark:text-gray-400">
+                {{ selectedTierSummary }}
               </span>
-            </button>
+            </div>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                @click="setPreferredTierKey('')"
+                :class="[
+                  'flex min-h-[50px] items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                  formData.preferred_tier_key === ''
+                    ? 'border-primary-400 bg-primary-50 text-primary-900 shadow-sm ring-1 ring-primary-300 dark:border-primary-500 dark:bg-primary-500/10 dark:text-primary-100 dark:ring-primary-500/40'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500'
+                ]"
+              >
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-semibold">
+                    {{ t('keys.tierRouting.defaultTier') }}
+                  </span>
+                  <span class="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">
+                    {{ groupDefaultTierLabel }}
+                  </span>
+                </span>
+                <Icon
+                  v-if="formData.preferred_tier_key === ''"
+                  name="check"
+                  size="sm"
+                  class="text-primary-500"
+                />
+              </button>
+              <button
+                v-for="tier in availableRateTiers"
+                :key="tier.tier_key"
+                type="button"
+                @click="setPreferredTierKey(tier.tier_key)"
+                :class="[
+                  'flex min-h-[50px] items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                  formData.preferred_tier_key === tier.tier_key
+                    ? 'border-primary-400 bg-primary-50 text-primary-900 shadow-sm ring-1 ring-primary-300 dark:border-primary-500 dark:bg-primary-500/10 dark:text-primary-100 dark:ring-primary-500/40'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500'
+                ]"
+              >
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-semibold">
+                    {{ tier.display_name || tier.tier_key }}
+                  </span>
+                  <span class="mt-0.5 block truncate font-mono text-xs text-gray-500 dark:text-gray-400">
+                    {{ tier.tier_key }}
+                  </span>
+                </span>
+                <span class="flex flex-shrink-0 items-center gap-1.5">
+                  <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-200 dark:bg-dark-800 dark:text-gray-200 dark:ring-dark-600">
+                    {{ formatRateMultiplier(tier.rate_multiplier) }}x
+                  </span>
+                  <span
+                    v-if="tier.is_default"
+                    class="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20"
+                  >
+                    {{ t('keys.tierRouting.default') }}
+                  </span>
+                </span>
+              </button>
+            </div>
           </div>
 
-          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-600 dark:bg-dark-700/40">
-            <div class="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <div class="text-sm font-semibold text-gray-900 dark:text-white">
-                  {{ t('keys.tierRouting.fallbackOrder') }}
+          <div class="rounded-lg border border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-700/40">
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left"
+              @click="tierFallbackAdvancedOpen = !tierFallbackAdvancedOpen"
+            >
+              <span class="min-w-0">
+                <span class="block text-sm font-semibold text-gray-900 dark:text-white">
+                  {{ t('keys.tierRouting.fallbackStrategy') }}
+                </span>
+                <span class="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">
+                  {{ fallbackStrategySummary }}
+                </span>
+              </span>
+              <Icon
+                name="chevronDown"
+                size="md"
+                :class="['text-gray-400 transition-transform', tierFallbackAdvancedOpen && 'rotate-180']"
+              />
+            </button>
+
+            <div v-if="tierFallbackAdvancedOpen" class="space-y-3 border-t border-gray-200 p-3 dark:border-dark-600">
+              <p
+                v-if="!formData.tier_fallback_enabled"
+                class="rounded-md bg-white px-3 py-2 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-dark-800 dark:text-gray-400 dark:ring-dark-600"
+              >
+                {{ t('keys.tierRouting.fallbackDisabledHint') }}
+              </p>
+              <template v-else>
+                <div>
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <label class="input-label mb-0">{{ t('keys.tierRouting.fallbackOrder') }}</label>
+                    <button
+                      type="button"
+                      class="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                      @click="clearFallbackOrder"
+                    >
+                      {{ t('keys.tierRouting.useGroupOrder') }}
+                    </button>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      v-for="tier in fallbackTierOptions"
+                      :key="tier.tier_key"
+                      type="button"
+                      @click="toggleFallbackTier(tier.tier_key)"
+                      :class="[
+                        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                        fallbackTierOrderIndex(tier.tier_key) > 0
+                          ? 'border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300'
+                      ]"
+                    >
+                      <span
+                        v-if="fallbackTierOrderIndex(tier.tier_key) > 0"
+                        class="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-500 px-1 text-[10px] text-white"
+                      >
+                        {{ fallbackTierOrderIndex(tier.tier_key) }}
+                      </span>
+                      <span>{{ tier.display_name || tier.tier_key }}</span>
+                      <span class="font-mono text-[10px] opacity-70">{{ tier.tier_key }}</span>
+                    </button>
+                  </div>
+                  <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('keys.tierRouting.fallbackOrderHint') }}
+                  </p>
                 </div>
-                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('keys.tierRouting.fallbackOrderHint') }}
-                </p>
-              </div>
+
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label class="input-label">{{ t('keys.tierRouting.firstTokenThreshold') }}</label>
+                    <input v-model.number="formData.tier_first_token_threshold_ms" type="number" min="0" step="100" class="input h-10" placeholder="3000" />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('keys.tierRouting.errorThreshold') }}</label>
+                    <input v-model.number="formData.tier_degrade_after_errors" type="number" min="0" step="1" class="input h-10" placeholder="2" />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('keys.tierRouting.cooldown') }}</label>
+                    <input v-model.number="formData.tier_cooldown_seconds" type="number" min="0" step="30" class="input h-10" placeholder="300" />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('keys.tierRouting.recovery') }}</label>
+                    <input v-model.number="formData.tier_recovery_successes" type="number" min="0" step="1" class="input h-10" placeholder="2" />
+                  </div>
+                </div>
+              </template>
             </div>
-
-            <div v-if="formData.tier_fallback_enabled" class="space-y-3">
-              <div>
-                <label class="input-label">{{ t('keys.tierRouting.fallbackOrder') }}</label>
-                <input
-                  v-model.trim="formData.tier_fallback_order"
-                  type="text"
-                  class="input h-10 font-mono text-sm"
-                  placeholder="plus,pro2"
-                />
-              </div>
-
-              <div class="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label class="input-label">{{ t('keys.tierRouting.firstTokenThreshold') }}</label>
-                  <input v-model.number="formData.tier_first_token_threshold_ms" type="number" min="0" step="100" class="input h-10" placeholder="3000" />
-                </div>
-                <div>
-                  <label class="input-label">{{ t('keys.tierRouting.errorThreshold') }}</label>
-                  <input v-model.number="formData.tier_degrade_after_errors" type="number" min="0" step="1" class="input h-10" placeholder="2" />
-                </div>
-                <div>
-                  <label class="input-label">{{ t('keys.tierRouting.cooldown') }}</label>
-                  <input v-model.number="formData.tier_cooldown_seconds" type="number" min="0" step="30" class="input h-10" placeholder="300" />
-                </div>
-                <div>
-                  <label class="input-label">{{ t('keys.tierRouting.recovery') }}</label>
-                  <input v-model.number="formData.tier_recovery_successes" type="number" min="0" step="1" class="input h-10" placeholder="2" />
-                </div>
-              </div>
-            </div>
-
-            <p v-else class="rounded-md bg-white px-3 py-2 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-dark-800 dark:text-gray-400 dark:ring-dark-600">
-              {{ t('keys.tierRouting.fallbackOff') }}
-            </p>
           </div>
         </div>
 
@@ -1288,6 +1363,7 @@ const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | n
 const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
 let abortController: AbortController | null = null
 let rateTierLoadSeq = 0
+const tierFallbackAdvancedOpen = ref(false)
 
 // Get the currently selected key for group change
 const selectedKeyForGroup = computed(() => {
@@ -1441,6 +1517,118 @@ const buildTierFallbackPolicy = (): Record<string, unknown> => {
   return policy
 }
 
+const normalizeTierKey = (value: string | null | undefined) => value?.trim().toLowerCase() || ''
+
+const parseTierFallbackOrder = (value: string) =>
+  value
+    .split(',')
+    .map(item => normalizeTierKey(item))
+    .filter(Boolean)
+
+const formatRateMultiplier = (value: number | null | undefined): string => {
+  const numberValue = Number(value ?? 0)
+  if (!Number.isFinite(numberValue)) return '0'
+  return Number.isInteger(numberValue)
+    ? numberValue.toFixed(0)
+    : numberValue.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
+}
+
+const getTierLabel = (tier: GroupRateTier | null | undefined) => {
+  if (!tier) return ''
+  return `${tier.display_name || tier.tier_key} (${tier.tier_key})`
+}
+
+const groupDefaultRateTier = computed(() =>
+  availableRateTiers.value.find(tier => tier.is_default) || availableRateTiers.value[0] || null
+)
+
+const groupDefaultTierLabel = computed(() => {
+  const defaultTier = groupDefaultRateTier.value
+  return defaultTier
+    ? t('keys.tierRouting.groupDefaultWithTier', {
+      tier: getTierLabel(defaultTier),
+      rate: formatRateMultiplier(defaultTier.rate_multiplier)
+    })
+    : t('keys.tierRouting.groupDefault')
+})
+
+const selectedPreferredRateTier = computed(() => {
+  const key = normalizeTierKey(formData.value.preferred_tier_key)
+  if (!key) return null
+  return availableRateTiers.value.find(tier => normalizeTierKey(tier.tier_key) === key) || null
+})
+
+const selectedTierSummary = computed(() => {
+  const selectedTier = selectedPreferredRateTier.value
+  if (!selectedTier) return groupDefaultTierLabel.value
+  return `${getTierLabel(selectedTier)} · ${formatRateMultiplier(selectedTier.rate_multiplier)}x`
+})
+
+const selectedFallbackTierKeys = computed(() => parseTierFallbackOrder(formData.value.tier_fallback_order))
+
+const fallbackTierOptions = computed(() => {
+  const preferredKey = normalizeTierKey(formData.value.preferred_tier_key)
+  return availableRateTiers.value.filter(tier => normalizeTierKey(tier.tier_key) !== preferredKey)
+})
+
+const setFallbackTierOrder = (keys: string[]) => {
+  const seen = new Set<string>()
+  formData.value.tier_fallback_order = keys
+    .map(key => normalizeTierKey(key))
+    .filter(key => {
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .join(',')
+}
+
+const setPreferredTierKey = (key: string) => {
+  const nextKey = normalizeTierKey(key)
+  formData.value.preferred_tier_key = nextKey
+  if (nextKey) {
+    setFallbackTierOrder(selectedFallbackTierKeys.value.filter(item => item !== nextKey))
+  }
+}
+
+const fallbackTierOrderIndex = (key: string) =>
+  selectedFallbackTierKeys.value.indexOf(normalizeTierKey(key)) + 1
+
+const toggleFallbackTier = (key: string) => {
+  const normalized = normalizeTierKey(key)
+  if (!normalized) return
+  const current = selectedFallbackTierKeys.value
+  if (current.includes(normalized)) {
+    setFallbackTierOrder(current.filter(item => item !== normalized))
+    return
+  }
+  setFallbackTierOrder([...current, normalized])
+}
+
+const clearFallbackOrder = () => {
+  formData.value.tier_fallback_order = ''
+}
+
+const fallbackStrategySummary = computed(() => {
+  if (!formData.value.tier_fallback_enabled) return t('keys.tierRouting.fallbackOff')
+  const keys = selectedFallbackTierKeys.value
+  if (keys.length === 0) return t('keys.tierRouting.useGroupOrder')
+  return keys.map((key, index) => {
+    const tier = availableRateTiers.value.find(item => normalizeTierKey(item.tier_key) === key)
+    return `${index + 1}. ${tier?.display_name || key}`
+  }).join(' -> ')
+})
+
+const hasTierFallbackAdvancedConfig = () =>
+  formData.value.tier_fallback_enabled &&
+  (
+    formData.value.tier_fallback_order.trim().length > 0 ||
+    (formData.value.tier_first_token_threshold_ms ?? 0) > 0 ||
+    (formData.value.tier_degrade_after_errors ?? 0) > 0 ||
+    (formData.value.tier_cooldown_seconds ?? 0) > 0 ||
+    (formData.value.tier_recovery_successes ?? 0) > 0
+  )
+
 // Group dropdown search
 const groupSearchQuery = ref('')
 const filteredGroupOptions = computed(() => {
@@ -1560,11 +1748,13 @@ const loadRateTiersForGroup = async (groupId: number | null) => {
       formData.value.tier_fallback_order = ''
       return
     }
-    const current = formData.value.preferred_tier_key
-    if (!current || !tiers.some(tier => tier.tier_key === current)) {
-      formData.value.preferred_tier_key =
-        tiers.find(tier => tier.is_default)?.tier_key || tiers[0]?.tier_key || ''
+    const current = normalizeTierKey(formData.value.preferred_tier_key)
+    if (current && !tiers.some(tier => normalizeTierKey(tier.tier_key) === current)) {
+      formData.value.preferred_tier_key = ''
     }
+    setFallbackTierOrder(selectedFallbackTierKeys.value.filter(key =>
+      tiers.some(tier => normalizeTierKey(tier.tier_key) === key) && key !== current
+    ))
   } catch (error) {
     if (seq !== rateTierLoadSeq) return
     availableRateTiers.value = []
@@ -1638,6 +1828,7 @@ const editKey = (key: ApiKey) => {
     tier_cooldown_seconds: policyNumber(key.tier_fallback_policy, 'cooldown_seconds'),
     tier_recovery_successes: policyNumber(key.tier_fallback_policy, 'recovery_successes')
   }
+  tierFallbackAdvancedOpen.value = hasTierFallbackAdvancedConfig()
   void loadRateTiersForGroup(key.group_id)
   showEditModal.value = true
 }
@@ -1874,6 +2065,7 @@ const closeModals = () => {
     tier_recovery_successes: null
   }
   availableRateTiers.value = []
+  tierFallbackAdvancedOpen.value = false
 }
 
 watch(
@@ -1888,6 +2080,7 @@ watch(
   () => showCreateModal.value,
   (show) => {
     if (show) {
+      tierFallbackAdvancedOpen.value = false
       void loadRateTiersForGroup(formData.value.group_id)
     }
   }

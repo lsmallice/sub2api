@@ -95,21 +95,19 @@
         </template>
 
         <template #cell-routing_tier="{ row }">
-          <div class="flex min-w-[92px] items-center gap-1.5 text-xs">
-            <span
-              class="inline-flex items-center rounded px-1.5 py-0.5 font-medium"
-              :class="getRoutingTierBadgeClass(row.actual_tier_key || row.requested_tier_key)"
-            >
-              {{ formatRoutingTier(row.actual_tier_key || row.requested_tier_key) }}
-            </span>
+          <span
+            class="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium"
+            :class="getRoutingTierBadgeClass(row.actual_tier_key || row.requested_tier_key)"
+            :title="isTierFallback(row) ? t('usage.tierFallbackHint', { requested: formatRoutingTier(row.requested_tier_key), actual: formatRoutingTier(row.actual_tier_key) }) : undefined"
+          >
+            <span>{{ formatRoutingTier(row.actual_tier_key || row.requested_tier_key) }}</span>
             <span
               v-if="isTierFallback(row)"
-              class="text-gray-400 dark:text-gray-500"
-              :title="t('usage.tierFallbackHint', { requested: formatRoutingTier(row.requested_tier_key), actual: formatRoutingTier(row.actual_tier_key) })"
+              class="text-[10px] opacity-70"
             >
               ← {{ formatRoutingTier(row.requested_tier_key) }}
             </span>
-          </div>
+          </span>
         </template>
 
         <template #cell-tokens="{ row }">

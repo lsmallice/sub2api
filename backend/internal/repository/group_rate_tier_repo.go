@@ -51,7 +51,7 @@ func (r *groupRateTierRepository) listByGroupID(ctx context.Context, groupID int
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	tiers := make([]service.GroupRateTier, 0)
 	for rows.Next() {

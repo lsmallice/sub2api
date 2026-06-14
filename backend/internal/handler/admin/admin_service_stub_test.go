@@ -310,6 +310,14 @@ func (s *stubAdminService) BatchSetGroupRateMultipliers(_ context.Context, _ int
 	return nil
 }
 
+func (s *stubAdminService) GetGroupRateTiers(_ context.Context, _ int64) ([]service.GroupRateTier, error) {
+	return nil, nil
+}
+
+func (s *stubAdminService) BatchSetGroupRateTiers(_ context.Context, _ int64, _ []service.GroupRateTierInput) error {
+	return nil
+}
+
 func (s *stubAdminService) ClearGroupRPMOverrides(_ context.Context, _ int64) error {
 	return nil
 }

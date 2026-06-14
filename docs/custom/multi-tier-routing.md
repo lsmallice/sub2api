@@ -49,7 +49,7 @@ Tables:
   - `tier_key`
   - `display_name`
   - `rate_multiplier`
-  - `priority`
+  - `priority` (internal ordering value; admin UI saves it from the visible tier order)
   - `enabled`
   - `is_default`
   - `fallback_policy`
@@ -146,6 +146,14 @@ Expected anchors:
 
 User UI should show the preferred tier, whether fallback is enabled, and usage rows should show the actual tier used. Admin UI should manage group tiers and account tier tags.
 
+Admin group UI rules:
+
+- The group list must show an OpenAI tier summary column so configured tiers are visible without opening the modal.
+- The tier summary should show the default tier first, then enabled tiers, then disabled tiers; it should stay compact and link back to tier configuration.
+- The tier editor should not expose raw `priority` as a hand-entered number. The visible card order is the admin-facing control, and save payloads derive `priority=(index+1)*10`.
+- `priority` is tier candidate order only. It is not the account scheduler priority. Multiple accounts in the same tier still use account priority, load, and LRU scheduling.
+- Fallback policy settings remain advanced tier settings: fallback order, first-token threshold, error threshold, cooldown, and recovery successes.
+
 ## Production Behavior
 
 - With no tier rows, production behavior is unchanged.
@@ -164,6 +172,8 @@ User UI should show the preferred tier, whether fallback is enabled, and usage r
 - Confirm new nullable columns are still selected and inserted by `usage_log_repo.go`.
 - Confirm account DTO/admin forms preserve `service_tier_key`.
 - Confirm API key DTO/user forms preserve preferred tier and fallback policy.
+- Confirm admin group list still returns and renders `rate_tiers` summaries.
+- Confirm tier editor still hides raw priority and derives it from card order.
 - Confirm scheduler still respects image capability, compact, privacy, model mapping, transport, and sticky-session checks after tier filtering.
 - Confirm no code path bills with the requested tier when a fallback tier was actually used.
 - Confirm no unconfigured group changes behavior.

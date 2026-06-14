@@ -165,7 +165,33 @@ func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
 			out.AccountGroups = append(out.AccountGroups, *AccountGroupFromService(&ag))
 		}
 	}
+	if len(g.RateTiers) > 0 {
+		out.RateTiers = make([]GroupRateTier, 0, len(g.RateTiers))
+		for i := range g.RateTiers {
+			tier := g.RateTiers[i]
+			out.RateTiers = append(out.RateTiers, *GroupRateTierFromService(&tier))
+		}
+	}
 	return out
+}
+
+func GroupRateTierFromService(t *service.GroupRateTier) *GroupRateTier {
+	if t == nil {
+		return nil
+	}
+	return &GroupRateTier{
+		ID:             t.ID,
+		GroupID:        t.GroupID,
+		TierKey:        t.TierKey,
+		DisplayName:    t.DisplayName,
+		RateMultiplier: t.RateMultiplier,
+		Priority:       t.Priority,
+		Enabled:        t.Enabled,
+		IsDefault:      t.IsDefault,
+		FallbackPolicy: t.FallbackPolicy,
+		CreatedAt:      t.CreatedAt,
+		UpdatedAt:      t.UpdatedAt,
+	}
 }
 
 func groupFromServiceBase(g *service.Group) Group {

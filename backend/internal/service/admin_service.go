@@ -1705,22 +1705,62 @@ func (s *adminServiceImpl) ListGroups(ctx context.Context, page, pageSize int, p
 	if err != nil {
 		return nil, 0, err
 	}
+	if err := s.attachGroupRateTiers(ctx, groups); err != nil {
+		return nil, 0, err
+	}
 	return groups, result.Total, nil
 }
 
 func (s *adminServiceImpl) GetAllGroups(ctx context.Context) ([]Group, error) {
-	return s.groupRepo.ListActive(ctx)
+	groups, err := s.groupRepo.ListActive(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.attachGroupRateTiers(ctx, groups); err != nil {
+		return nil, err
+	}
+	return groups, nil
 }
 
 func (s *adminServiceImpl) GetAllGroupsByPlatform(ctx context.Context, platform string) ([]Group, error) {
-	return s.groupRepo.ListActiveByPlatform(ctx, platform)
+	groups, err := s.groupRepo.ListActiveByPlatform(ctx, platform)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.attachGroupRateTiers(ctx, groups); err != nil {
+		return nil, err
+	}
+	return groups, nil
 }
 
 func (s *adminServiceImpl) GetAllGroupsIncludingInactive(ctx context.Context) ([]Group, error) {
 	// ListWithFilters with empty status = no status filter, so active + disabled groups are returned.
 	// PageSize 10000 is intentionally large; group count is O(dozens) in practice.
 	groups, _, err := s.groupRepo.ListWithFilters(ctx, pagination.PaginationParams{Page: 1, PageSize: 10000}, "", "", "", nil)
-	return groups, err
+	if err != nil {
+		return nil, err
+	}
+	if err := s.attachGroupRateTiers(ctx, groups); err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+func (s *adminServiceImpl) attachGroupRateTiers(ctx context.Context, groups []Group) error {
+	if s.groupRateTierRepo == nil || len(groups) == 0 {
+		return nil
+	}
+	for i := range groups {
+		if groups[i].Platform != PlatformOpenAI {
+			continue
+		}
+		tiers, err := s.groupRateTierRepo.ListByGroupID(ctx, groups[i].ID)
+		if err != nil {
+			return err
+		}
+		groups[i].RateTiers = tiers
+	}
+	return nil
 }
 
 func (s *adminServiceImpl) GetGroup(ctx context.Context, id int64) (*Group, error) {

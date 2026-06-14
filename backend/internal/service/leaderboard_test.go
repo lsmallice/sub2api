@@ -133,7 +133,7 @@ func TestLeaderboardOverviewRedactsUserIdentityAndHighlightsMe(t *testing.T) {
 					CurrentRunnerUpStreak: 2,
 					LongestRunnerUpStreak: 2,
 					PerennialRunnerUp:     true,
-					ChampionStarts: map[string][]time.Time{},
+					ChampionStarts:        map[string][]time.Time{},
 				},
 				LeaderboardWindowWeekly: {
 					TopAppearances: 7,

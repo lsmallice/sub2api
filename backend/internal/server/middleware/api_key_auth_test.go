@@ -1065,6 +1065,10 @@ func (r *stubUserSubscriptionRepo) GetByID(ctx context.Context, id int64) (*serv
 	return nil, errors.New("not implemented")
 }
 
+func (r *stubUserSubscriptionRepo) GetByIDForUpdate(ctx context.Context, id int64) (*service.UserSubscription, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (r *stubUserSubscriptionRepo) GetByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
@@ -1145,6 +1149,10 @@ func (r *stubUserSubscriptionRepo) ResetMonthlyUsage(ctx context.Context, id int
 		return r.resetMonthly(ctx, id, newWindowStart)
 	}
 	return errors.New("not implemented")
+}
+
+func (r *stubUserSubscriptionRepo) RefreshQuotaWindow(ctx context.Context, input *service.SubscriptionQuotaRefreshPersistInput) (*service.UserSubscription, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (r *stubUserSubscriptionRepo) IncrementUsage(ctx context.Context, id int64, costUSD float64) error {

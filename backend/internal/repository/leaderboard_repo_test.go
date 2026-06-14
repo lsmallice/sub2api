@@ -15,7 +15,7 @@ import (
 func TestLeaderboardRepositoryGetRankingReturnsTopAndMe(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	start := time.Date(2026, 6, 5, 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
@@ -45,7 +45,7 @@ func TestLeaderboardRepositoryGetRankingReturnsTopAndMe(t *testing.T) {
 func TestLeaderboardRepositorySnapshotPeriodIsIdempotent(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	start := time.Date(2026, 6, 4, 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
@@ -69,7 +69,7 @@ func TestLeaderboardRepositorySnapshotPeriodIsIdempotent(t *testing.T) {
 func TestLeaderboardRepositoryRebuildHonorStatsMaterializesCompletedPeriods(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	cutoff := time.Date(2026, 6, 7, 12, 0, 0, 0, time.UTC)
 	latest := map[string]time.Time{
@@ -124,7 +124,7 @@ func TestLeaderboardRepositoryRebuildHonorStatsMaterializesCurrentRunnerUpStreak
 func TestLeaderboardRepositoryGetHonorStatsReadsMaterializedHonors(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	rows := sqlmock.NewRows([]string{
 		"user_id",

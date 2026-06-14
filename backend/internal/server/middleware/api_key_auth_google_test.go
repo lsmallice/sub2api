@@ -117,6 +117,9 @@ func (f fakeGoogleSubscriptionRepo) Create(ctx context.Context, sub *service.Use
 func (f fakeGoogleSubscriptionRepo) GetByID(ctx context.Context, id int64) (*service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
+func (f fakeGoogleSubscriptionRepo) GetByIDForUpdate(ctx context.Context, id int64) (*service.UserSubscription, error) {
+	return nil, errors.New("not implemented")
+}
 func (f fakeGoogleSubscriptionRepo) GetByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
@@ -183,6 +186,9 @@ func (f fakeGoogleSubscriptionRepo) ResetMonthlyUsage(ctx context.Context, id in
 	}
 	return errors.New("not implemented")
 }
+func (f fakeGoogleSubscriptionRepo) RefreshQuotaWindow(ctx context.Context, input *service.SubscriptionQuotaRefreshPersistInput) (*service.UserSubscription, error) {
+	return nil, errors.New("not implemented")
+}
 func (f fakeGoogleSubscriptionRepo) IncrementUsage(ctx context.Context, id int64, costUSD float64) error {
 	return errors.New("not implemented")
 }
@@ -205,6 +211,7 @@ func newTestAPIKeyService(repo service.APIKeyRepository) *service.APIKeyService 
 		nil, // groupRepo
 		nil, // userSubRepo
 		nil, // userGroupRateRepo
+		nil, // groupRateTierRepo
 		nil, // cache
 		&config.Config{},
 	)
@@ -295,6 +302,7 @@ func TestApiKeyAuthWithSubscriptionGoogleSetsGroupContext(t *testing.T) {
 				return &clone, nil
 			},
 		},
+		nil,
 		nil,
 		nil,
 		nil,

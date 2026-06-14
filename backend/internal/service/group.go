@@ -72,6 +72,7 @@ type Group struct {
 	UpdatedAt time.Time
 
 	AccountGroups           []AccountGroup
+	RateTiers               []GroupRateTier
 	AccountCount            int64
 	ActiveAccountCount      int64
 	RateLimitedAccountCount int64

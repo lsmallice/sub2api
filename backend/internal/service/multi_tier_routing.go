@@ -141,13 +141,6 @@ func normalizeJSONMap(value map[string]any) map[string]any {
 	return normalized
 }
 
-func resolveOpenAIServiceTierHealthPolicy(apiKey *APIKey) openAIServiceTierHealthPolicy {
-	if apiKey == nil {
-		return resolveOpenAIServiceTierHealthPolicyFromMap(nil)
-	}
-	return resolveOpenAIServiceTierHealthPolicyFromMap(apiKey.TierFallbackPolicy)
-}
-
 func resolveOpenAIServiceTierHealthPolicyFromMap(policyMap map[string]any) openAIServiceTierHealthPolicy {
 	policyMap = normalizeJSONMap(policyMap)
 	threshold := intFromPolicy(policyMap,
@@ -419,14 +412,15 @@ func (s *OpenAIGatewayService) ReportOpenAIServiceTierResult(
 	}
 
 	state.slowSamples = 0
-	if state.state == openAIServiceTierHealthStateProbing {
+	switch state.state {
+	case openAIServiceTierHealthStateProbing:
 		state.probeSuccesses++
 		if state.probeSuccesses >= policy.RecoverySuccesses {
 			event = transitionOpenAIServiceTierHealthLocked(state, selection.GroupID, tierKey, modelKey, capability, openAIServiceTierHealthStateHealthy, "probe_success", firstTokenMs, state.probeSuccesses, now, policy)
 		} else {
 			state.updatedAt = now
 		}
-	} else if state.state == openAIServiceTierHealthStateHealthy {
+	case openAIServiceTierHealthStateHealthy:
 		state.updatedAt = now
 	}
 	state.mu.Unlock()
@@ -452,10 +446,11 @@ func transitionOpenAIServiceTierHealthLocked(
 	}
 	state.state = newState
 	state.updatedAt = now
-	if newState == openAIServiceTierHealthStateDegraded {
+	switch newState {
+	case openAIServiceTierHealthStateDegraded:
 		state.degradedUntil = now.Add(policy.Cooldown)
 		state.probeSuccesses = 0
-	} else if newState == openAIServiceTierHealthStateHealthy {
+	case openAIServiceTierHealthStateHealthy:
 		state.degradedUntil = time.Time{}
 		state.slowSamples = 0
 		state.errorSamples = 0
@@ -540,9 +535,7 @@ func (s *OpenAIGatewayService) resolveOpenAIServiceTierCandidates(ctx context.Co
 	if requestedTier, ok := tierByKey[requestedKey]; ok {
 		effectiveFallbackPolicy = mergeTierFallbackPolicy(requestedTier.FallbackPolicy, nil)
 	}
-	if apiKey != nil {
-		effectiveFallbackPolicy = mergeTierFallbackPolicy(effectiveFallbackPolicy, apiKey.TierFallbackPolicy)
-	}
+	effectiveFallbackPolicy = mergeTierFallbackPolicy(effectiveFallbackPolicy, apiKey.TierFallbackPolicy)
 
 	candidateKeys := []string{requestedKey}
 	if apiKey.TierFallbackEnabled {

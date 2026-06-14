@@ -185,6 +185,65 @@
             >
           </template>
 
+          <template #cell-rate_tiers="{ row }">
+            <button
+              v-if="row.platform === 'openai'"
+              type="button"
+              class="flex max-w-[360px] flex-wrap items-center gap-1.5 text-left"
+              @click="handleRateTiers(row)"
+            >
+              <span
+                v-if="rateTierSummaryStatus[row.id] === 'loading'"
+                class="inline-flex items-center rounded-full border border-dashed border-emerald-200 px-2.5 py-0.5 text-xs text-emerald-600 dark:border-emerald-800 dark:text-emerald-400"
+              >
+                {{ t("admin.groups.rateTiers.loading") }}
+              </span>
+              <span
+                v-else-if="rateTierSummaryStatus[row.id] === 'failed'"
+                class="inline-flex items-center rounded-full border border-dashed border-amber-300 px-2.5 py-0.5 text-xs text-amber-600 dark:border-amber-800 dark:text-amber-400"
+              >
+                {{ t("admin.groups.rateTiers.loadFailed") }}
+              </span>
+              <template v-else-if="getVisibleRateTiers(row).length > 0">
+                <span
+                  v-for="tier in getVisibleRateTiers(row)"
+                  :key="tier.tier_key"
+                  :title="formatRateTierTitle(tier)"
+                  :class="[
+                    'inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors',
+                    tier.enabled
+                      ? tier.is_default
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                        : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-dark-600 dark:bg-dark-700 dark:text-gray-300'
+                      : 'border-gray-200 bg-gray-50 text-gray-400 line-through hover:bg-gray-100 dark:border-dark-600 dark:bg-dark-700 dark:text-gray-500',
+                  ]"
+                >
+                  <span class="truncate">{{ tier.display_name || tier.tier_key }}</span>
+                  <span
+                    class="rounded bg-white/70 px-1 font-mono text-[10px] uppercase tracking-normal text-gray-500 dark:bg-dark-800/70 dark:text-gray-400"
+                    >{{ tier.tier_key }}</span
+                  >
+                  <span>{{ formatRateMultiplier(tier.rate_multiplier) }}x</span>
+                  <span v-if="tier.is_default" class="text-[10px]">{{ t("admin.groups.rateTiers.default") }}</span>
+                  <span v-if="!tier.enabled" class="text-[10px]">{{ t("admin.groups.rateTiers.disabled") }}</span>
+                </span>
+                <span
+                  v-if="getRateTierOverflowCount(row) > 0"
+                  class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-dark-700 dark:text-gray-400"
+                >
+                  +{{ getRateTierOverflowCount(row) }}
+                </span>
+              </template>
+              <span
+                v-else
+                class="inline-flex items-center rounded-full border border-dashed border-gray-300 px-2.5 py-0.5 text-xs text-gray-400 hover:border-emerald-300 hover:text-emerald-600 dark:border-dark-600 dark:hover:border-emerald-700 dark:hover:text-emerald-400"
+              >
+                {{ t("admin.groups.rateTiers.notConfigured") }}
+              </span>
+            </button>
+            <span v-else class="text-xs text-gray-400">—</span>
+          </template>
+
           <template #cell-is_exclusive="{ value }">
             <span :class="['badge', value ? 'badge-primary' : 'badge-gray']">
               {{
@@ -3058,7 +3117,12 @@ import { useI18n } from "vue-i18n";
 import { useAppStore } from "@/stores/app";
 import { useOnboardingStore } from "@/stores/onboarding";
 import { adminAPI } from "@/api/admin";
-import type { AdminGroup, GroupPlatform, SubscriptionType } from "@/types";
+import type {
+  AdminGroup,
+  GroupPlatform,
+  GroupRateTier,
+  SubscriptionType,
+} from "@/types";
 import type { Column } from "@/components/common/types";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import TablePageLayout from "@/components/layout/TablePageLayout.vue";
@@ -3116,6 +3180,11 @@ const columns = computed<Column[]>(() => [
     key: "rate_multiplier",
     label: t("admin.groups.columns.rateMultiplier"),
     sortable: true,
+  },
+  {
+    key: "rate_tiers",
+    label: t("admin.groups.columns.rateTiers"),
+    sortable: false,
   },
   {
     key: "is_exclusive",
@@ -3313,6 +3382,8 @@ const sortState = reactive({
 
 let abortController: AbortController | null = null;
 
+type RateTierSummaryStatus = "loading" | "failed";
+
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const showDeleteDialog = ref(false);
@@ -3325,6 +3396,7 @@ const showRateMultipliersModal = ref(false);
 const rateMultipliersGroup = ref<AdminGroup | null>(null);
 const showRateTiersModal = ref(false);
 const rateTiersGroup = ref<AdminGroup | null>(null);
+const rateTierSummaryStatus = ref<Record<number, RateTierSummaryStatus>>({});
 const showRPMOverridesModal = ref(false);
 const rpmOverridesGroup = ref<AdminGroup | null>(null);
 const sortableGroups = ref<AdminGroup[]>([]);
@@ -3785,6 +3857,75 @@ const deleteConfirmMessage = computed(() => {
   return t("admin.groups.deleteConfirm", { name: deletingGroup.value.name });
 });
 
+const isAbortLikeError = (error: any) =>
+  error?.name === "AbortError" || error?.code === "ERR_CANCELED";
+
+const setRateTierSummaryStatus = (
+  groupId: number,
+  status?: RateTierSummaryStatus,
+) => {
+  const next = { ...rateTierSummaryStatus.value };
+  if (status) {
+    next[groupId] = status;
+  } else {
+    delete next[groupId];
+  }
+  rateTierSummaryStatus.value = next;
+};
+
+const mergeGroupRateTiers = (groupId: number, tiers: GroupRateTier[]) => {
+  groups.value = groups.value.map((group) =>
+    group.id === groupId ? { ...group, rate_tiers: tiers } : group,
+  );
+
+  if (rateTiersGroup.value?.id === groupId) {
+    rateTiersGroup.value = { ...rateTiersGroup.value, rate_tiers: tiers };
+  }
+};
+
+const hydrateMissingGroupRateTiers = async (
+  items: AdminGroup[],
+  signal: AbortSignal,
+) => {
+  const targetGroups = items.filter(
+    (group) => group.platform === "openai" && !Array.isArray(group.rate_tiers),
+  );
+  const targetIds = new Set(targetGroups.map((group) => group.id));
+  const nextStatus = { ...rateTierSummaryStatus.value };
+
+  for (const group of items) {
+    if (group.platform !== "openai" || Array.isArray(group.rate_tiers)) {
+      delete nextStatus[group.id];
+    }
+  }
+  for (const group of targetGroups) {
+    nextStatus[group.id] = "loading";
+  }
+  rateTierSummaryStatus.value = nextStatus;
+
+  if (targetGroups.length === 0) {
+    return;
+  }
+
+  await Promise.all(
+    targetGroups.map(async (group) => {
+      try {
+        const tiers = await adminAPI.groups.getGroupRateTiers(group.id, {
+          signal,
+        });
+        if (signal.aborted) return;
+        mergeGroupRateTiers(group.id, tiers);
+        setRateTierSummaryStatus(group.id);
+      } catch (error: any) {
+        if (signal.aborted || isAbortLikeError(error)) return;
+        if (!targetIds.has(group.id)) return;
+        console.error("Error loading group rate tiers:", error);
+        setRateTierSummaryStatus(group.id, "failed");
+      }
+    }),
+  );
+};
+
 const loadGroups = async () => {
   if (abortController) {
     abortController.abort();
@@ -3813,14 +3954,11 @@ const loadGroups = async () => {
     groups.value = response.items;
     pagination.total = response.total;
     pagination.pages = response.pages;
+    void hydrateMissingGroupRateTiers(response.items, signal);
     loadUsageSummary();
     loadCapacitySummary();
   } catch (error: any) {
-    if (
-      signal.aborted ||
-      error?.name === "AbortError" ||
-      error?.code === "ERR_CANCELED"
-    ) {
+    if (signal.aborted || isAbortLikeError(error)) {
       return;
     }
     appStore.showError(t("admin.groups.failedToLoad"));
@@ -3837,6 +3975,55 @@ const formatCost = (cost: number): string => {
   if (cost >= 100) return cost.toFixed(1);
   return cost.toFixed(2);
 };
+
+const formatRateMultiplier = (value: number | null | undefined): string => {
+  const numberValue = Number(value ?? 0);
+  if (!Number.isFinite(numberValue)) return "0";
+  return Number.isInteger(numberValue) ? numberValue.toFixed(0) : numberValue.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+};
+
+const getRateTierFallbackOrder = (tier: GroupRateTier): string[] => {
+  const policy = tier.fallback_policy || {};
+  for (const key of ["fallback_order", "fallback_tiers", "order", "tiers"]) {
+    const value = policy[key];
+    if (Array.isArray(value)) {
+      return value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+};
+
+const formatRateTierTitle = (tier: GroupRateTier): string => {
+  const fallbackOrder = getRateTierFallbackOrder(tier);
+  return [
+    `${tier.display_name || tier.tier_key} (${tier.tier_key})`,
+    `${t("admin.groups.rateTiers.columns.multiplier")}: ${formatRateMultiplier(tier.rate_multiplier)}x`,
+    `${t("admin.groups.rateTiers.columns.priority")}: ${tier.priority ?? 0}`,
+    tier.is_default ? t("admin.groups.rateTiers.default") : "",
+    tier.enabled ? "" : t("admin.groups.rateTiers.disabled"),
+    fallbackOrder.length > 0
+      ? `${t("admin.groups.rateTiers.columns.fallbackOrder")}: ${fallbackOrder.join(" -> ")}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+};
+
+const getSortedRateTiers = (group: AdminGroup) => {
+  const tiers = [...(group.rate_tiers || [])];
+  return tiers.sort((a, b) => {
+    if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
+    if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+    return (a.priority ?? 0) - (b.priority ?? 0);
+  });
+};
+
+const getVisibleRateTiers = (group: AdminGroup) => getSortedRateTiers(group).slice(0, 3);
+
+const getRateTierOverflowCount = (group: AdminGroup) => Math.max(getSortedRateTiers(group).length - 3, 0);
 
 const loadUsageSummary = async () => {
   usageLoading.value = true;

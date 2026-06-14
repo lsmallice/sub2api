@@ -261,8 +261,16 @@ export async function batchSetGroupRateMultipliers(
   return data
 }
 
-export async function getGroupRateTiers(id: number): Promise<GroupRateTier[]> {
-  const { data } = await apiClient.get<GroupRateTier[]>(`/admin/groups/${id}/rate-tiers`)
+export async function getGroupRateTiers(
+  id: number,
+  options?: {
+    signal?: AbortSignal
+  }
+): Promise<GroupRateTier[]> {
+  const { data } = await apiClient.get<GroupRateTier[]>(
+    `/admin/groups/${id}/rate-tiers`,
+    { signal: options?.signal }
+  )
   return data
 }
 
