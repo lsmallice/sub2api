@@ -596,7 +596,7 @@
                       {{ t('keys.tierRouting.useGroupOrder') }}
                     </button>
                   </div>
-                  <div class="flex flex-wrap gap-2">
+                  <div v-if="fallbackTierOptions.length > 0" class="flex flex-wrap gap-2">
                     <button
                       v-for="tier in fallbackTierOptions"
                       :key="tier.tier_key"
@@ -619,6 +619,12 @@
                       <span class="font-mono text-[10px] opacity-70">{{ tier.tier_key }}</span>
                     </button>
                   </div>
+                  <p
+                    v-else
+                    class="rounded-md bg-white px-3 py-2 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-dark-800 dark:text-gray-400 dark:ring-dark-600"
+                  >
+                    {{ t('keys.tierRouting.noFallbackTiers') }}
+                  </p>
                   <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     {{ t('keys.tierRouting.fallbackOrderHint') }}
                   </p>
@@ -1495,10 +1501,7 @@ const policyOrder = (policy: Record<string, unknown> | undefined): string => {
 
 const buildTierFallbackPolicy = (): Record<string, unknown> => {
   const policy: Record<string, unknown> = {}
-  const fallbackOrder = formData.value.tier_fallback_order
-    .split(',')
-    .map(item => item.trim().toLowerCase())
-    .filter(Boolean)
+  const fallbackOrder = selectedFallbackTierKeys.value
   if (fallbackOrder.length > 0) policy.fallback_order = fallbackOrder
   const firstTokenThreshold = formData.value.tier_first_token_threshold_ms
   if (firstTokenThreshold != null && firstTokenThreshold > 0) {
@@ -1558,37 +1561,55 @@ const selectedPreferredRateTier = computed(() => {
   return availableRateTiers.value.find(tier => normalizeTierKey(tier.tier_key) === key) || null
 })
 
+const effectivePreferredTierKey = computed(() => {
+  const explicitKey = normalizeTierKey(formData.value.preferred_tier_key)
+  if (explicitKey) return explicitKey
+  return normalizeTierKey(groupDefaultRateTier.value?.tier_key)
+})
+
 const selectedTierSummary = computed(() => {
   const selectedTier = selectedPreferredRateTier.value
   if (!selectedTier) return groupDefaultTierLabel.value
   return `${getTierLabel(selectedTier)} · ${formatRateMultiplier(selectedTier.rate_multiplier)}x`
 })
 
-const selectedFallbackTierKeys = computed(() => parseTierFallbackOrder(formData.value.tier_fallback_order))
-
-const fallbackTierOptions = computed(() => {
-  const preferredKey = normalizeTierKey(formData.value.preferred_tier_key)
-  return availableRateTiers.value.filter(tier => normalizeTierKey(tier.tier_key) !== preferredKey)
-})
-
-const setFallbackTierOrder = (keys: string[]) => {
+const normalizeTierFallbackOrderKeys = (keys: string[]) => {
+  const validKeys = new Set(
+    availableRateTiers.value
+      .map(tier => normalizeTierKey(tier.tier_key))
+      .filter(Boolean)
+  )
+  const primaryKey = effectivePreferredTierKey.value
   const seen = new Set<string>()
-  formData.value.tier_fallback_order = keys
+  return keys
     .map(key => normalizeTierKey(key))
     .filter(key => {
-      if (!key || seen.has(key)) return false
+      if (!key || !validKeys.has(key) || key === primaryKey || seen.has(key)) return false
       seen.add(key)
       return true
     })
-    .join(',')
+}
+
+const selectedFallbackTierKeys = computed(() =>
+  normalizeTierFallbackOrderKeys(parseTierFallbackOrder(formData.value.tier_fallback_order))
+)
+
+const fallbackTierOptions = computed(() => {
+  const preferredKey = effectivePreferredTierKey.value
+  return availableRateTiers.value.filter(tier => {
+    const key = normalizeTierKey(tier.tier_key)
+    return key && key !== preferredKey
+  })
+})
+
+const setFallbackTierOrder = (keys: string[]) => {
+  formData.value.tier_fallback_order = normalizeTierFallbackOrderKeys(keys).join(',')
 }
 
 const setPreferredTierKey = (key: string) => {
   const nextKey = normalizeTierKey(key)
   formData.value.preferred_tier_key = nextKey
-  if (nextKey) {
-    setFallbackTierOrder(selectedFallbackTierKeys.value.filter(item => item !== nextKey))
-  }
+  setFallbackTierOrder(selectedFallbackTierKeys.value)
 }
 
 const fallbackTierOrderIndex = (key: string) =>
@@ -1612,7 +1633,12 @@ const clearFallbackOrder = () => {
 const fallbackStrategySummary = computed(() => {
   if (!formData.value.tier_fallback_enabled) return t('keys.tierRouting.fallbackOff')
   const keys = selectedFallbackTierKeys.value
-  if (keys.length === 0) return t('keys.tierRouting.useGroupOrder')
+  if (keys.length === 0) {
+    const groupOrder = fallbackTierOptions.value.map(tier => tier.display_name || tier.tier_key).join(' -> ')
+    return groupOrder
+      ? `${t('keys.tierRouting.useGroupOrder')}: ${groupOrder}`
+      : t('keys.tierRouting.noFallbackTiers')
+  }
   return keys.map((key, index) => {
     const tier = availableRateTiers.value.find(item => normalizeTierKey(item.tier_key) === key)
     return `${index + 1}. ${tier?.display_name || key}`
@@ -1752,9 +1778,7 @@ const loadRateTiersForGroup = async (groupId: number | null) => {
     if (current && !tiers.some(tier => normalizeTierKey(tier.tier_key) === current)) {
       formData.value.preferred_tier_key = ''
     }
-    setFallbackTierOrder(selectedFallbackTierKeys.value.filter(key =>
-      tiers.some(tier => normalizeTierKey(tier.tier_key) === key) && key !== current
-    ))
+    setFallbackTierOrder(selectedFallbackTierKeys.value)
   } catch (error) {
     if (seq !== rateTierLoadSeq) return
     availableRateTiers.value = []

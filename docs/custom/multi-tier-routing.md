@@ -161,6 +161,7 @@ Admin group UI rules:
 - If the preferred/default tier has no eligible account:
   - fallback enabled: try fallback candidates in policy order,
   - fallback disabled: fail with a clear tier-unavailable error.
+- `fallback_order` stores only fallback candidates after the effective primary tier. If the API key chooses "use group default", the effective primary tier is the group's default tier, and that tier must not appear in the stored or displayed fallback order.
 - If the preferred/default tier is degraded:
   - fallback enabled: skip it until cooldown or probe recovery,
   - fallback disabled: fail when no allowed candidate remains.

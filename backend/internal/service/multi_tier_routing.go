@@ -536,6 +536,7 @@ func (s *OpenAIGatewayService) resolveOpenAIServiceTierCandidates(ctx context.Co
 		effectiveFallbackPolicy = mergeTierFallbackPolicy(requestedTier.FallbackPolicy, nil)
 	}
 	effectiveFallbackPolicy = mergeTierFallbackPolicy(effectiveFallbackPolicy, apiKey.TierFallbackPolicy)
+	effectiveFallbackPolicy = sanitizeTierFallbackPolicy(effectiveFallbackPolicy, requestedKey, tierByKey)
 
 	candidateKeys := []string{requestedKey}
 	if apiKey.TierFallbackEnabled {
@@ -594,6 +595,46 @@ func tierFallbackPolicyOrder(policy map[string]any) []string {
 		}
 	}
 	return nil
+}
+
+func sanitizeTierFallbackPolicy(policy map[string]any, requestedKey string, tierByKey map[string]GroupRateTier) map[string]any {
+	if len(policy) == 0 {
+		return policy
+	}
+	order := tierFallbackPolicyOrder(policy)
+	if len(order) == 0 {
+		return policy
+	}
+	requestedKey = normalizeTierKey(requestedKey)
+	seen := make(map[string]struct{}, len(order))
+	sanitizedOrder := make([]string, 0, len(order))
+	for _, key := range order {
+		key = normalizeTierKey(key)
+		if key == "" || key == requestedKey {
+			continue
+		}
+		if _, ok := tierByKey[key]; !ok {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		sanitizedOrder = append(sanitizedOrder, key)
+	}
+	sanitized := normalizeJSONMap(policy)
+	if len(sanitizedOrder) == 0 {
+		delete(sanitized, "fallback_order")
+		delete(sanitized, "fallback_tiers")
+		delete(sanitized, "order")
+		delete(sanitized, "tiers")
+		return sanitized
+	}
+	sanitized["fallback_order"] = sanitizedOrder
+	delete(sanitized, "fallback_tiers")
+	delete(sanitized, "order")
+	delete(sanitized, "tiers")
+	return sanitized
 }
 
 func stringSliceFromAny(value any) []string {

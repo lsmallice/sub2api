@@ -381,11 +381,12 @@ const parseFallbackOrder = (value: string) =>
 
 const normalizeFallbackOrderKeys = (keys: string[]) => {
   const validKeys = new Set(tiers.value.map(tier => normalizeTierKey(tier.tier_key)).filter(Boolean))
+  const defaultKey = normalizeTierKey(tiers.value.find(tier => tier.is_default)?.tier_key)
   const seen = new Set<string>()
   return keys
     .map(key => normalizeTierKey(key))
     .filter(key => {
-      if (!key || !validKeys.has(key) || seen.has(key)) return false
+      if (!key || !validKeys.has(key) || key === defaultKey || seen.has(key)) return false
       seen.add(key)
       return true
     })
@@ -400,7 +401,11 @@ const setFallbackOrder = (keys: string[]) => {
 }
 
 const fallbackTierOptions = computed(() =>
-  tiers.value.filter(tier => normalizeTierKey(tier.tier_key))
+  tiers.value.filter(tier => {
+    const key = normalizeTierKey(tier.tier_key)
+    const defaultKey = normalizeTierKey(tiers.value.find(item => item.is_default)?.tier_key)
+    return key && key !== defaultKey
+  })
 )
 
 const fallbackTierOrderIndex = (key: string) =>
@@ -436,7 +441,9 @@ const fallbackStrategySummary = computed(() => {
   const order = selectedFallbackTierKeys.value
   const orderSummary = order.length > 0
     ? order.map((key, index) => `${index + 1}. ${getTierDisplayLabel(key)}`).join(' -> ')
-    : t('admin.groups.rateTiers.useTierOrder')
+    : fallbackTierOptions.value.length > 0
+      ? `${t('admin.groups.rateTiers.useTierOrder')}: ${fallbackTierOptions.value.map(tier => tier.display_name || tier.tier_key).join(' -> ')}`
+      : t('admin.groups.rateTiers.noFallbackTiers')
   return hasFallbackTriggerConfig()
     ? `${orderSummary} · ${t('admin.groups.rateTiers.triggerConfigured')}`
     : orderSummary
@@ -625,6 +632,7 @@ const setDefault = (index: number) => {
   tiers.value.forEach((tier, i) => {
     tier.is_default = i === index
   })
+  normalizeFallbackOrders()
 }
 
 const handleSave = async () => {
