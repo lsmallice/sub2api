@@ -1,10 +1,10 @@
 # Multi-Tier Routing
 
-Last updated: 2026-06-14
+Last updated: 2026-06-17
 
 Current custom branch: `image-capability`
 
-Current upstream base: `0.1.135`
+Current upstream base: `0.1.137`
 
 ## Purpose
 
@@ -169,7 +169,7 @@ Admin group UI rules:
 
 ## Merge Checklist
 
-- Confirm migration number does not conflict with upstream or other custom migrations.
+- Confirm migration number does not conflict with upstream or other custom migrations. Upstream `0.1.137` introduced migration prefixes through `153`; `155_multi_tier_routing.sql` currently remains after those upstream migrations and should stay additive/idempotent.
 - Confirm new nullable columns are still selected and inserted by `usage_log_repo.go`.
 - Confirm account DTO/admin forms preserve `service_tier_key`.
 - Confirm API key DTO/user forms preserve preferred tier and fallback policy.

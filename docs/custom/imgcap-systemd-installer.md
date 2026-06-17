@@ -27,14 +27,14 @@ curl -sSL https://raw.githubusercontent.com/lsmallice/sub2api/image-capability/d
 Install a fixed release:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/lsmallice/sub2api/image-capability/deploy/install-imgcap.sh | sudo bash -s -- --version imgcap-0.1.133
+curl -sSL https://raw.githubusercontent.com/lsmallice/sub2api/image-capability/deploy/install-imgcap.sh | sudo bash -s -- --version imgcap-0.1.137
 ```
 
 Install from a local binary or archive:
 
 ```bash
 sudo bash deploy/install-imgcap.sh --binary /tmp/sub2api
-sudo bash deploy/install-imgcap.sh --archive /tmp/sub2api_0.1.133_linux_amd64.tar.gz
+sudo bash deploy/install-imgcap.sh --archive /tmp/sub2api_0.1.137_linux_amd64.tar.gz
 ```
 
 ## 1Panel PostgreSQL And Redis
@@ -120,7 +120,7 @@ sudo bash deploy/install-imgcap.sh upgrade
 Upgrade to a fixed release:
 
 ```bash
-sudo bash deploy/install-imgcap.sh upgrade --version imgcap-0.1.133
+sudo bash deploy/install-imgcap.sh upgrade --version imgcap-0.1.137
 ```
 
 Rollback manually by restoring a backup binary and restarting:
@@ -147,8 +147,8 @@ The repo provides `.github/workflows/imgcap-binary-release.yml` to build and upl
 
 Manual workflow inputs:
 
-- `tag`: release tag, for example `imgcap-0.1.133`
-- `base_version`: upstream base version, for example `0.1.133`
+- `tag`: release tag, for example `imgcap-0.1.137`
+- `base_version`: upstream base version, for example `0.1.137`
 - `prerelease`: whether to mark the GitHub Release as prerelease
 
 If `base_version` is omitted, the workflow reads `backend/cmd/server/VERSION`.

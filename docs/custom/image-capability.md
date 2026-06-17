@@ -1,10 +1,10 @@
 # Image Capability Customization
 
-Last updated: 2026-05-30
+Last updated: 2026-06-17
 
 Current custom branch: `image-capability`
 
-Current upstream base at the time of this document: `0.1.133`
+Current upstream base at the time of this document: `0.1.137`
 
 ## Purpose
 
@@ -234,8 +234,8 @@ Frontend touchpoints:
 
 Build variables:
 
-- `Version=<upstream base semver>`, for example `0.1.133`.
-- `BuildLabel=imgcap-<base-version>`, for example `imgcap-0.1.133`.
+- `Version=<upstream base semver>`, for example `0.1.137`.
+- `BuildLabel=imgcap-<base-version>`, for example `imgcap-0.1.137`.
 - `BuildType=custom`.
 - `Commit=<shortsha>`.
 
@@ -249,7 +249,7 @@ Expected behavior:
 Merge note:
 
 - If upstream changes update-check logic, preserve the split between base semver and display label.
-- Never set `Version` to a Docker tag such as `imgcap-0.1.133-7965a1ff`.
+- Never set `Version` to a Docker tag such as `imgcap-0.1.137-7965a1ff`.
 
 ## Release Naming
 
@@ -341,4 +341,3 @@ Database checks should confirm:
 - Intended OpenAI accounts have `supports_image_generation=true`.
 
 Do not print account secrets or `.env` values while validating production.
-

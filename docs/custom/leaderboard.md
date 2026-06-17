@@ -1,10 +1,10 @@
 # Token Leaderboard
 
-Last updated: 2026-06-07
+Last updated: 2026-06-17
 
 Current custom branch: `image-capability`
 
-Current upstream base: `0.1.134`
+Current upstream base: `0.1.137`
 
 ## Purpose
 
@@ -147,6 +147,7 @@ The response returns `start_time`, `end_time`, `period_count`, and `inserted_row
 - Re-confirm migration `152_leaderboard_user_honors.sql` exists and honor fields read from `leaderboard_user_honors`.
 - Re-confirm migration `153_leaderboard_medal_honors.sql` exists and silver/bronze medal fields plus the unique runner-up-count-based `perennial_runner_up` still materialize correctly.
 - Re-confirm migration `154_leaderboard_current_runner_up_streak.sql` exists and `连续银冠` renders from `current_runner_up_streak`, not from historical `longest_runner_up_streak`.
+- Upstream `0.1.137` also contains migration files numbered `151` through `153`; do not delete already-released leaderboard migrations just because the numeric prefixes overlap. Verify all overlapping migrations are idempotent and are accepted by `go test ./migrations`.
 - Re-confirm banned participants are excluded from ranking queries and cannot self opt in.
 - Re-confirm `image_output_tokens` remains included in token totals.
 - Re-confirm `POST /api/v1/admin/dashboard/leaderboard/backfill` still snapshots only completed periods and remains duplicate-safe.

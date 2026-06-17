@@ -1,10 +1,10 @@
 # Subscription Quota Refresh
 
-Last updated: 2026-06-04
+Last updated: 2026-06-17
 
 Current custom branch: `image-capability`
 
-Current upstream base: `0.1.133`
+Current upstream base: `0.1.137`
 
 ## Purpose
 
