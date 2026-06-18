@@ -1,6 +1,6 @@
 <template>
   <header class="glass sticky top-0 z-30 border-b border-gray-200/50 dark:border-dark-700/50">
-    <div class="flex h-16 items-center justify-between px-4 md:px-6">
+    <div class="flex h-16 items-center gap-3 px-4 md:px-6">
       <!-- Left: Mobile Menu Toggle + Page Title -->
       <div class="flex items-center gap-4">
         <button
@@ -21,8 +21,24 @@
         </div>
       </div>
 
+      <!-- Center: Optional external contact link -->
+      <div class="hidden min-w-0 flex-1 justify-center lg:flex">
+        <a
+          v-if="headerContactLabel && headerContactUrl"
+          :href="headerContactUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex max-w-[320px] items-center gap-2 rounded-full border border-primary-100 bg-primary-50/70 px-3 py-1.5 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:border-primary-200 hover:bg-primary-100 dark:border-primary-800/60 dark:bg-primary-900/20 dark:text-primary-300 dark:hover:bg-primary-900/35"
+          :title="headerContactLabel"
+        >
+          <Icon name="link" size="sm" class="flex-shrink-0" />
+          <span class="truncate">{{ headerContactLabel }}</span>
+          <Icon name="externalLink" size="xs" class="flex-shrink-0 opacity-70" />
+        </a>
+      </div>
+
       <!-- Right: Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
-      <div class="flex items-center gap-3">
+      <div class="flex shrink-0 items-center gap-3">
         <!-- Announcement Bell -->
         <AnnouncementBell v-if="user" />
 
@@ -236,6 +252,8 @@ const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
 const docUrl = computed(() => appStore.docUrl)
+const headerContactLabel = computed(() => appStore.cachedPublicSettings?.header_contact_label?.trim() || '')
+const headerContactUrl = computed(() => appStore.cachedPublicSettings?.header_contact_url?.trim() || '')
 const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
 
 // 只在标准模式的管理员下显示新手引导按钮

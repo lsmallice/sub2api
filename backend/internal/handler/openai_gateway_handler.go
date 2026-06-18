@@ -320,6 +320,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	maxAccountSwitches := h.maxAccountSwitches
 	switchCount := 0
 	failedAccountIDs := make(map[int64]struct{})
+	failedTierKeys := make(map[string]struct{})
 	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
 
@@ -332,7 +333,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		var err error
 		if imageIntent {
 			tierSelection, err = h.gatewayService.SelectAccountWithTierRoutingForImageIntent(
-				c.Request.Context(),
+				openAIServiceTierSelectionContext(c, failedTierKeys),
 				apiKey,
 				previousResponseID,
 				sessionHash,
@@ -343,7 +344,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			)
 		} else {
 			tierSelection, err = h.gatewayService.SelectAccountWithTierRoutingForCapability(
-				c.Request.Context(),
+				openAIServiceTierSelectionContext(c, failedTierKeys),
 				apiKey,
 				previousResponseID,
 				sessionHash,
@@ -482,6 +483,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					}
 					h.gatewayService.RecordOpenAIAccountSwitch()
 					failedAccountIDs[account.ID] = struct{}{}
+					tierExcluded := excludeFailedOpenAIServiceTier(failedTierKeys, tierSelection)
 					lastFailoverErr = failoverErr
 					if switchCount >= maxAccountSwitches {
 						h.handleFailoverExhausted(c, failoverErr, streamStarted)
@@ -497,6 +499,8 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 						zap.Int("upstream_status", failoverErr.StatusCode),
 						zap.Int("switch_count", switchCount),
 						zap.Int("max_switches", maxAccountSwitches),
+						zap.Bool("tier_excluded", tierExcluded),
+						zap.String("excluded_tier_key", tierSelectionActualKey(tierSelection)),
 					)
 					continue
 				}
@@ -777,6 +781,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 	maxAccountSwitches := h.maxAccountSwitches
 	switchCount := 0
 	failedAccountIDs := make(map[int64]struct{})
+	failedTierKeys := make(map[string]struct{})
 	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
 	effectiveMappedModel := preferredMappedModel
@@ -788,7 +793,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		}
 		reqLog.Debug("openai_messages.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
 		tierSelection, err := h.gatewayService.SelectAccountWithTierRoutingForCapability(
-			c.Request.Context(),
+			openAIServiceTierSelectionContext(c, failedTierKeys),
 			apiKey,
 			"", // no previous_response_id
 			sessionHash,
@@ -913,6 +918,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 					}
 					h.gatewayService.RecordOpenAIAccountSwitch()
 					failedAccountIDs[account.ID] = struct{}{}
+					tierExcluded := excludeFailedOpenAIServiceTier(failedTierKeys, tierSelection)
 					lastFailoverErr = failoverErr
 					if switchCount >= maxAccountSwitches {
 						h.handleAnthropicFailoverExhausted(c, failoverErr, streamStarted)
@@ -928,6 +934,8 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 						zap.Int("upstream_status", failoverErr.StatusCode),
 						zap.Int("switch_count", switchCount),
 						zap.Int("max_switches", maxAccountSwitches),
+						zap.Bool("tier_excluded", tierExcluded),
+						zap.String("excluded_tier_key", tierSelectionActualKey(tierSelection)),
 					)
 					continue
 				}
@@ -1391,6 +1399,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	maxAccountSwitches := h.maxAccountSwitches
 	switchCount := 0
 	failedAccountIDs := make(map[int64]struct{})
+	failedTierKeys := make(map[string]struct{})
 	var lastFailoverErr *service.UpstreamFailoverError
 
 	for {
@@ -1401,7 +1410,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		var err error
 		if imageIntent {
 			tierSelection, err = h.gatewayService.SelectAccountWithTierRoutingForImageIntent(
-				ctx,
+				service.WithExcludedOpenAIServiceTierKeys(ctx, failedTierKeys),
 				apiKey,
 				previousResponseID,
 				sessionHash,
@@ -1412,7 +1421,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			)
 		} else {
 			tierSelection, err = h.gatewayService.SelectAccountWithTierRoutingForCapability(
-				ctx,
+				service.WithExcludedOpenAIServiceTierKeys(ctx, failedTierKeys),
 				apiKey,
 				previousResponseID,
 				sessionHash,
@@ -1654,6 +1663,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				h.reportOpenAIServiceTierResult(c, apiKey, tierSelection, reqModel, false, nil)
 				releaseAccountSlot()
 				failedAccountIDs[account.ID] = struct{}{}
+				tierExcluded := excludeFailedOpenAIServiceTier(failedTierKeys, tierSelection)
 				lastFailoverErr = failoverErr
 				if switchCount >= maxAccountSwitches {
 					closeOpenAIWSFailoverExhausted(wsConn, failoverErr)
@@ -1670,6 +1680,8 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 					zap.Int("upstream_status", failoverErr.StatusCode),
 					zap.Int("switch_count", switchCount),
 					zap.Int("max_switches", maxAccountSwitches),
+					zap.Bool("tier_excluded", tierExcluded),
+					zap.String("excluded_tier_key", tierSelectionActualKey(tierSelection)),
 				)
 				if !ensureUserSlotHeld() {
 					return

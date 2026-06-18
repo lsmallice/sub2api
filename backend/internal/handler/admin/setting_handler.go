@@ -217,6 +217,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		APIBaseURL:                             settings.APIBaseURL,
 		ContactInfo:                            settings.ContactInfo,
 		DocURL:                                 settings.DocURL,
+		HeaderContactLabel:                     settings.HeaderContactLabel,
+		HeaderContactURL:                       settings.HeaderContactURL,
 		HomeContent:                            settings.HomeContent,
 		HideCcsImportButton:                    settings.HideCcsImportButton,
 		PurchaseSubscriptionEnabled:            settings.PurchaseSubscriptionEnabled,
@@ -503,6 +505,8 @@ type UpdateSettingsRequest struct {
 	APIBaseURL                  string                `json:"api_base_url"`
 	ContactInfo                 string                `json:"contact_info"`
 	DocURL                      string                `json:"doc_url"`
+	HeaderContactLabel          string                `json:"header_contact_label"`
+	HeaderContactURL            string                `json:"header_contact_url"`
 	HomeContent                 string                `json:"home_content"`
 	HideCcsImportButton         bool                  `json:"hide_ccs_import_button"`
 	PurchaseSubscriptionEnabled *bool                 `json:"purchase_subscription_enabled"`
@@ -1586,6 +1590,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		APIBaseURL:                             req.APIBaseURL,
 		ContactInfo:                            req.ContactInfo,
 		DocURL:                                 req.DocURL,
+		HeaderContactLabel:                     req.HeaderContactLabel,
+		HeaderContactURL:                       req.HeaderContactURL,
 		HomeContent:                            req.HomeContent,
 		HideCcsImportButton:                    req.HideCcsImportButton,
 		PurchaseSubscriptionEnabled:            purchaseEnabled,
@@ -2059,6 +2065,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		APIBaseURL:                             updatedSettings.APIBaseURL,
 		ContactInfo:                            updatedSettings.ContactInfo,
 		DocURL:                                 updatedSettings.DocURL,
+		HeaderContactLabel:                     updatedSettings.HeaderContactLabel,
+		HeaderContactURL:                       updatedSettings.HeaderContactURL,
 		HomeContent:                            updatedSettings.HomeContent,
 		HideCcsImportButton:                    updatedSettings.HideCcsImportButton,
 		PurchaseSubscriptionEnabled:            updatedSettings.PurchaseSubscriptionEnabled,
@@ -2461,6 +2469,12 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.DocURL != after.DocURL {
 		changed = append(changed, "doc_url")
+	}
+	if before.HeaderContactLabel != after.HeaderContactLabel {
+		changed = append(changed, "header_contact_label")
+	}
+	if before.HeaderContactURL != after.HeaderContactURL {
+		changed = append(changed, "header_contact_url")
 	}
 	if before.HomeContent != after.HomeContent {
 		changed = append(changed, "home_content")

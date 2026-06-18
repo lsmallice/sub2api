@@ -277,6 +277,13 @@ interface FallbackConfig {
   recovery_successes: number | null
 }
 
+interface TierKeyPreset {
+  key: string
+  name: string
+  multiplier: number
+  source?: 'preset' | 'account'
+}
+
 const props = defineProps<{
   show: boolean
   group: AdminGroup | null
@@ -295,6 +302,7 @@ const saving = ref(false)
 const serverSnapshot = ref('')
 const tiers = ref<LocalTier[]>([])
 const fallbackPanelOpen = ref(false)
+const accountTierKeyPresets = ref<TierKeyPreset[]>([])
 
 const createEmptyFallbackConfig = (): FallbackConfig => ({
   fallback_order: '',
@@ -306,22 +314,40 @@ const createEmptyFallbackConfig = (): FallbackConfig => ({
 
 const fallbackConfig = ref<FallbackConfig>(createEmptyFallbackConfig())
 
-const tierKeyPresets = [
+const baseTierKeyPresets: TierKeyPreset[] = [
   { key: 'pro', name: 'PRO', multiplier: 2 },
   { key: 'plus', name: 'Plus', multiplier: 1 },
   { key: 'pro2', name: 'Pro2', multiplier: 1.5 }
-] as const
+]
 
 const normalizeTierKey = (value: string | null | undefined) => value?.trim().toLowerCase() || ''
 
 const formatMultiplier = (value: number) =>
   Number.isInteger(value) ? value.toFixed(0) : value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
 
-const findTierKeyPreset = (key: string) => tierKeyPresets.find(preset => preset.key === key)
+const formatDerivedTierName = (key: string) => {
+  if (!key) return ''
+  return key.length <= 4 ? key.toUpperCase() : key.replace(/(^|[-_])\w/g, char => char.toUpperCase())
+}
+
+const tierKeyPresets = computed<TierKeyPreset[]>(() => {
+  const merged = new Map<string, TierKeyPreset>()
+  for (const preset of baseTierKeyPresets) {
+    merged.set(preset.key, { ...preset, source: 'preset' })
+  }
+  for (const preset of accountTierKeyPresets.value) {
+    if (!merged.has(preset.key)) {
+      merged.set(preset.key, preset)
+    }
+  }
+  return Array.from(merged.values())
+})
+
+const findTierKeyPreset = (key: string) => tierKeyPresets.value.find(preset => preset.key === key)
 
 const availableTierKeyPresets = computed(() => {
   const usedKeys = new Set(tiers.value.map(tier => normalizeTierKey(tier.tier_key)).filter(Boolean))
-  return tierKeyPresets.filter(preset => !usedKeys.has(preset.key))
+  return tierKeyPresets.value.filter(preset => !usedKeys.has(preset.key))
 })
 
 const canAddTier = computed(() => availableTierKeyPresets.value.length > 0)
@@ -342,10 +368,12 @@ const getTierKeyOptions = (currentIndex: number) => {
       .map(tier => normalizeTierKey(tier.tier_key))
       .filter(Boolean)
   )
-  const options: TierKeyOption[] = tierKeyPresets.map(preset => ({
+  const options: TierKeyOption[] = tierKeyPresets.value.map(preset => ({
     value: preset.key,
     label: `${preset.name} (${preset.key})`,
-    description: `${formatMultiplier(preset.multiplier)}x`,
+    description: preset.source === 'account'
+      ? `${formatMultiplier(preset.multiplier)}x · ${t('admin.groups.rateTiers.accountConfiguredKey')}`
+      : `${formatMultiplier(preset.multiplier)}x`,
     disabled: usedByOtherRows.has(preset.key)
   }))
 
@@ -511,6 +539,48 @@ const cloneTier = (tier: GroupRateTier, index: number): LocalTier => {
   }
 }
 
+const loadAccountTierKeyPresets = async () => {
+  if (!props.group?.id) {
+    accountTierKeyPresets.value = []
+    return
+  }
+
+  try {
+    const discovered = new Map<string, TierKeyPreset>()
+    const pageSize = 200
+    let page = 1
+    let total = 0
+
+    do {
+      const response = await adminAPI.accounts.list(page, pageSize, {
+        group: String(props.group.id),
+        lite: 'true',
+        sort_by: 'name',
+        sort_order: 'asc'
+      })
+      total = response.total ?? response.items.length
+
+      for (const account of response.items) {
+        const key = normalizeTierKey(account.service_tier_key)
+        if (!key || discovered.has(key)) continue
+        discovered.set(key, {
+          key,
+          name: formatDerivedTierName(key),
+          multiplier: 1,
+          source: 'account'
+        })
+      }
+
+      page += 1
+    } while ((page - 1) * pageSize < total && page <= 20)
+
+    accountTierKeyPresets.value = Array.from(discovered.values())
+  } catch (error) {
+    accountTierKeyPresets.value = []
+    console.warn('Failed to load account service tier keys:', error)
+  }
+}
+
 const buildFallbackPolicy = (): Record<string, unknown> => {
   const policy: Record<string, unknown> = {}
   const fallbackOrder = selectedFallbackTierKeys.value
@@ -581,7 +651,10 @@ const loadTiers = async () => {
   if (!props.group) return
   loading.value = true
   try {
-    const result = await adminAPI.groups.getGroupRateTiers(props.group.id)
+    const [result] = await Promise.all([
+      adminAPI.groups.getGroupRateTiers(props.group.id),
+      loadAccountTierKeyPresets()
+    ])
     tiers.value = result.map(cloneTier)
     applyFallbackConfigFromTiers(result)
     fallbackPanelOpen.value = false

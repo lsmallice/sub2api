@@ -344,6 +344,8 @@ export const useAppStore = defineStore('app', () => {
         api_base_url: apiBaseUrl.value,
         contact_info: contactInfo.value,
         doc_url: docUrl.value,
+        header_contact_label: '',
+        header_contact_url: '',
         home_content: '',
         hide_ccs_import_button: false,
         payment_enabled: false,

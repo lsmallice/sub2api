@@ -258,6 +258,8 @@ export interface PublicSettings {
   api_base_url: string
   contact_info: string
   doc_url: string
+  header_contact_label?: string
+  header_contact_url?: string
   home_content: string
   hide_ccs_import_button: boolean
   payment_enabled: boolean

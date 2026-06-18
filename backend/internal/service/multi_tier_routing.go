@@ -93,7 +93,7 @@ const (
 
 	defaultOpenAIServiceTierCooldown          = 5 * time.Minute
 	defaultOpenAIServiceTierSlowSampleLimit   = 1
-	defaultOpenAIServiceTierErrorSampleLimit  = 2
+	defaultOpenAIServiceTierErrorSampleLimit  = 1
 	defaultOpenAIServiceTierRecoverySuccesses = 2
 )
 
@@ -114,6 +114,38 @@ type openAIServiceTierHealthPolicy struct {
 	DegradeAfterErrors    int
 	Cooldown              time.Duration
 	RecoverySuccesses     int
+}
+
+type openAIServiceTierExcludedKeysContextKey struct{}
+
+// WithExcludedOpenAIServiceTierKeys returns a context that skips the provided
+// tier keys during multi-tier account selection for the current request only.
+func WithExcludedOpenAIServiceTierKeys(ctx context.Context, keys map[string]struct{}) context.Context {
+	if ctx == nil || len(keys) == 0 {
+		return ctx
+	}
+	normalized := make(map[string]struct{}, len(keys))
+	for key := range keys {
+		if normalizedKey := normalizeTierKey(key); normalizedKey != "" {
+			normalized[normalizedKey] = struct{}{}
+		}
+	}
+	if len(normalized) == 0 {
+		return ctx
+	}
+	return context.WithValue(ctx, openAIServiceTierExcludedKeysContextKey{}, normalized)
+}
+
+func openAIServiceTierKeyExcludedFromContext(ctx context.Context, key string) bool {
+	if ctx == nil {
+		return false
+	}
+	excluded, ok := ctx.Value(openAIServiceTierExcludedKeysContextKey{}).(map[string]struct{})
+	if !ok || len(excluded) == 0 {
+		return false
+	}
+	_, ok = excluded[normalizeTierKey(key)]
+	return ok
 }
 
 // normalizeTierKey canonicalizes custom service tier keys such as pro, plus, or pro2.
@@ -559,6 +591,9 @@ func (s *OpenAIGatewayService) resolveOpenAIServiceTierCandidates(ctx context.Co
 
 	candidates := make([]openAIServiceTierCandidate, 0, len(candidateKeys))
 	for _, key := range candidateKeys {
+		if openAIServiceTierKeyExcludedFromContext(ctx, key) {
+			continue
+		}
 		tier, ok := tierByKey[key]
 		if !ok {
 			continue
