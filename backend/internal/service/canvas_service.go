@@ -40,10 +40,11 @@ type CanvasSSOTicket struct {
 }
 
 type CanvasSSOUser struct {
-	ID       int64  `json:"id"`
-	Email    string `json:"email,omitempty"`
-	Username string `json:"username,omitempty"`
-	Role     string `json:"role,omitempty"`
+	ID        int64  `json:"id"`
+	Email     string `json:"email,omitempty"`
+	Username  string `json:"username,omitempty"`
+	AvatarURL string `json:"avatar_url,omitempty"`
+	Role      string `json:"role,omitempty"`
 }
 
 type canvasTicketState struct {
@@ -114,7 +115,15 @@ func (s *CanvasService) ExchangeSSOTicket(ctx context.Context, ticket string) (*
 	if err != nil {
 		return nil, err
 	}
-	return &CanvasSSOUser{ID: user.ID, Email: user.Email, Username: user.Username, Role: user.Role}, nil
+	result := &CanvasSSOUser{ID: user.ID, Email: user.Email, Username: user.Username, Role: user.Role}
+	avatar, err := s.userRepo.GetUserAvatar(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	if avatar != nil {
+		result.AvatarURL = strings.TrimSpace(avatar.URL)
+	}
+	return result, nil
 }
 
 func (s *CanvasService) ListImageKeys(ctx context.Context, userID int64) ([]CanvasImageKey, error) {

@@ -890,11 +890,26 @@ async function handleActionItemClick(item: NavItem) {
     try {
       const ticket = await canvasAPI.createSSOTicket()
       if (!ticket.redirect_url) throw new Error('Canvas URL is not configured')
-      window.location.href = ticket.redirect_url
+      window.location.href = withThemeParam(ticket.redirect_url)
     } catch (error) {
       console.error('Failed to open canvas:', error)
       window.alert(error instanceof Error ? error.message : t('nav.openCanvasFailed'))
     }
+  }
+}
+
+function currentThemeName(): 'light' | 'dark' {
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+}
+
+function withThemeParam(rawURL: string): string {
+  try {
+    const url = new URL(rawURL)
+    url.searchParams.set('theme', currentThemeName())
+    return url.toString()
+  } catch {
+    const separator = rawURL.includes('?') ? '&' : '?'
+    return `${rawURL}${separator}theme=${currentThemeName()}`
   }
 }
 

@@ -50,6 +50,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/canvas/logout',
+    name: 'CanvasLogout',
+    component: () => import('@/views/auth/CanvasLogoutView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Logout',
+      titleKey: 'auth.logout'
+    }
+  },
+  {
     path: '/register',
     name: 'Register',
     component: () => import('@/views/auth/RegisterView.vue'),
@@ -191,6 +201,17 @@ const routes: RouteRecordRaw[] = [
       title: 'Dashboard',
       titleKey: 'dashboard.title',
       descriptionKey: 'dashboard.welcomeMessage'
+    }
+  },
+  {
+    path: '/canvas/launch',
+    name: 'CanvasLaunch',
+    component: () => import('@/views/user/CanvasLaunchView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Infinite Canvas',
+      titleKey: 'nav.infiniteCanvas'
     }
   },
   {
@@ -702,7 +723,7 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/canvas/logout', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',
@@ -785,6 +806,11 @@ router.beforeEach(async (to, _from, next) => {
       // (they are blocked from all protected routes, so redirecting would cause a loop)
       if (appStore.backendModeEnabled && !authStore.isAdmin) {
         next()
+        return
+      }
+      const redirect = typeof to.query.redirect === 'string' && to.query.redirect.startsWith('/') ? to.query.redirect : ''
+      if (redirect) {
+        next(redirect)
         return
       }
       // Admin users go to admin dashboard, regular users go to user dashboard
