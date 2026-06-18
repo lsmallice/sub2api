@@ -94,6 +94,14 @@ type Config struct {
 	Gemini                   GeminiConfig                   `mapstructure:"gemini"`
 	Update                   UpdateConfig                   `mapstructure:"update"`
 	Idempotency              IdempotencyConfig              `mapstructure:"idempotency"`
+	Canvas                   CanvasConfig                   `mapstructure:"canvas"`
+}
+
+type CanvasConfig struct {
+	Enabled              bool   `mapstructure:"enabled"`
+	BaseURL              string `mapstructure:"base_url"`
+	InternalServiceToken string `mapstructure:"internal_service_token"`
+	TicketTTLSeconds     int    `mapstructure:"ticket_ttl_seconds"`
 }
 
 type LogConfig struct {
@@ -1975,6 +1983,12 @@ func setDefaults() {
 	// Subscription Maintenance (bounded queue + worker pool)
 	viper.SetDefault("subscription_maintenance.worker_count", 2)
 	viper.SetDefault("subscription_maintenance.queue_size", 1024)
+
+	// Infinite Canvas integration
+	viper.SetDefault("canvas.enabled", false)
+	viper.SetDefault("canvas.base_url", "")
+	viper.SetDefault("canvas.internal_service_token", "")
+	viper.SetDefault("canvas.ticket_ttl_seconds", 120)
 
 }
 

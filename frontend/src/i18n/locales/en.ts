@@ -379,6 +379,8 @@ export default {
     apiKeys: 'API Keys',
     usage: 'Usage',
     leaderboard: 'Token Leaderboard',
+    infiniteCanvas: 'Infinite Canvas',
+    openCanvasFailed: 'Unable to open Infinite Canvas',
     redeem: 'Redeem',
     affiliate: 'Affiliate Rebates',
     affiliateManagement: 'Affiliate Rebates',

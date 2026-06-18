@@ -87,6 +87,12 @@ func RegisterUserRoutes(
 			leaderboard.PUT("/me", h.Leaderboard.UpdateMe)
 		}
 
+		canvas := authenticated.Group("/canvas")
+		{
+			canvas.POST("/sso-ticket", h.Canvas.CreateSSOTicket)
+			canvas.GET("/image-keys", h.Canvas.ListImageKeys)
+		}
+
 		// 使用记录
 		usage := authenticated.Group("/usage")
 		{

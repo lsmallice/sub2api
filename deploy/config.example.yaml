@@ -67,6 +67,24 @@ server:
 run_mode: "standard"
 
 # =============================================================================
+# Infinite Canvas Integration
+# 无限画布集成
+# =============================================================================
+canvas:
+  # Enable Sub2API SSO and Canvas image-capable API Key selection.
+  # 启用 Sub2API SSO 和无限画布生图 Key 选择。
+  enabled: false
+  # Public Canvas origin, for example: "https://canvas.smallice.xyz"
+  # 无限画布公网地址。
+  base_url: ""
+  # Shared secret for Canvas server-side internal calls.
+  # Canvas 服务端调用 Sub2API 内部接口的共享密钥。
+  internal_service_token: ""
+  # One-time SSO ticket TTL in seconds.
+  # 一次性 SSO ticket 有效期（秒）。
+  ticket_ttl_seconds: 120
+
+# =============================================================================
 # CORS Configuration
 # 跨域资源共享 (CORS) 配置
 # =============================================================================

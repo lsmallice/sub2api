@@ -379,6 +379,8 @@ export default {
     apiKeys: 'API 密钥',
     usage: '使用记录',
     leaderboard: '卷王榜',
+    infiniteCanvas: '无限画布',
+    openCanvasFailed: '无法打开无限画布',
     redeem: '兑换',
     affiliate: '邀请返利',
     affiliateManagement: '邀请返利',
