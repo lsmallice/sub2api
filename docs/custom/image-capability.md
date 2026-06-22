@@ -83,6 +83,7 @@ Current recognition rules:
 
 - `/v1/images/generations`, `/images/generations`: image generation.
 - `/v1/images/edits`, `/images/edits`: image generation or edit.
+- Dedicated image endpoints accept custom/non-`gpt-image-*` model IDs; the endpoint itself establishes image intent, and model mapping/upstream validation handle provider-specific names.
 - `/v1/responses`: image generation when `tools` contains `{ "type": "image_generation" }`.
 - `/v1/responses`: image generation when `tool_choice` selects `image_generation`.
 - `/v1/chat/completions`: image generation when `model` starts with an OpenAI image model prefix such as `gpt-image-`.
@@ -313,6 +314,7 @@ Manual checks:
 - Old accounts migrate with `supports_image_generation=false`.
 - Creating, editing, listing, filtering, bulk editing, importing, and exporting accounts preserves the field.
 - `/v1/images/generations` selects only a flagged OpenAI account.
+- `/v1/images/generations` accepts custom image model IDs such as provider aliases instead of rejecting everything outside `gpt-image-*`.
 - `/v1/images/edits` selects only a flagged OpenAI account.
 - `/v1/responses` with `tools: [{ "type": "image_generation" }]` selects only a flagged OpenAI account.
 - `/v1/responses` text-only requests do not require a flagged account.

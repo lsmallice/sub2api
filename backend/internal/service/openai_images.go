@@ -460,13 +460,10 @@ func isOpenAIImageGenerationModel(model string) bool {
 
 func validateOpenAIImagesModel(model string) error {
 	model = strings.TrimSpace(model)
-	if isOpenAIImageGenerationModel(model) {
-		return nil
-	}
 	if model == "" {
 		return fmt.Errorf("images endpoint requires an image model")
 	}
-	return fmt.Errorf("images endpoint requires an image model, got %q", model)
+	return nil
 }
 
 func normalizeOpenAIImagesEndpointPath(path string) string {
