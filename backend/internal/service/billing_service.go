@@ -270,8 +270,17 @@ func (s *BillingService) initFallbackPricing() {
 		LongContextInputMultiplier:     openAIGPT54LongContextInputMultiplier,
 		LongContextOutputMultiplier:    openAIGPT54LongContextOutputMultiplier,
 	}
-	// GPT-5.5 暂无独立定价，回退到 GPT-5.4
-	s.fallbackPrices["gpt-5.5"] = s.fallbackPrices["gpt-5.4"]
+	// OpenAI GPT-5.5：标准价 $5/$0.50/$30 per MTok。
+	s.fallbackPrices["gpt-5.5"] = &ModelPricing{
+		InputPricePerToken:          5e-6,   // $5 per MTok
+		OutputPricePerToken:         30e-6,  // $30 per MTok
+		CacheCreationPricePerToken:  5e-6,   // $5 per MTok
+		CacheReadPricePerToken:      0.5e-6, // $0.50 per MTok
+		SupportsCacheBreakdown:      false,
+		LongContextInputThreshold:   openAIGPT54LongContextInputThreshold,
+		LongContextInputMultiplier:  openAIGPT54LongContextInputMultiplier,
+		LongContextOutputMultiplier: openAIGPT54LongContextOutputMultiplier,
+	}
 
 	s.fallbackPrices["gpt-5.4-mini"] = &ModelPricing{
 		InputPricePerToken:     7.5e-7,
@@ -988,6 +997,20 @@ func (s *BillingService) calculateCostInternal(model string, tokens UsageTokens,
 func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *ModelPricing) *ModelPricing {
 	if pricing == nil {
 		return nil
+	}
+	if normalized := normalizeKnownOpenAICodexModel(model); normalized == "gpt-5.5" {
+		cloned := *pricing
+		if cloned.InputPricePerToken > 0 {
+			cloned.InputPricePerTokenPriority = cloned.InputPricePerToken * 2.5
+		}
+		if cloned.OutputPricePerToken > 0 {
+			cloned.OutputPricePerTokenPriority = cloned.OutputPricePerToken * 2.5
+		}
+		if cloned.CacheReadPricePerToken > 0 {
+			cloned.CacheReadPricePerTokenPriority = cloned.CacheReadPricePerToken * 2.5
+		}
+		pricing = &cloned
+		model = normalized
 	}
 	if !isOpenAIGPT54Model(model) {
 		return pricing
