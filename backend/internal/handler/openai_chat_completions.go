@@ -122,6 +122,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 	}
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
+	requestPlatform := openAICompatibleRequestPlatform(apiKey)
 
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	routingStart := time.Now()
@@ -170,6 +171,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 				failedAccountIDs,
 				service.OpenAIUpstreamTransportAny,
 				false,
+				requestPlatform,
 			)
 		} else {
 			tierSelection, err = h.gatewayService.SelectAccountWithTierRoutingForCapability(
@@ -182,6 +184,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 				service.OpenAIUpstreamTransportAny,
 				service.OpenAIEndpointCapabilityChatCompletions,
 				false,
+				requestPlatform,
 			)
 		}
 		if tierSelection != nil {
@@ -199,8 +202,11 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 					h.handleStreamingAwareError(c, http.StatusForbidden, "no_image_capable_account", service.NoImageCapableAccountMessage(), streamStarted)
 					return
 				}
-				markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
-				h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "Service temporarily unavailable", streamStarted)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, service.PlatformOpenAI)
+				if !cls.ModelNotFound {
+					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+				}
+				h.handleStreamingAwareError(c, cls.Status, cls.ErrType, cls.Message, streamStarted)
 				return
 			} else {
 				if lastFailoverErr != nil {
@@ -212,8 +218,11 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 			}
 		}
 		if selection == nil || selection.Account == nil {
-			markOpsRoutingCapacityLimited(c)
-			h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available accounts", streamStarted)
+			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, service.PlatformOpenAI)
+			if !cls.ModelNotFound {
+				markOpsRoutingCapacityLimited(c)
+			}
+			h.handleStreamingAwareError(c, cls.Status, cls.ErrType, cls.Message, streamStarted)
 			return
 		}
 		account := selection.Account
