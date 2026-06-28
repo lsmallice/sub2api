@@ -215,6 +215,17 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/draw/launch',
+    name: 'DrawLaunch',
+    component: () => import('@/views/user/DrawLaunchView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Smallice Draw',
+      titleKey: 'nav.smalliceDraw'
+    }
+  },
+  {
     path: '/keys',
     name: 'Keys',
     component: () => import('@/views/user/KeysView.vue'),
