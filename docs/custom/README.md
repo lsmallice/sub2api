@@ -25,6 +25,7 @@ This directory records all Sub2API custom features maintained on top of official
 - [Multi-Tier Routing](multi-tier-routing.md): lets one group expose multiple billing/service tiers such as `PRO 2x` and `Plus 1x`, tags accounts by tier, records requested vs actual tier, bills by the actual tier, and runs fallback/degrade/probe/recovery routing.
 - [Header Contact Link](header-contact-link.md): adds an optional compact desktop header contact entry backed by public settings, with separate label and HTTP(S) URL fields.
 - [Infinite Canvas SSO And Image Key Binding](infinite-canvas-sso.md): lets users open Infinite Canvas through Sub2API SSO, choose only image-capable API Keys, and proxy Canvas text/image requests through Sub2API without exposing plaintext Keys to the browser.
+- [Smallice Draw Tool Integration](smallice-draw.md): adds a Sub2API sidebar launch entry for Smallice Draw, passes login state through a URL-hash bootstrap, and limits Draw's server-side Key selection to image-generation eligible API Keys.
 
 ## Custom Release And Deployment Workflows
 

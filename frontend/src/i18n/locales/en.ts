@@ -379,6 +379,8 @@ export default {
     apiKeys: 'API Keys',
     usage: 'Usage',
     leaderboard: 'Token Leaderboard',
+    smalliceDraw: 'Smallice Draw',
+    openDrawFailed: 'Unable to open Smallice Draw',
     infiniteCanvas: 'Infinite Canvas',
     openCanvasFailed: 'Unable to open Infinite Canvas',
     redeem: 'Redeem',
