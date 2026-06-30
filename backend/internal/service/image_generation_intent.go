@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -61,9 +62,6 @@ func ClassifyRequestCapability(endpoint string, requestedModel string, body []by
 	if model := strings.TrimSpace(gjson.GetBytes(body, "model").String()); isOpenAIImageGenerationModel(model) {
 		return imageGenerationClassification(imageModelGenerationSource(isChatCompletions))
 	}
-	if openAIJSONToolsContainImageGeneration(gjson.GetBytes(body, "tools")) {
-		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
-	}
 	if isChatCompletions && openAIJSONModalitiesContainImage(gjson.GetBytes(body, "modalities")) {
 		return imageGenerationClassification(ImageGenerationSourceChatModalities)
 	}
@@ -91,9 +89,6 @@ func ClassifyRequestCapabilityMap(endpoint string, requestedModel string, reqBod
 	}
 	if isOpenAIImageGenerationModel(firstNonEmptyString(reqBody["model"])) {
 		return imageGenerationClassification(imageModelGenerationSource(isChatCompletions))
-	}
-	if hasOpenAIImageGenerationTool(reqBody) {
-		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
 	}
 	if isChatCompletions && openAIAnyModalitiesContainImage(reqBody["modalities"]) {
 		return imageGenerationClassification(ImageGenerationSourceChatModalities)
@@ -204,6 +199,57 @@ func openAIRequestBodyHasImageGenerationTool(body []byte) bool {
 		return false
 	}
 	return openAIJSONToolsContainImageGeneration(gjson.GetBytes(body, "tools"))
+}
+
+func stripOpenAIImageGenerationToolsFromBody(body []byte) ([]byte, bool, error) {
+	if !openAIRequestBodyHasImageGenerationTool(body) {
+		return body, false, nil
+	}
+	var reqBody map[string]any
+	if err := json.Unmarshal(body, &reqBody); err != nil {
+		return nil, false, err
+	}
+	if !stripOpenAIImageGenerationTools(reqBody) {
+		return body, false, nil
+	}
+	stripped, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, false, err
+	}
+	return stripped, true, nil
+}
+
+func stripOpenAIImageGenerationTools(reqBody map[string]any) bool {
+	if len(reqBody) == 0 {
+		return false
+	}
+	rawTools, ok := reqBody["tools"]
+	if !ok || rawTools == nil {
+		return false
+	}
+	tools, ok := rawTools.([]any)
+	if !ok {
+		return false
+	}
+	cleaned := make([]any, 0, len(tools))
+	removed := false
+	for _, rawTool := range tools {
+		toolMap, ok := rawTool.(map[string]any)
+		if ok && strings.TrimSpace(firstNonEmptyString(toolMap["type"])) == "image_generation" {
+			removed = true
+			continue
+		}
+		cleaned = append(cleaned, rawTool)
+	}
+	if !removed {
+		return false
+	}
+	if len(cleaned) == 0 {
+		delete(reqBody, "tools")
+		return true
+	}
+	reqBody["tools"] = cleaned
+	return true
 }
 
 func openAIRequestBodyImageGenerationToolNeedsNormalization(body []byte) bool {

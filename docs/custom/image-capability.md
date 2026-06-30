@@ -84,8 +84,8 @@ Current recognition rules:
 - `/v1/images/generations`, `/images/generations`: image generation.
 - `/v1/images/edits`, `/images/edits`: image generation or edit.
 - Dedicated image endpoints accept custom/non-`gpt-image-*` model IDs; the endpoint itself establishes image intent, and model mapping/upstream validation handle provider-specific names.
-- `/v1/responses`: image generation when `tools` contains `{ "type": "image_generation" }`.
 - `/v1/responses`: image generation when `tool_choice` selects `image_generation`.
+- `/v1/responses`: a plain `tools` declaration for `{ "type": "image_generation" }` is not image intent by itself. Text requests that only declare this tool strip the declaration before upstream forwarding, which avoids blocking normal text traffic just because an earlier client context exposed image tools.
 - `/v1/chat/completions`: image generation when `model` starts with an OpenAI image model prefix such as `gpt-image-`.
 - `/v1/chat/completions`: image generation when `modalities` contains `image`.
 - Any endpoint with an image-generation model in `requestedModel` or request body `model` is classified as `image_model`.
@@ -316,7 +316,8 @@ Manual checks:
 - `/v1/images/generations` selects only a flagged OpenAI account.
 - `/v1/images/generations` accepts custom image model IDs such as provider aliases instead of rejecting everything outside `gpt-image-*`.
 - `/v1/images/edits` selects only a flagged OpenAI account.
-- `/v1/responses` with `tools: [{ "type": "image_generation" }]` selects only a flagged OpenAI account.
+- `/v1/responses` with only `tools: [{ "type": "image_generation" }]` stays on the normal text path and strips the image tool declaration before forwarding.
+- `/v1/responses` with `tool_choice: {"type":"image_generation"}` selects only a flagged OpenAI account.
 - `/v1/responses` text-only requests do not require a flagged account.
 - `/v1/chat/completions` with `gpt-image-*` or `modalities:["image"]` selects only a flagged account.
 - Group `allow_image_generation=false` rejects image requests even when flagged accounts exist.

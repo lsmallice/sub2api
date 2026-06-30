@@ -90,6 +90,13 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	if upstreamModel != originalModel {
 		upstreamBody = ReplaceModelInBody(body, upstreamModel)
 	}
+	if !IsImageGenerationIntent("/v1/chat/completions", upstreamModel, upstreamBody) && openAIRequestBodyHasImageGenerationTool(upstreamBody) {
+		var stripErr error
+		upstreamBody, _, stripErr = stripOpenAIImageGenerationToolsFromBody(upstreamBody)
+		if stripErr != nil {
+			return nil, fmt.Errorf("strip declared image_generation tool from chat completions body: %w", stripErr)
+		}
+	}
 	if normalizedBody, normalized := NormalizeGLMOpenAIReasoningEffort(upstreamBody, upstreamModel); normalized {
 		upstreamBody = normalizedBody
 	}

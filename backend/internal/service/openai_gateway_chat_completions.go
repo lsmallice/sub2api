@@ -130,6 +130,12 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 		if err != nil {
 			return nil, fmt.Errorf("rewrite model in responses-shape body: %w", err)
 		}
+		if !IsImageGenerationIntent(openAIResponsesEndpoint, upstreamModel, responsesBody) && openAIRequestBodyHasImageGenerationTool(responsesBody) {
+			responsesBody, _, err = stripOpenAIImageGenerationToolsFromBody(responsesBody)
+			if err != nil {
+				return nil, fmt.Errorf("strip declared image_generation tool from responses-shape body: %w", err)
+			}
+		}
 		// Strip Responses API parameters that no Codex upstream accepts.
 		// Because this branch forwards the raw body (the normal path rebuilds
 		// it from ChatCompletionsRequest and drops unknown fields naturally),

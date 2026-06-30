@@ -28,11 +28,11 @@ func TestIsImageGenerationIntent(t *testing.T) {
 			want:     true,
 		},
 		{
-			name:     "image tool",
+			name:     "image tool declaration only",
 			endpoint: "/v1/responses",
 			model:    "gpt-5.4",
 			body:     []byte(`{"model":"gpt-5.4","tools":[{"type":"image_generation"}]}`),
-			want:     true,
+			want:     false,
 		},
 		{
 			name:     "image tool choice",
@@ -88,9 +88,16 @@ func TestClassifyRequestCapabilityImageGenerationSource(t *testing.T) {
 			wantSource: ImageGenerationSourceImagesAPI,
 		},
 		{
-			name:       "responses tool",
+			name:       "responses tool declaration only",
 			endpoint:   "/v1/responses",
 			body:       []byte(`{"model":"gpt-5.4","tools":[{"type":"image_generation"}]}`),
+			wantIntent: false,
+			wantSource: ImageGenerationSourceNone,
+		},
+		{
+			name:       "responses tool choice",
+			endpoint:   "/v1/responses",
+			body:       []byte(`{"model":"gpt-5.4","tools":[{"type":"image_generation"}],"tool_choice":{"type":"image_generation"}}`),
 			wantIntent: true,
 			wantSource: ImageGenerationSourceResponsesTool,
 		},
