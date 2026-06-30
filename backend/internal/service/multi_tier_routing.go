@@ -708,8 +708,13 @@ func (s *OpenAIGatewayService) SelectAccountWithTierRoutingForCapability(
 	requiredTransport OpenAIUpstreamTransport,
 	requiredCapability OpenAIEndpointCapability,
 	requireCompact bool,
+	platformOverride ...string,
 ) (*OpenAIAccountTierSelection, error) {
-	return s.selectAccountWithTierRouting(ctx, apiKey, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, "", requireCompact)
+	platform := PlatformOpenAI
+	if len(platformOverride) > 0 {
+		platform = platformOverride[0]
+	}
+	return s.selectAccountWithTierRouting(ctx, apiKey, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, "", requireCompact, platform)
 }
 
 func (s *OpenAIGatewayService) SelectAccountWithTierRoutingForImageIntent(
@@ -721,8 +726,13 @@ func (s *OpenAIGatewayService) SelectAccountWithTierRoutingForImageIntent(
 	excludedIDs map[int64]struct{},
 	requiredTransport OpenAIUpstreamTransport,
 	requireCompact bool,
+	platformOverride ...string,
 ) (*OpenAIAccountTierSelection, error) {
-	return s.selectAccountWithTierRouting(ctx, apiKey, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, OpenAIEndpointCapabilityChatCompletions, OpenAIImagesCapabilityNative, requireCompact)
+	platform := PlatformOpenAI
+	if len(platformOverride) > 0 {
+		platform = platformOverride[0]
+	}
+	return s.selectAccountWithTierRouting(ctx, apiKey, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, OpenAIEndpointCapabilityChatCompletions, OpenAIImagesCapabilityNative, requireCompact, platform)
 }
 
 func (s *OpenAIGatewayService) SelectAccountWithTierRoutingForImages(
@@ -733,12 +743,12 @@ func (s *OpenAIGatewayService) SelectAccountWithTierRoutingForImages(
 	excludedIDs map[int64]struct{},
 	requiredCapability OpenAIImagesCapability,
 ) (*OpenAIAccountTierSelection, error) {
-	selection, err := s.selectAccountWithTierRouting(ctx, apiKey, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", requiredCapability, false)
+	selection, err := s.selectAccountWithTierRouting(ctx, apiKey, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", requiredCapability, false, PlatformOpenAI)
 	if err == nil && selection != nil && selection.Selection != nil && selection.Selection.Account != nil {
 		return selection, nil
 	}
 	if requiredCapability == OpenAIImagesCapabilityNative {
-		return s.selectAccountWithTierRouting(ctx, apiKey, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", OpenAIImagesCapabilityBasic, false)
+		return s.selectAccountWithTierRouting(ctx, apiKey, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", OpenAIImagesCapabilityBasic, false, PlatformOpenAI)
 	}
 	return selection, err
 }
@@ -754,6 +764,7 @@ func (s *OpenAIGatewayService) selectAccountWithTierRouting(
 	requiredCapability OpenAIEndpointCapability,
 	requiredImageCapability OpenAIImagesCapability,
 	requireCompact bool,
+	platform string,
 ) (*OpenAIAccountTierSelection, error) {
 	var groupID *int64
 	if apiKey != nil {
@@ -791,6 +802,7 @@ func (s *OpenAIGatewayService) selectAccountWithTierRouting(
 			requiredImageCapability,
 			candidate.TierKey,
 			requireCompact,
+			platform,
 		)
 		lastDecision = decision
 		if selectErr != nil {
