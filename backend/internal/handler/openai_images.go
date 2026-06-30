@@ -372,6 +372,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		}
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
+		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 
 		upstreamModel := ""
 		if result != nil {
@@ -393,6 +394,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				RequestedTierKey:   tierSelectionRequestedKey(tierSelection),
 				ActualTierKey:      tierSelectionActualKey(tierSelection),
 				TierRateMultiplier: tierSelectionRateMultiplier(tierSelection),
+				QuotaPlatform:      quotaPlatform,
 				ChannelUsageFields: channelMapping.ToUsageFields(requestModel, upstreamModel),
 			}); err != nil {
 				logger.L().With(

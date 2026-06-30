@@ -228,6 +228,7 @@ import VersionBadge from '@/components/common/VersionBadge.vue'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 import { canvasAPI } from '@/api/canvas'
+import { buildDrawLaunchURL } from '@/utils/drawLaunch'
 
 interface NavItem {
   path: string
@@ -241,7 +242,7 @@ interface NavItem {
    * does NOT navigate to its `path`. The `path` is purely a stable key.
    */
   expandOnly?: boolean
-  action?: 'openCanvas'
+  action?: 'openCanvas' | 'openDraw'
   /**
    * 可选的功能开关 getter。返回 false 时菜单项被隐藏；返回 undefined/true 时显示。
    * 宽容策略（undefined → 显示）避免 public settings 未加载完成时菜单闪烁消失。
@@ -744,7 +745,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   items.push(
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
-    { path: '/draw/launch', label: t('nav.smalliceDraw'), icon: DrawIcon, hideInSimpleMode: true },
+    { path: 'draw', label: t('nav.smalliceDraw'), icon: DrawIcon, hideInSimpleMode: true, action: 'openDraw' },
     { path: 'canvas', label: t('nav.infiniteCanvas'), icon: SparklesIcon, hideInSimpleMode: true, action: 'openCanvas' },
     { path: '/leaderboard', label: t('nav.leaderboard'), icon: ChartIcon, hideInSimpleMode: true },
     { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },
@@ -913,6 +914,16 @@ async function handleActionItemClick(item: NavItem) {
       window.alert(error instanceof Error ? error.message : t('nav.openCanvasFailed'))
     }
     return
+  }
+
+  if (item.action === 'openDraw') {
+    closeMobile()
+    try {
+      window.location.href = buildDrawLaunchURL(authStore.token || '')
+    } catch (error) {
+      console.error('Failed to open draw:', error)
+      window.alert(error instanceof Error ? error.message : t('nav.openDrawFailed'))
+    }
   }
 
 }
