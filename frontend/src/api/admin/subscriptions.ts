@@ -120,7 +120,7 @@ export async function extend(
  * @returns Success confirmation
  */
 export async function revoke(id: number): Promise<{ message: string }> {
-  const { data } = await apiClient.delete<{ message: string }>(`/admin/subscriptions/${id}`)
+  const { data } = await apiClient.post<{ message: string }>(`/admin/subscriptions/${id}/revoke`)
   return data
 }
 
