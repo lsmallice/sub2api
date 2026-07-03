@@ -4,7 +4,7 @@ Last updated: 2026-06-17
 
 Current custom branch: `image-capability`
 
-Current upstream base at the time of this document: `0.1.137`
+Current upstream base at the time of this document: `0.1.143`
 
 ## Purpose
 
