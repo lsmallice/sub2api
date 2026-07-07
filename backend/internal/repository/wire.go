@@ -79,6 +79,7 @@ var ProviderSet = wire.NewSet(
 	NewGroupRateTierRepository,
 	NewLeaderboardRepository,
 	NewUsageBillingRepository,
+	NewBatchImageRepository,
 	NewIdempotencyRepository,
 	NewUsageCleanupRepository,
 	NewDashboardAggregationRepository,
@@ -118,6 +119,8 @@ var ProviderSet = wire.NewSet(
 	NewRedeemCache,
 	NewUpdateCache,
 	NewGeminiTokenCache,
+	NewBatchImageQueue,
+	NewBatchImageDownloadLimiter,
 	NewLeaderLockCache,
 	ProvideSchedulerCache,
 	NewSchedulerOutboxRepository,
@@ -152,6 +155,8 @@ var ProviderSet = wire.NewSet(
 	ProvideEnt,
 	ProvideSQLDB,
 	ProvideRedis,
+	wire.Bind(new(service.GroupRateTierRepository), new(*groupRateTierRepository)),
+	wire.Bind(new(service.GroupRateTierAdminRepository), new(*groupRateTierRepository)),
 )
 
 // ProvideEnt 为依赖注入提供 Ent 客户端。

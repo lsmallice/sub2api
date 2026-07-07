@@ -199,8 +199,8 @@ Frontend admin surfaces:
 
 Expected behavior:
 
-- Account responses and legacy import/export paths may still include `supports_image_generation` for compatibility with existing schema/data.
-- Create, edit, bulk edit, and account list UI must not expose `supports_image_generation` as a user-facing switch, badge, or filter.
+- Account responses, backups, and import paths must not expose or accept `supports_image_generation`; keep it as a database compatibility column only.
+- Create, edit, bulk edit, import/export, and account list UI must not expose `supports_image_generation` as a user-facing switch, badge, or filter.
 - Account-level Codex image tool overrides (`codex_image_generation_bridge`, `codex_image_generation_bridge_enabled`, `codex_image_generation_explicit_tool_policy`) are legacy keys and must not affect routing. Account edit saves should remove these keys; channel/global bridge settings remain the supported control surface.
 - Image-capable Key eligibility for Canvas and Draw must use the same `SupportsOpenAIImageCapability` path as gateway scheduling.
 - Admin DTO responses must not expose raw secrets. Keep secret redaction behavior intact.
@@ -209,7 +209,7 @@ Merge note:
 
 - If upstream changes account forms or table filters, keep the custom account-level image switch removed unless upstream introduces a first-party user-facing control with different product semantics.
 - Do not reintroduce `supports_image_generation` into scheduling or tool-site eligibility during upstream merges.
-- Treat `supports_image_generation` as compatibility data only; channel/global bridge settings and group `allow_image_generation` remain the supported admin controls.
+- Treat `supports_image_generation` as database compatibility data only; official OpenAI capability checks, channel/global bridge settings, and group `allow_image_generation` remain the supported admin controls.
 
 ## Custom Version Display
 
