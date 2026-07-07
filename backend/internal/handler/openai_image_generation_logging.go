@@ -19,11 +19,11 @@ func selectedImageGenerationAccountLogFields(account *service.Account, classific
 	if !classification.IsImageGeneration {
 		return nil
 	}
-	supportsImageGeneration := false
+	supportsOpenAIImageGeneration := false
 	if account != nil {
-		supportsImageGeneration = account.SupportsImageGeneration
+		supportsOpenAIImageGeneration = account.SupportsOpenAIImageCapability(service.OpenAIImagesCapabilityBasic)
 	}
 	return []zap.Field{
-		zap.Bool("selected_account_supports_image_generation", supportsImageGeneration),
+		zap.Bool("selected_account_supports_openai_image_generation", supportsOpenAIImageGeneration),
 	}
 }

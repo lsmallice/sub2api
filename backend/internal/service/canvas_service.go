@@ -185,7 +185,7 @@ func (s *CanvasService) checkImageKeyEligibility(ctx context.Context, userID int
 		return err
 	}
 	for i := range accounts {
-		if accounts[i].SupportsImageGeneration {
+		if accounts[i].SupportsOpenAIImageCapability(OpenAIImagesCapabilityBasic) {
 			return nil
 		}
 	}

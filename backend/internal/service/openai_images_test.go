@@ -435,23 +435,22 @@ func TestOpenAIUpstreamErrorBodyReadLimitForConfig_RespectsDiagnosticLimit(t *te
 
 func TestAccountSupportsOpenAIImageCapability_OAuthSupportsNative(t *testing.T) {
 	account := &Account{
-		Platform:                PlatformOpenAI,
-		Type:                    AccountTypeOAuth,
-		SupportsImageGeneration: true,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
 	}
 
 	require.True(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityBasic))
 	require.True(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityNative))
 }
 
-func TestAccountSupportsOpenAIImageCapability_RequiresAccountFlag(t *testing.T) {
+func TestAccountSupportsOpenAIImageCapability_OpenAIAPIKeySupportsImages(t *testing.T) {
 	account := &Account{
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeAPIKey,
 	}
 
-	require.False(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityBasic))
-	require.False(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityNative))
+	require.True(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityBasic))
+	require.True(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityNative))
 }
 
 func TestAccountSupportsOpenAIImageCapability_EmptyRequirementDoesNotRejectGrok(t *testing.T) {

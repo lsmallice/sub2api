@@ -18,20 +18,6 @@ var (
 const AccountListGroupUngrouped int64 = -1
 const AccountPrivacyModeUnsetFilter = "__unset__"
 
-type accountListSupportsImageGenerationFilterContextKey struct{}
-
-func ContextWithAccountListSupportsImageGenerationFilter(ctx context.Context, enabled bool) context.Context {
-	return context.WithValue(ctx, accountListSupportsImageGenerationFilterContextKey{}, enabled)
-}
-
-func AccountListSupportsImageGenerationFilterFromContext(ctx context.Context) (bool, bool) {
-	if ctx == nil {
-		return false, false
-	}
-	value, ok := ctx.Value(accountListSupportsImageGenerationFilterContextKey{}).(bool)
-	return value, ok
-}
-
 type AccountRepository interface {
 	Create(ctx context.Context, account *Account) error
 	GetByID(ctx context.Context, id int64) (*Account, error)
@@ -53,6 +39,9 @@ type AccountRepository interface {
 
 	List(ctx context.Context, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error)
 	ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error)
+	// ListAllWithFilters 返回符合过滤条件的全部账号（不分页），用于账号列表页
+	// 计算 OpenAI 调度分数的过滤范围池。
+	ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error)
 	ListByGroup(ctx context.Context, groupID int64) ([]Account, error)
 	ListActive(ctx context.Context) ([]Account, error)
 	ListOAuthRefreshCandidates(ctx context.Context) ([]Account, error)
@@ -104,53 +93,50 @@ type AccountRepository interface {
 // AccountBulkUpdate describes the fields that can be updated in a bulk operation.
 // Nil pointers mean "do not change".
 type AccountBulkUpdate struct {
-	Name                    *string
-	ProxyID                 *int64
-	Concurrency             *int
-	Priority                *int
-	RateMultiplier          *float64
-	ServiceTierKey          *string
-	LoadFactor              *int
-	Status                  *string
-	Schedulable             *bool
-	SupportsImageGeneration *bool
-	Credentials             map[string]any
-	Extra                   map[string]any
+	Name           *string
+	ProxyID        *int64
+	Concurrency    *int
+	Priority       *int
+	RateMultiplier *float64
+	ServiceTierKey *string
+	LoadFactor     *int
+	Status         *string
+	Schedulable    *bool
+	Credentials    map[string]any
+	Extra          map[string]any
 }
 
 // CreateAccountRequest 创建账号请求
 type CreateAccountRequest struct {
-	Name                    string         `json:"name"`
-	Notes                   *string        `json:"notes"`
-	Platform                string         `json:"platform"`
-	Type                    string         `json:"type"`
-	Credentials             map[string]any `json:"credentials"`
-	Extra                   map[string]any `json:"extra"`
-	ProxyID                 *int64         `json:"proxy_id"`
-	Concurrency             int            `json:"concurrency"`
-	Priority                int            `json:"priority"`
-	GroupIDs                []int64        `json:"group_ids"`
-	ExpiresAt               *time.Time     `json:"expires_at"`
-	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
-	SupportsImageGeneration bool           `json:"supports_image_generation"`
-	ServiceTierKey          string         `json:"service_tier_key"`
+	Name               string         `json:"name"`
+	Notes              *string        `json:"notes"`
+	Platform           string         `json:"platform"`
+	Type               string         `json:"type"`
+	Credentials        map[string]any `json:"credentials"`
+	Extra              map[string]any `json:"extra"`
+	ProxyID            *int64         `json:"proxy_id"`
+	Concurrency        int            `json:"concurrency"`
+	Priority           int            `json:"priority"`
+	GroupIDs           []int64        `json:"group_ids"`
+	ExpiresAt          *time.Time     `json:"expires_at"`
+	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
+	ServiceTierKey     string         `json:"service_tier_key"`
 }
 
 // UpdateAccountRequest 更新账号请求
 type UpdateAccountRequest struct {
-	Name                    *string         `json:"name"`
-	Notes                   *string         `json:"notes"`
-	Credentials             *map[string]any `json:"credentials"`
-	Extra                   *map[string]any `json:"extra"`
-	ProxyID                 *int64          `json:"proxy_id"`
-	Concurrency             *int            `json:"concurrency"`
-	Priority                *int            `json:"priority"`
-	Status                  *string         `json:"status"`
-	GroupIDs                *[]int64        `json:"group_ids"`
-	ExpiresAt               *time.Time      `json:"expires_at"`
-	AutoPauseOnExpired      *bool           `json:"auto_pause_on_expired"`
-	SupportsImageGeneration *bool           `json:"supports_image_generation"`
-	ServiceTierKey          *string         `json:"service_tier_key"`
+	Name               *string         `json:"name"`
+	Notes              *string         `json:"notes"`
+	Credentials        *map[string]any `json:"credentials"`
+	Extra              *map[string]any `json:"extra"`
+	ProxyID            *int64          `json:"proxy_id"`
+	Concurrency        *int            `json:"concurrency"`
+	Priority           *int            `json:"priority"`
+	Status             *string         `json:"status"`
+	GroupIDs           *[]int64        `json:"group_ids"`
+	ExpiresAt          *time.Time      `json:"expires_at"`
+	AutoPauseOnExpired *bool           `json:"auto_pause_on_expired"`
+	ServiceTierKey     *string         `json:"service_tier_key"`
 }
 
 // AccountService 账号管理服务
@@ -182,19 +168,18 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 
 	// 创建账号
 	account := &Account{
-		Name:                    req.Name,
-		Notes:                   normalizeAccountNotes(req.Notes),
-		Platform:                req.Platform,
-		Type:                    req.Type,
-		Credentials:             req.Credentials,
-		Extra:                   req.Extra,
-		ProxyID:                 req.ProxyID,
-		Concurrency:             req.Concurrency,
-		Priority:                req.Priority,
-		Status:                  StatusActive,
-		ExpiresAt:               req.ExpiresAt,
-		SupportsImageGeneration: req.SupportsImageGeneration,
-		ServiceTierKey:          normalizeTierKey(req.ServiceTierKey),
+		Name:           req.Name,
+		Notes:          normalizeAccountNotes(req.Notes),
+		Platform:       req.Platform,
+		Type:           req.Type,
+		Credentials:    req.Credentials,
+		Extra:          req.Extra,
+		ProxyID:        req.ProxyID,
+		Concurrency:    req.Concurrency,
+		Priority:       req.Priority,
+		Status:         StatusActive,
+		ExpiresAt:      req.ExpiresAt,
+		ServiceTierKey: normalizeTierKey(req.ServiceTierKey),
 	}
 	if req.AutoPauseOnExpired != nil {
 		account.AutoPauseOnExpired = *req.AutoPauseOnExpired
@@ -308,9 +293,6 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 	}
 	if req.AutoPauseOnExpired != nil {
 		account.AutoPauseOnExpired = *req.AutoPauseOnExpired
-	}
-	if req.SupportsImageGeneration != nil {
-		account.SupportsImageGeneration = *req.SupportsImageGeneration
 	}
 	if req.ServiceTierKey != nil {
 		account.ServiceTierKey = normalizeTierKey(*req.ServiceTierKey)

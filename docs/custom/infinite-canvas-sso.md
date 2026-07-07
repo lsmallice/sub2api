@@ -91,7 +91,7 @@ A Key is selectable only when all conditions are true:
 - It is not expired.
 - Its configured quota is not exhausted.
 - Its group allows image generation. Ungrouped keys keep existing Sub2API behavior.
-- The relevant OpenAI account pool has at least one schedulable account with `supports_image_generation=true`.
+- The relevant OpenAI account pool has at least one schedulable account accepted by `SupportsOpenAIImageCapability`.
 
 The public Canvas key-list response includes only selection fields: `id`, `name`, `masked_key`, `group_name`, `expires_at`, `quota`, `quota_used`, and `image_eligible`.
 
@@ -137,7 +137,7 @@ Infinite Canvas:
 - Duplicate/multi-replica SSO ticket state: current in-memory ticket store is safe only for one Sub2API process.
 - Plaintext Key leakage: never return the resolved API Key to the browser; only the Canvas server-side proxy may receive it.
 - Cross-user Key use: every resolve call must check `user_id + api_key_id` ownership and eligibility.
-- Eligibility drift: group image permission and account `supports_image_generation` must remain aligned with the gateway's image-generation enforcement.
+- Eligibility drift: group image permission and upstream OpenAI image capability checks must remain aligned with the gateway's image-generation enforcement.
 - Login redirect drift: direct Canvas visits must use the public main-site web origin, not the API origin, otherwise users see the wrong domain and may not return to Canvas after login.
 - Runtime env drift: `SUB2API_WEB_BASE_URL` is served by the Canvas session API because Docker runtime env must control the link even when `NEXT_PUBLIC_*` values were fixed at image build time.
 - Proxy expansion: adding video/audio endpoints later needs an explicit product and billing review.

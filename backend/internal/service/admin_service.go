@@ -80,6 +80,12 @@ type AdminService interface {
 
 	// Account management
 	ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, sortBy, sortOrder string) ([]Account, int64, error)
+	// ListAccountsForSchedulerScoreFilter 返回符合过滤条件的全部账号（不分页），
+	// 作为账号列表页计算 OpenAI 调度分数的过滤范围池。
+	ListAccountsForSchedulerScoreFilter(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error)
+	// ListOpenAISchedulableAccountsForSchedulerScore 返回指定分组（nil 为未分组）内
+	// 可调度的 OpenAI 账号，用于按组计算调度分数。
+	ListOpenAISchedulableAccountsForSchedulerScore(ctx context.Context, groupID *int64) ([]Account, error)
 	GetAccount(ctx context.Context, id int64) (*Account, error)
 	GetAccountsByIDs(ctx context.Context, ids []int64) ([]*Account, error)
 	CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error)
@@ -292,22 +298,21 @@ type UpdateGroupInput struct {
 }
 
 type CreateAccountInput struct {
-	Name                    string
-	Notes                   *string
-	Platform                string
-	Type                    string
-	Credentials             map[string]any
-	Extra                   map[string]any
-	ProxyID                 *int64
-	Concurrency             int
-	Priority                int
-	RateMultiplier          *float64 // 账号计费倍率（>=0，允许 0）
-	ServiceTierKey          string
-	LoadFactor              *int
-	SupportsImageGeneration bool
-	GroupIDs                []int64
-	ExpiresAt               *int64
-	AutoPauseOnExpired      *bool
+	Name               string
+	Notes              *string
+	Platform           string
+	Type               string
+	Credentials        map[string]any
+	Extra              map[string]any
+	ProxyID            *int64
+	Concurrency        int
+	Priority           int
+	RateMultiplier     *float64 // 账号计费倍率（>=0，允许 0）
+	ServiceTierKey     string
+	LoadFactor         *int
+	GroupIDs           []int64
+	ExpiresAt          *int64
+	AutoPauseOnExpired *bool
 	// SkipDefaultGroupBind prevents auto-binding to platform default group when GroupIDs is empty.
 	SkipDefaultGroupBind bool
 	// SkipMixedChannelCheck skips the mixed channel risk check when binding groups.
@@ -325,55 +330,52 @@ type ShadowOptions struct {
 }
 
 type UpdateAccountInput struct {
-	Name                    string
-	Notes                   *string
-	Type                    string // Account type: oauth, setup-token, apikey
-	Credentials             map[string]any
-	Extra                   map[string]any
-	ProxyID                 *int64
-	Concurrency             *int     // 使用指针区分"未提供"和"设置为0"
-	Priority                *int     // 使用指针区分"未提供"和"设置为0"
-	RateMultiplier          *float64 // 账号计费倍率（>=0，允许 0）
-	ServiceTierKey          *string
-	LoadFactor              *int
-	SupportsImageGeneration *bool
-	Status                  string
-	GroupIDs                *[]int64
-	ExpiresAt               *int64
-	AutoPauseOnExpired      *bool
-	SkipMixedChannelCheck   bool // 跳过混合渠道检查（用户已确认风险）
+	Name                  string
+	Notes                 *string
+	Type                  string // Account type: oauth, setup-token, apikey
+	Credentials           map[string]any
+	Extra                 map[string]any
+	ProxyID               *int64
+	Concurrency           *int     // 使用指针区分"未提供"和"设置为0"
+	Priority              *int     // 使用指针区分"未提供"和"设置为0"
+	RateMultiplier        *float64 // 账号计费倍率（>=0，允许 0）
+	ServiceTierKey        *string
+	LoadFactor            *int
+	Status                string
+	GroupIDs              *[]int64
+	ExpiresAt             *int64
+	AutoPauseOnExpired    *bool
+	SkipMixedChannelCheck bool // 跳过混合渠道检查（用户已确认风险）
 }
 
 // BulkUpdateAccountsInput describes the payload for bulk updating accounts.
 type BulkUpdateAccountsInput struct {
-	AccountIDs              []int64
-	Filters                 *BulkUpdateAccountFilters
-	Name                    string
-	ProxyID                 *int64
-	Concurrency             *int
-	Priority                *int
-	RateMultiplier          *float64 // 账号计费倍率（>=0，允许 0）
-	ServiceTierKey          *string
-	LoadFactor              *int
-	SupportsImageGeneration *bool
-	Status                  string
-	Schedulable             *bool
-	GroupIDs                *[]int64
-	Credentials             map[string]any
-	Extra                   map[string]any
+	AccountIDs     []int64
+	Filters        *BulkUpdateAccountFilters
+	Name           string
+	ProxyID        *int64
+	Concurrency    *int
+	Priority       *int
+	RateMultiplier *float64 // 账号计费倍率（>=0，允许 0）
+	ServiceTierKey *string
+	LoadFactor     *int
+	Status         string
+	Schedulable    *bool
+	GroupIDs       *[]int64
+	Credentials    map[string]any
+	Extra          map[string]any
 	// SkipMixedChannelCheck skips the mixed channel risk check when binding groups.
 	// This should only be set when the caller has explicitly confirmed the risk.
 	SkipMixedChannelCheck bool
 }
 
 type BulkUpdateAccountFilters struct {
-	Platform                string
-	Type                    string
-	Status                  string
-	Group                   string
-	Search                  string
-	PrivacyMode             string
-	SupportsImageGeneration string
+	Platform    string
+	Type        string
+	Status      string
+	Group       string
+	Search      string
+	PrivacyMode string
 }
 
 // BulkUpdateAccountResult captures the result for a single account update.
@@ -2730,6 +2732,23 @@ func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int,
 	return accounts, result.Total, nil
 }
 
+func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilter(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error) {
+	if s == nil || s.accountRepo == nil {
+		return nil, nil
+	}
+	return s.accountRepo.ListAllWithFilters(ctx, platform, accountType, status, search, groupID, privacyMode)
+}
+
+func (s *adminServiceImpl) ListOpenAISchedulableAccountsForSchedulerScore(ctx context.Context, groupID *int64) ([]Account, error) {
+	if s == nil || s.accountRepo == nil {
+		return nil, nil
+	}
+	if groupID != nil {
+		return s.accountRepo.ListSchedulableByGroupIDAndPlatform(ctx, *groupID, PlatformOpenAI)
+	}
+	return s.accountRepo.ListSchedulableUngroupedByPlatform(ctx, PlatformOpenAI)
+}
+
 func (s *adminServiceImpl) GetAccount(ctx context.Context, id int64) (*Account, error) {
 	return s.accountRepo.GetByID(ctx, id)
 }
@@ -2750,9 +2769,6 @@ func (s *adminServiceImpl) GetAccountsByIDs(ctx context.Context, ids []int64) ([
 func normalizeAccountConcurrency(platform, accountType string, concurrency int) int {
 	if platform == PlatformGrok && accountType == AccountTypeOAuth {
 		if concurrency <= 0 {
-			return 1
-		}
-		if concurrency > 1 && !xai.AllowUnsafeHighConcurrency() {
 			return 1
 		}
 	}
@@ -2783,20 +2799,24 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 		}
 	}
 
+	// 校验并规范化请求头覆写配置（header 名小写化、格式检查）
+	if err := NormalizeHeaderOverrideCredentials(input.Credentials); err != nil {
+		return nil, err
+	}
+
 	account := &Account{
-		Name:                    input.Name,
-		Notes:                   normalizeAccountNotes(input.Notes),
-		Platform:                input.Platform,
-		Type:                    input.Type,
-		Credentials:             input.Credentials,
-		Extra:                   input.Extra,
-		ProxyID:                 input.ProxyID,
-		Concurrency:             normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
-		Priority:                input.Priority,
-		ServiceTierKey:          normalizeTierKey(input.ServiceTierKey),
-		Status:                  StatusActive,
-		Schedulable:             true,
-		SupportsImageGeneration: input.SupportsImageGeneration,
+		Name:           input.Name,
+		Notes:          normalizeAccountNotes(input.Notes),
+		Platform:       input.Platform,
+		Type:           input.Type,
+		Credentials:    input.Credentials,
+		Extra:          input.Extra,
+		ProxyID:        input.ProxyID,
+		Concurrency:    normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
+		Priority:       input.Priority,
+		ServiceTierKey: normalizeTierKey(input.ServiceTierKey),
+		Status:         StatusActive,
+		Schedulable:    true,
 	}
 	// 预计算固定时间重置的下次重置时间
 	if account.Extra != nil {
@@ -2915,6 +2935,10 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		// 敏感子键采用"incoming 没提供就保留"的合并语义：前端响应已脱敏，
 		// 全对象 PUT 编辑时不会再带回 token，避免覆盖时清空已有凭证。
 		account.Credentials = MergePreservingSensitiveCreds(account.Credentials, input.Credentials)
+		// 校验并规范化请求头覆写配置（header 名小写化、格式检查）
+		if err := NormalizeHeaderOverrideCredentials(account.Credentials); err != nil {
+			return nil, err
+		}
 	}
 	// Extra 使用 map：需要区分“未提供(nil)”与“显式清空({})”。
 	// 关闭配额限制时前端会删除 quota_* 键并提交 extra:{}，此时也必须落库。
@@ -2980,9 +3004,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		} else {
 			account.LoadFactor = input.LoadFactor
 		}
-	}
-	if input.SupportsImageGeneration != nil {
-		account.SupportsImageGeneration = *input.SupportsImageGeneration
 	}
 	if input.Status != "" {
 		account.Status = input.Status
@@ -3139,6 +3160,11 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		}
 	}
 
+	// 校验并规范化请求头覆写配置（批量路径为 JSONB 顶层 key 合并，直接校验增量即可）
+	if err := NormalizeHeaderOverrideCredentials(input.Credentials); err != nil {
+		return nil, err
+	}
+
 	// Prepare bulk updates for columns and JSONB fields.
 	repoUpdates := AccountBulkUpdate{
 		Credentials: input.Credentials,
@@ -3177,9 +3203,6 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 	if input.Schedulable != nil {
 		repoUpdates.Schedulable = input.Schedulable
-	}
-	if input.SupportsImageGeneration != nil {
-		repoUpdates.SupportsImageGeneration = input.SupportsImageGeneration
 	}
 
 	// Run bulk update for column/jsonb fields first.
@@ -3245,17 +3268,10 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 	const pageSize = 500
 	page := 1
 	accountIDs := make([]int64, 0, pageSize)
-	listCtx := ctx
-	if raw := strings.TrimSpace(filters.SupportsImageGeneration); raw != "" {
-		listCtx = ContextWithAccountListSupportsImageGenerationFilter(
-			listCtx,
-			raw == "1" || strings.EqualFold(raw, "true") || strings.EqualFold(raw, "yes") || strings.EqualFold(raw, "on"),
-		)
-	}
 
 	for {
 		accounts, total, err := s.ListAccounts(
-			listCtx,
+			ctx,
 			page,
 			pageSize,
 			filters.Platform,

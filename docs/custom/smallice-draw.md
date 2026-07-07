@@ -25,7 +25,7 @@ The Draw proxy first calls Sub2API `GET /api/v1/canvas/image-keys` with the user
 - Key belongs to the current user.
 - Key is active, unexpired, and not quota-exhausted.
 - The bound group allows image generation.
-- The group has at least one schedulable OpenAI account marked `supports_image_generation=true`.
+- The group has at least one schedulable OpenAI account accepted by `SupportsOpenAIImageCapability`.
 
 The Draw proxy then reads the user's regular key list only to resolve the plaintext Key for server-side forwarding, and keeps only IDs returned by the image-key eligibility endpoint. Plaintext Keys are never returned to the browser.
 

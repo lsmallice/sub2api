@@ -1,30 +1,30 @@
 # Image Capability Customization
 
-Last updated: 2026-06-17
+Last updated: 2026-07-07
 
 Current custom branch: `image-capability`
 
-Current upstream base at the time of this document: `0.1.143`
+Current upstream base at the time of this document: `0.1.146`
 
 ## Purpose
 
-This document records the custom Sub2API image-generation account capability changes. Keep it updated whenever the feature changes so future upstream merges can preserve the intended behavior without guessing from scattered code.
+This document records the custom Sub2API image-generation permission and routing changes. Keep it updated whenever the feature changes so future upstream merges can preserve the intended behavior without guessing from scattered code.
 
 The upstream `main` branch remains the primary codebase. This customization is an overlay. During every upstream merge, prefer upstream structure and fixes first, then reapply or adapt this feature only where it is still valid. If a custom behavior no longer works after upstream changes, do not release it as-is. Rework it and run the regression checklist below.
 
 ## Core Rules
 
 - Group-level `allow_image_generation` controls whether users in the group are allowed to generate images and how image usage is billed.
-- Account-level `supports_image_generation` controls only whether an OpenAI account can be selected for image-generation traffic.
+- Account-level image gating uses upstream's `Account.SupportsOpenAIImageCapability(...)` semantics. The custom `supports_image_generation` column is legacy compatibility data and must not be used as a scheduling, Canvas, Draw, or UI switch.
 - Text requests must keep the normal OpenAI account scheduling path.
-- Image-generation requests must select only OpenAI accounts with `supports_image_generation=true`.
+- Image-generation requests must select only accounts accepted by upstream OpenAI image capability checks, currently OpenAI OAuth or API Key accounts.
 - If the group does not allow image generation, return the existing user-facing error: `Image generation is not enabled for this group`.
 - If the group allows image generation but no image-capable OpenAI account is available, return `no_image_capable_account`.
 - Custom builds display `imgcap-<base-version>` but compare updates against the upstream base semver, not the custom label.
 
 ## Data Model
 
-The feature adds one account column:
+Legacy compatibility column:
 
 ```sql
 supports_image_generation BOOLEAN NOT NULL DEFAULT false
@@ -46,7 +46,7 @@ Ent and repository touchpoints:
 Merge note:
 
 - If upstream adds a migration with the same number, keep upstream first and renumber this migration to the next available migration number. Also verify any migration registry or embedded migration ordering still sees the renamed file.
-- Existing accounts default to `false`. Production accounts must be explicitly marked capable after migration.
+- Existing accounts default to `false`, but this field is no longer used for scheduling or user-facing admin configuration. Do not require production accounts to be explicitly marked capable after upstream image capability support is present.
 
 ## Request Classification
 
@@ -133,7 +133,6 @@ Important APIs:
 `SupportsOpenAIImageCapability` currently returns true only when:
 
 - the account is OpenAI,
-- `SupportsImageGeneration` is true,
 - the account type is OAuth or API key,
 - the required image capability is `OpenAIImagesCapabilityBasic` or `OpenAIImagesCapabilityNative`.
 
@@ -144,7 +143,7 @@ Dedicated image endpoints call `SelectAccountWithSchedulerForImages`. Responses 
 Merge note:
 
 - If upstream changes scheduler request structs, preserve the equivalent of `RequiredImageCapability`.
-- If upstream changes load-aware selection, keep the filtering semantic: image requests cannot fall through to accounts where `supports_image_generation=false`.
+- If upstream changes load-aware selection, keep the filtering semantic: image requests cannot fall through to accounts that fail `SupportsOpenAIImageCapability`.
 - If upstream adds a new account type that can handle OpenAI image generation, update `SupportsOpenAIImageCapability` and tests deliberately.
 
 ## Handler Integration
@@ -163,7 +162,7 @@ Expected handler behavior:
 - For image intents, log `request_capability=image_generation` and `image_generation_source`.
 - Check group image permission before scheduling.
 - Select with image-aware scheduler path.
-- Log `selected_account_supports_image_generation=true|false` for image intents.
+- Log `selected_account_supports_openai_image_generation=true|false` for image intents.
 - Forward the original request body except for upstream-approved model mapping or existing service transforms.
 
 Responses WebSocket and forwarder touchpoints:
@@ -200,19 +199,15 @@ Frontend admin surfaces:
 
 Expected behavior:
 
-- Account create and edit APIs accept `supports_image_generation`.
-- Account responses include `supports_image_generation`.
-- Bulk edit can modify `supports_image_generation`.
-- Account list supports `supports_image_generation=true|false` filtering.
-- Account list shows a compact `支持生图` badge only for OpenAI accounts with the flag enabled.
-- Create and edit modals show the switch only for OpenAI accounts.
-- Data export/import and Codex session import preserve the flag.
+- Account responses and legacy import/export paths may still include `supports_image_generation` for compatibility with existing schema/data.
+- Create, edit, bulk edit, and account list UI must not expose `supports_image_generation` as a user-facing switch, badge, or filter.
+- Image-capable Key eligibility for Canvas and Draw must use the same `SupportsOpenAIImageCapability` path as gateway scheduling.
 - Admin DTO responses must not expose raw secrets. Keep secret redaction behavior intact.
 
 Merge note:
 
-- If upstream changes account forms or table filters, rebuild this UI behavior around the new upstream component structure instead of reverting upstream UI changes.
-- If upstream adds a first-party equivalent image capability field, compare semantics carefully before replacing this field. Do not blindly map it if it affects billing or group permissions differently.
+- If upstream changes account forms or table filters, keep the custom account-level image switch removed unless upstream introduces a first-party user-facing control with different product semantics.
+- Do not reintroduce `supports_image_generation` into scheduling or tool-site eligibility during upstream merges.
 
 ## Custom Version Display
 
@@ -278,15 +273,15 @@ Use this checklist whenever upstream `main` is merged into `image-capability`.
 4. Search for all custom anchors:
 
 ```bash
-rg -n "supports_image_generation|SupportsOpenAIImageCapability|ClassifyRequestCapability|RequestCapabilityClassification|ErrNoImageCapableAccount|NoImageCapableAccountMessage" backend frontend
+rg -n "SupportsOpenAIImageCapability|ClassifyRequestCapability|RequestCapabilityClassification|ErrNoImageCapableAccount|NoImageCapableAccountMessage|selected_account_supports_openai_image_generation" backend frontend
 rg -n "BuildLabel|BuildType|display_version|base_version|build_type|imgcap" backend frontend
 ```
 
-5. Verify the migration still exists or has been safely renumbered.
+5. Verify the legacy migration still exists or has been safely renumbered.
 6. Verify handlers call the shared classifier instead of local image-detection snippets.
 7. Verify image requests use an image-aware scheduler path.
 8. Verify normal text requests still use normal OpenAI scheduling.
-9. Verify admin create, edit, list, filter, bulk edit, import, and export still carry the field.
+9. Verify admin create, edit, list, filter, and bulk edit do not expose the legacy field.
 10. Verify custom version display and update checks still use base semver.
 11. Update this document if any behavior, file path, or test command changes.
 
@@ -311,16 +306,16 @@ corepack pnpm@9 run build
 
 Manual checks:
 
-- Old accounts migrate with `supports_image_generation=false`.
-- Creating, editing, listing, filtering, bulk editing, importing, and exporting accounts preserves the field.
-- `/v1/images/generations` selects only a flagged OpenAI account.
+- Old accounts migrate with `supports_image_generation=false`, but the value does not block official OpenAI image-capable account selection.
+- Creating, editing, listing, filtering, and bulk editing accounts does not expose a custom account-level image switch.
+- `/v1/images/generations` selects only an upstream image-capable OpenAI account.
 - `/v1/images/generations` accepts custom image model IDs such as provider aliases instead of rejecting everything outside `gpt-image-*`.
-- `/v1/images/edits` selects only a flagged OpenAI account.
+- `/v1/images/edits` selects only an upstream image-capable OpenAI account.
 - `/v1/responses` with only `tools: [{ "type": "image_generation" }]` stays on the normal text path and strips the image tool declaration before forwarding.
-- `/v1/responses` with `tool_choice: {"type":"image_generation"}` selects only a flagged OpenAI account.
-- `/v1/responses` text-only requests do not require a flagged account.
-- `/v1/chat/completions` with `gpt-image-*` or `modalities:["image"]` selects only a flagged account.
-- Group `allow_image_generation=false` rejects image requests even when flagged accounts exist.
+- `/v1/responses` with `tool_choice: {"type":"image_generation"}` selects only an upstream image-capable OpenAI account.
+- `/v1/responses` text-only requests do not require an image-capable account.
+- `/v1/chat/completions` with `gpt-image-*` or `modalities:["image"]` selects only an upstream image-capable OpenAI account.
+- Group `allow_image_generation=false` rejects image requests even when image-capable accounts exist.
 - Group `allow_image_generation=true` with no flagged account returns `no_image_capable_account`.
 - Text chat in Open WebUI still works.
 - Smallice Draw image generation and edits still work.
@@ -340,7 +335,7 @@ curl -s --max-time 10 https://api.smallice.chat/api/v1/settings/public
 
 Database checks should confirm:
 
-- `accounts.supports_image_generation` exists.
-- Intended OpenAI accounts have `supports_image_generation=true`.
+- `accounts.supports_image_generation` exists only as a legacy compatibility column.
+- Intended OpenAI OAuth/API Key accounts are schedulable and pass `SupportsOpenAIImageCapability`.
 
 Do not print account secrets or `.env` values while validating production.

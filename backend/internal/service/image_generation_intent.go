@@ -219,39 +219,6 @@ func stripOpenAIImageGenerationToolsFromBody(body []byte) ([]byte, bool, error) 
 	return stripped, true, nil
 }
 
-func stripOpenAIImageGenerationTools(reqBody map[string]any) bool {
-	if len(reqBody) == 0 {
-		return false
-	}
-	rawTools, ok := reqBody["tools"]
-	if !ok || rawTools == nil {
-		return false
-	}
-	tools, ok := rawTools.([]any)
-	if !ok {
-		return false
-	}
-	cleaned := make([]any, 0, len(tools))
-	removed := false
-	for _, rawTool := range tools {
-		toolMap, ok := rawTool.(map[string]any)
-		if ok && strings.TrimSpace(firstNonEmptyString(toolMap["type"])) == "image_generation" {
-			removed = true
-			continue
-		}
-		cleaned = append(cleaned, rawTool)
-	}
-	if !removed {
-		return false
-	}
-	if len(cleaned) == 0 {
-		delete(reqBody, "tools")
-		return true
-	}
-	reqBody["tools"] = cleaned
-	return true
-}
-
 func openAIRequestBodyImageGenerationToolNeedsNormalization(body []byte) bool {
 	if len(body) == 0 || !gjson.ValidBytes(body) {
 		return false
