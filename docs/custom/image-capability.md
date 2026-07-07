@@ -15,7 +15,7 @@ The upstream `main` branch remains the primary codebase. This customization is a
 ## Core Rules
 
 - Group-level `allow_image_generation` controls whether users in the group are allowed to generate images and how image usage is billed.
-- Account-level image gating uses upstream's `Account.SupportsOpenAIImageCapability(...)` semantics. The custom `supports_image_generation` column is legacy compatibility data and must not be used as a scheduling, Canvas, Draw, or UI switch.
+- Account-level image gating uses upstream's `Account.SupportsOpenAIImageCapability(...)` semantics. The custom `supports_image_generation` column is legacy compatibility data and must not be used as a scheduling, Canvas, Draw, or UI switch. Do not add new admin controls for this field.
 - Text requests must keep the normal OpenAI account scheduling path.
 - Image-generation requests must select only accounts accepted by upstream OpenAI image capability checks, currently OpenAI OAuth or API Key accounts.
 - If the group does not allow image generation, return the existing user-facing error: `Image generation is not enabled for this group`.
@@ -46,7 +46,7 @@ Ent and repository touchpoints:
 Merge note:
 
 - If upstream adds a migration with the same number, keep upstream first and renumber this migration to the next available migration number. Also verify any migration registry or embedded migration ordering still sees the renamed file.
-- Existing accounts default to `false`, but this field is no longer used for scheduling or user-facing admin configuration. Do not require production accounts to be explicitly marked capable after upstream image capability support is present.
+- Existing accounts default to `false`, but this field is no longer used for scheduling or user-facing admin configuration. Do not require production accounts to be explicitly marked capable after upstream image capability support is present, and do not re-enable a manual account-level switch while upstream capability detection exists.
 
 ## Request Classification
 
@@ -201,6 +201,7 @@ Expected behavior:
 
 - Account responses and legacy import/export paths may still include `supports_image_generation` for compatibility with existing schema/data.
 - Create, edit, bulk edit, and account list UI must not expose `supports_image_generation` as a user-facing switch, badge, or filter.
+- Account-level Codex image tool overrides (`codex_image_generation_bridge`, `codex_image_generation_bridge_enabled`, `codex_image_generation_explicit_tool_policy`) are legacy keys and must not affect routing. Account edit saves should remove these keys; channel/global bridge settings remain the supported control surface.
 - Image-capable Key eligibility for Canvas and Draw must use the same `SupportsOpenAIImageCapability` path as gateway scheduling.
 - Admin DTO responses must not expose raw secrets. Keep secret redaction behavior intact.
 
@@ -208,6 +209,7 @@ Merge note:
 
 - If upstream changes account forms or table filters, keep the custom account-level image switch removed unless upstream introduces a first-party user-facing control with different product semantics.
 - Do not reintroduce `supports_image_generation` into scheduling or tool-site eligibility during upstream merges.
+- Treat `supports_image_generation` as compatibility data only; channel/global bridge settings and group `allow_image_generation` remain the supported admin controls.
 
 ## Custom Version Display
 
@@ -308,6 +310,7 @@ Manual checks:
 
 - Old accounts migrate with `supports_image_generation=false`, but the value does not block official OpenAI image-capable account selection.
 - Creating, editing, listing, filtering, and bulk editing accounts does not expose a custom account-level image switch.
+- Editing an OpenAI account clears legacy account-level Codex image tool override keys.
 - `/v1/images/generations` selects only an upstream image-capable OpenAI account.
 - `/v1/images/generations` accepts custom image model IDs such as provider aliases instead of rejecting everything outside `gpt-image-*`.
 - `/v1/images/edits` selects only an upstream image-capable OpenAI account.

@@ -40,6 +40,8 @@ type Account struct {
 	LastUsedAt              *time.Time
 	ExpiresAt               *time.Time
 	AutoPauseOnExpired      bool
+	// SupportsImageGeneration is legacy compatibility data. OpenAI image routing
+	// uses SupportsOpenAIImageCapability instead of this stored flag.
 	SupportsImageGeneration bool
 	CreatedAt               time.Time
 	UpdatedAt               time.Time

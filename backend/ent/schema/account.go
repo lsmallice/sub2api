@@ -120,10 +120,11 @@ func (Account) Fields() []ent.Field {
 			Default("").
 			Comment("Custom service tier this account serves, such as pro, plus, or pro2."),
 
-		// supports_image_generation: 是否允许该账号承接 OpenAI 生图请求
+		// supports_image_generation: 历史兼容字段。OpenAI 生图调度不再读取这个账号级开关，
+		// 账号能力统一由上游/官方能力判断函数决定。
 		field.Bool("supports_image_generation").
 			Default(false).
-			Comment("Whether this OpenAI account can handle image generation requests."),
+			Comment("Legacy compatibility flag; OpenAI image scheduling uses upstream capability checks instead."),
 
 		// status: 账户状态，如 "active", "error", "disabled"
 		field.String("status").

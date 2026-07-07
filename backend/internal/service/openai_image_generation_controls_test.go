@@ -172,7 +172,7 @@ func TestOpenAIGatewayServiceForward_ExplicitImageToolChoiceWorksWithBridgeDisab
 	require.NotContains(t, instructions, "image_generation")
 }
 
-func TestOpenAIGatewayServiceForward_AccountPolicyStripsExplicitImageTool(t *testing.T) {
+func TestOpenAIGatewayServiceForward_LegacyAccountPolicyDoesNotStripExplicitImageTool(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	upstream := &httpUpstreamRecorder{
@@ -186,7 +186,7 @@ func TestOpenAIGatewayServiceForward_AccountPolicyStripsExplicitImageTool(t *tes
 	c, _ := newOpenAIImageGenerationControlTestContext(true, "codex_cli_rs/0.98.0")
 	account := newOpenAIImageGenerationControlTestAccount()
 	account.Extra = map[string]any{
-		featureKeyCodexImageGenerationExplicitToolPolicy: codexImageGenerationExplicitToolPolicyStrip,
+		"codex_image_generation_explicit_tool_policy": "strip",
 	}
 	body := []byte(`{
 		"model":"gpt-5.4",
@@ -204,9 +204,11 @@ func TestOpenAIGatewayServiceForward_AccountPolicyStripsExplicitImageTool(t *tes
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, upstream.lastReq)
-	require.False(t, gjson.GetBytes(upstream.lastBody, `tools.#(type=="image_generation")`).Exists())
+	require.True(t, gjson.GetBytes(upstream.lastBody, `tools.#(type=="image_generation")`).Exists())
+	require.Equal(t, "jpeg", gjson.GetBytes(upstream.lastBody, `tools.#(type=="image_generation").output_format`).String())
+	require.False(t, gjson.GetBytes(upstream.lastBody, `tools.#(type=="image_generation").format`).Exists())
 	require.True(t, gjson.GetBytes(upstream.lastBody, `tools.#(type=="function")`).Exists())
-	require.False(t, gjson.GetBytes(upstream.lastBody, "tool_choice").Exists())
+	require.True(t, gjson.GetBytes(upstream.lastBody, "tool_choice").Exists())
 	instructions := gjson.GetBytes(upstream.lastBody, "instructions").String()
 	require.NotContains(t, instructions, "image_generation")
 }
@@ -333,7 +335,7 @@ func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *te
 			want:    false,
 		},
 		{
-			name:   "account false overrides channel and global true",
+			name:   "legacy account false is ignored",
 			global: true,
 			channel: &Channel{ID: 1, Status: StatusActive, FeaturesConfig: map[string]any{
 				featureKeyCodexImageGenerationBridge: map[string]any{PlatformOpenAI: true},
@@ -342,10 +344,10 @@ func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *te
 				Platform: PlatformOpenAI,
 				Extra:    map[string]any{featureKeyCodexImageGenerationBridge: false},
 			},
-			want: false,
+			want: true,
 		},
 		{
-			name:   "nested account true overrides channel false",
+			name:   "legacy nested account true is ignored",
 			global: false,
 			channel: &Channel{ID: 1, Status: StatusActive, FeaturesConfig: map[string]any{
 				featureKeyCodexImageGenerationBridge: map[string]any{PlatformOpenAI: false},
@@ -356,7 +358,7 @@ func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *te
 					PlatformOpenAI: map[string]any{"codex_image_generation_bridge_enabled": true},
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name:   "non openai account extra is ignored",
