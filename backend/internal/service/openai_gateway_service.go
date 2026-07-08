@@ -371,6 +371,7 @@ type OpenAIGatewayService struct {
 	openaiScheduler               OpenAIAccountScheduler
 	openaiWSPassthroughDialer     openAIWSClientDialer
 	openaiAccountStats            *openAIAccountRuntimeStats
+	imagePublicStore              *openAIImagesPublicStore
 
 	openaiWSFallbackUntil               sync.Map // key: int64(accountID), value: time.Time
 	openaiAccountRuntimeBlockUntil      sync.Map // key: int64(accountID), value: time.Time
@@ -445,6 +446,7 @@ func NewOpenAIGatewayService(
 		userPlatformQuotaRepo: userPlatformQuotaRepo,
 		responseHeaderFilter:  compileResponseHeaderFilter(cfg),
 		codexSnapshotThrottle: newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
+		imagePublicStore:      newOpenAIImagesPublicStore(cfg),
 	}
 	if rateLimitService != nil {
 		rateLimitService.SetAccountRuntimeBlocker(svc)
@@ -454,6 +456,17 @@ func NewOpenAIGatewayService(
 	}
 	svc.logOpenAIWSModeBootstrap()
 	return svc
+}
+
+func (s *OpenAIGatewayService) ensureOpenAIImagesPublicStore() *openAIImagesPublicStore {
+	if s.imagePublicStore == nil {
+		s.imagePublicStore = newOpenAIImagesPublicStore(s.cfg)
+	}
+	return s.imagePublicStore
+}
+
+func (s *OpenAIGatewayService) ServePublicImage(c *gin.Context) {
+	s.ensureOpenAIImagesPublicStore().serve(c)
 }
 
 // ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）

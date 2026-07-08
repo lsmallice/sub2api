@@ -417,6 +417,10 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 	}
 }
 
+func (h *OpenAIGatewayHandler) ServePublicImage(c *gin.Context) {
+	h.gatewayService.ServePublicImage(c)
+}
+
 func isMultipartImagesContentType(contentType string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(contentType)), "multipart/form-data")
 }

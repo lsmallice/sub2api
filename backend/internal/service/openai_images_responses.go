@@ -238,9 +238,6 @@ func buildOpenAIImagesStreamPartialPayload(
 	payload, _ = sjson.SetBytes(payload, "created_at", createdAt)
 	payload, _ = sjson.SetBytes(payload, "partial_image_index", partialImageIndex)
 	payload, _ = sjson.SetBytes(payload, "b64_json", b64)
-	if strings.EqualFold(strings.TrimSpace(responseFormat), "url") {
-		payload, _ = sjson.SetBytes(payload, "url", "data:"+openAIImageOutputMIMEType(meta.OutputFormat)+";base64,"+b64)
-	}
 	if meta.Background != "" {
 		payload, _ = sjson.SetBytes(payload, "background", meta.Background)
 	}
@@ -274,9 +271,6 @@ func buildOpenAIImagesStreamCompletedPayload(
 	payload, _ = sjson.SetBytes(payload, "type", eventType)
 	payload, _ = sjson.SetBytes(payload, "created_at", createdAt)
 	payload, _ = sjson.SetBytes(payload, "b64_json", img.Result)
-	if strings.EqualFold(strings.TrimSpace(responseFormat), "url") {
-		payload, _ = sjson.SetBytes(payload, "url", "data:"+openAIImageOutputMIMEType(img.OutputFormat)+";base64,"+img.Result)
-	}
 	if img.Background != "" {
 		payload, _ = sjson.SetBytes(payload, "background", img.Background)
 	}
@@ -935,6 +929,17 @@ func buildOpenAIImagesAPIResponse(
 	firstMeta openAIResponsesImageResult,
 	responseFormat string,
 ) ([]byte, error) {
+	return buildOpenAIImagesAPIResponseWithURLs(results, createdAt, usageRaw, firstMeta, responseFormat, nil)
+}
+
+func buildOpenAIImagesAPIResponseWithURLs(
+	results []openAIResponsesImageResult,
+	createdAt int64,
+	usageRaw []byte,
+	firstMeta openAIResponsesImageResult,
+	responseFormat string,
+	publicURLs []string,
+) ([]byte, error) {
 	if createdAt <= 0 {
 		createdAt = time.Now().Unix()
 	}
@@ -945,10 +950,13 @@ func buildOpenAIImagesAPIResponse(
 	if format == "" {
 		format = "b64_json"
 	}
-	for _, img := range results {
+	for i, img := range results {
 		item := []byte(`{}`)
 		if format == "url" {
-			item, _ = sjson.SetBytes(item, "url", "data:"+openAIImageOutputMIMEType(img.OutputFormat)+";base64,"+img.Result)
+			if i >= len(publicURLs) || strings.TrimSpace(publicURLs[i]) == "" {
+				return nil, fmt.Errorf("public image URL is required for response_format=url")
+			}
+			item, _ = sjson.SetBytes(item, "url", strings.TrimSpace(publicURLs[i]))
 		} else {
 			item, _ = sjson.SetBytes(item, "b64_json", img.Result)
 		}
@@ -1129,7 +1137,14 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthNonStreamingResponse(
 		firstMeta.Model = strings.TrimSpace(fallbackModel)
 	}
 
-	responseBody, err := buildOpenAIImagesAPIResponse(results, createdAt, usageRaw, firstMeta, responseFormat)
+	var publicURLs []string
+	if wantsOpenAIImagesURL(responseFormat) {
+		publicURLs, err = s.saveOpenAIImageResultsAsPublicURLs(c, results, createdAt)
+		if err != nil {
+			return OpenAIUsage{}, 0, nil, err
+		}
+	}
+	responseBody, err := buildOpenAIImagesAPIResponseWithURLs(results, createdAt, usageRaw, firstMeta, responseFormat, publicURLs)
 	if err != nil {
 		return OpenAIUsage{}, 0, nil, err
 	}

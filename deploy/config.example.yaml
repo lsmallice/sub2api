@@ -167,6 +167,9 @@ gateway:
   # Timeout for waiting upstream response headers (seconds)
   # 等待上游响应头超时时间（秒）
   response_header_timeout: 600
+  # Public API origin used for image URLs returned from response_format=url.
+  # Leave empty to infer it from reverse-proxy headers or the request Host.
+  openai_images_public_base_url: ""
   # OpenAI/Codex upstream response header timeout (seconds, 0=disabled)
   # OpenAI/Codex 等待上游响应头超时时间（秒，0=禁用本地响应头超时）
   openai_response_header_timeout: 0

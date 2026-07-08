@@ -1,6 +1,6 @@
 # Image Capability Customization
 
-Last updated: 2026-07-07
+Last updated: 2026-07-08
 
 Current custom branch: `image-capability`
 
@@ -18,6 +18,9 @@ The upstream `main` branch remains the primary codebase. This customization is a
 - Account-level image gating uses upstream's `Account.SupportsOpenAIImageCapability(...)` semantics. The custom `supports_image_generation` column is legacy compatibility data and must not be used as a scheduling, Canvas, Draw, or UI switch. Do not add new admin controls for this field.
 - Text requests must keep the normal OpenAI account scheduling path.
 - Image-generation requests must select only accounts accepted by upstream OpenAI image capability checks, currently OpenAI OAuth or API Key accounts.
+- For non-streaming OpenAI Images API requests with `response_format=url`, Sub2API must force the upstream request to `b64_json`, persist the returned base64 image under `/images/smallice/`, and return a signed public URL that expires in 1 hour. Requests with `response_format=b64_json` must keep the upstream/client base64 response shape. Streaming image requests keep image payloads in `b64_json` events and do not generate public URLs.
+- Generated public image files are cleaned lazily on save/read. Cleanup runs at most once every 15 minutes and deletes files whose modification time is older than the 1-hour public URL TTL.
+- Docker-internal tool callers such as Smallice Draw and Infinite Canvas must not leak internal hosts like `backend:6666` in generated image URLs. Configure `gateway.openai_images_public_base_url` or `OPENAI_IMAGES_PUBLIC_BASE_URL` to the browser-reachable API origin, for example `https://api.smallice.xyz`.
 - If the group does not allow image generation, return the existing user-facing error: `Image generation is not enabled for this group`.
 - If the group allows image generation but no image-capable OpenAI account is available, return `no_image_capable_account`.
 - Custom builds display `imgcap-<base-version>` but compare updates against the upstream base semver, not the custom label.
@@ -163,7 +166,7 @@ Expected handler behavior:
 - Check group image permission before scheduling.
 - Select with image-aware scheduler path.
 - Log `selected_account_supports_openai_image_generation=true|false` for image intents.
-- Forward the original request body except for upstream-approved model mapping or existing service transforms.
+- Forward the original request body except for upstream-approved model mapping, existing service transforms, and the non-streaming Images `response_format=url` transform that forces upstream `b64_json`.
 
 Responses WebSocket and forwarder touchpoints:
 
@@ -313,6 +316,8 @@ Manual checks:
 - Editing an OpenAI account clears legacy account-level Codex image tool override keys.
 - `/v1/images/generations` selects only an upstream image-capable OpenAI account.
 - `/v1/images/generations` accepts custom image model IDs such as provider aliases instead of rejecting everything outside `gpt-image-*`.
+- Non-streaming `/v1/images/generations` with `response_format=url` sends upstream `response_format=b64_json`, returns a signed `/images/smallice/...` URL, and removes `b64_json` from the client response.
+- Streaming `/v1/images/generations` with `response_format=url` returns image SSE events with `b64_json` and does not produce public image URLs.
 - `/v1/images/edits` selects only an upstream image-capable OpenAI account.
 - `/v1/responses` with only `tools: [{ "type": "image_generation" }]` stays on the normal text path and strips the image tool declaration before forwarding.
 - `/v1/responses` with `tool_choice: {"type":"image_generation"}` selects only an upstream image-capable OpenAI account.
