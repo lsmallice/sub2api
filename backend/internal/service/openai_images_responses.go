@@ -922,16 +922,6 @@ func (s *OpenAIGatewayService) handleOpenAIImagesErrorResponse(
 	return nil, upErr
 }
 
-func buildOpenAIImagesAPIResponse(
-	results []openAIResponsesImageResult,
-	createdAt int64,
-	usageRaw []byte,
-	firstMeta openAIResponsesImageResult,
-	responseFormat string,
-) ([]byte, error) {
-	return buildOpenAIImagesAPIResponseWithURLs(results, createdAt, usageRaw, firstMeta, responseFormat, nil)
-}
-
 func buildOpenAIImagesAPIResponseWithURLs(
 	results []openAIResponsesImageResult,
 	createdAt int64,

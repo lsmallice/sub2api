@@ -773,10 +773,6 @@ func buildOpenAIImagesURL(base string, endpoint string) string {
 	return buildOpenAIEndpointURL(base, endpoint)
 }
 
-func rewriteOpenAIImagesModel(body []byte, contentType string, model string) ([]byte, string, error) {
-	return rewriteOpenAIImagesModelAndResponseFormat(body, contentType, model, "")
-}
-
 func rewriteOpenAIImagesModelAndResponseFormat(body []byte, contentType string, model string, responseFormat string) ([]byte, string, error) {
 	model = strings.TrimSpace(model)
 	responseFormat = strings.TrimSpace(responseFormat)
@@ -802,10 +798,6 @@ func rewriteOpenAIImagesModelAndResponseFormat(body []byte, contentType string, 
 		}
 	}
 	return rewritten, contentType, nil
-}
-
-func rewriteOpenAIImagesMultipartModel(body []byte, contentType string, model string) ([]byte, string, error) {
-	return rewriteOpenAIImagesMultipartModelAndResponseFormat(body, contentType, model, "")
 }
 
 func rewriteOpenAIImagesMultipartModelAndResponseFormat(body []byte, contentType string, model string, responseFormat string) ([]byte, string, error) {
