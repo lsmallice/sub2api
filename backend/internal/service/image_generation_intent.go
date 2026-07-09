@@ -68,6 +68,9 @@ func ClassifyRequestCapability(endpoint string, requestedModel string, body []by
 	if openAIJSONToolChoiceSelectsImageGeneration(gjson.GetBytes(body, "tool_choice")) {
 		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
 	}
+	if openAIJSONInputContainsImageGenTool(gjson.GetBytes(body, "input")) {
+		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
+	}
 	return noImageGenerationClassification()
 }
 
@@ -94,6 +97,12 @@ func ClassifyRequestCapabilityMap(endpoint string, requestedModel string, reqBod
 		return imageGenerationClassification(ImageGenerationSourceChatModalities)
 	}
 	if openAIAnyToolChoiceSelectsImageGeneration(reqBody["tool_choice"]) {
+		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
+	}
+	if openAIAnyToolsContainImageGenNamespace(reqBody["tools"]) {
+		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
+	}
+	if openAIAnyInputContainsImageGenTool(reqBody["input"]) {
 		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
 	}
 	return noImageGenerationClassification()
@@ -167,6 +176,48 @@ func openAIAnyModalitiesContainImage(modalities any) bool {
 	return false
 }
 
+func openAIAnyToolsContainImageGenNamespace(tools any) bool {
+	values, ok := tools.([]any)
+	if !ok {
+		return false
+	}
+	for _, value := range values {
+		tool, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		if isImageGenNamespaceToolMap(tool) {
+			return true
+		}
+	}
+	return false
+}
+
+func openAIAnyInputContainsImageGenTool(input any) bool {
+	items, ok := input.([]any)
+	if !ok {
+		return false
+	}
+	for _, value := range items {
+		item, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		if firstNonEmptyString(item["type"]) != "additional_tools" {
+			continue
+		}
+		if openAIAnyToolsContainImageGenNamespace(item["tools"]) {
+			return true
+		}
+	}
+	return false
+}
+
+func isImageGenNamespaceToolMap(tool map[string]any) bool {
+	return firstNonEmptyString(tool["type"]) == "namespace" &&
+		firstNonEmptyString(tool["name"]) == "image_gen"
+}
+
 func normalizeImageGenerationEndpoint(endpoint string) string {
 	endpoint = strings.TrimSpace(strings.ToLower(endpoint))
 	if endpoint == "" {
@@ -189,7 +240,48 @@ func openAIJSONToolsContainImageGeneration(tools gjson.Result) bool {
 			found = true
 			return false
 		}
+		if isImageGenNamespaceTool(item) {
+			found = true
+			return false
+		}
 		return true
+	})
+	return found
+}
+
+// isImageGenNamespaceTool detects the Codex namespace-style image generation
+// tool declaration: { "type": "namespace", "name": "image_gen", ... }.
+// Codex /image uses this instead of the flat { "type": "image_generation" }.
+func isImageGenNamespaceTool(tool gjson.Result) bool {
+	return openAIJSONString(tool.Get("type")) == "namespace" &&
+		openAIJSONString(tool.Get("name")) == "image_gen"
+}
+
+// openAIJSONInputContainsImageGenTool scans Responses input items for
+// additional_tools entries that declare the image_gen namespace. This covers
+// the "Responses Lite" format where tools are embedded inside input items
+// rather than top-level tools.
+func openAIJSONInputContainsImageGenTool(input gjson.Result) bool {
+	if !input.IsArray() {
+		return false
+	}
+	found := false
+	input.ForEach(func(_, item gjson.Result) bool {
+		if openAIJSONString(item.Get("type")) != "additional_tools" {
+			return true
+		}
+		tools := item.Get("tools")
+		if !tools.IsArray() {
+			return true
+		}
+		tools.ForEach(func(_, tool gjson.Result) bool {
+			if isImageGenNamespaceTool(tool) {
+				found = true
+				return false
+			}
+			return true
+		})
+		return !found
 	})
 	return found
 }

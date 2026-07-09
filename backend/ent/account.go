@@ -51,7 +51,7 @@ type Account struct {
 	RateMultiplier float64 `json:"rate_multiplier,omitempty"`
 	// Custom service tier this account serves, such as pro, plus, or pro2.
 	ServiceTierKey string `json:"service_tier_key,omitempty"`
-	// Whether this OpenAI account can handle image generation requests.
+	// Legacy compatibility flag; OpenAI image scheduling uses upstream capability checks instead.
 	SupportsImageGeneration bool `json:"supports_image_generation,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
