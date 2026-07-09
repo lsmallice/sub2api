@@ -766,6 +766,54 @@ func (s *adminServiceImpl) BatchSetGroupRateMultipliers(ctx context.Context, gro
 	return s.userGroupRateRepo.SyncGroupRateMultipliers(ctx, groupID, entries)
 }
 
+func (s *adminServiceImpl) GetGroupRateTiers(ctx context.Context, groupID int64) ([]GroupRateTier, error) {
+	if s.groupRateTierRepo == nil {
+		return nil, nil
+	}
+	return s.groupRateTierRepo.ListByGroupID(ctx, groupID)
+}
+
+func (s *adminServiceImpl) BatchSetGroupRateTiers(ctx context.Context, groupID int64, tiers []GroupRateTierInput) error {
+	if s.groupRateTierRepo == nil {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(tiers))
+	defaultCount := 0
+	normalized := make([]GroupRateTierInput, 0, len(tiers))
+	for i, tier := range tiers {
+		tier.TierKey = normalizeTierKey(tier.TierKey)
+		if tier.TierKey == "" {
+			return fmt.Errorf("tier_key is required")
+		}
+		if _, ok := seen[tier.TierKey]; ok {
+			return fmt.Errorf("duplicate tier_key: %s", tier.TierKey)
+		}
+		seen[tier.TierKey] = struct{}{}
+		if strings.TrimSpace(tier.DisplayName) == "" {
+			tier.DisplayName = tier.TierKey
+		} else {
+			tier.DisplayName = strings.TrimSpace(tier.DisplayName)
+		}
+		if tier.RateMultiplier < 0 {
+			return fmt.Errorf("rate_multiplier must be >= 0")
+		}
+		if tier.IsDefault {
+			defaultCount++
+		}
+		if tier.Priority == 0 {
+			tier.Priority = (i + 1) * 10
+		}
+		normalized = append(normalized, tier)
+	}
+	if defaultCount > 1 {
+		return fmt.Errorf("only one service tier can be default")
+	}
+	if defaultCount == 0 && len(normalized) > 0 {
+		normalized[0].IsDefault = true
+	}
+	return s.groupRateTierRepo.SyncGroupRateTiers(ctx, groupID, normalized)
+}
+
 func (s *adminServiceImpl) ClearGroupRPMOverrides(ctx context.Context, groupID int64) error {
 	if s.userGroupRateRepo == nil {
 		return nil

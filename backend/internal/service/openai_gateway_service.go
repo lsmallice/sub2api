@@ -340,6 +340,7 @@ type OpenAIGatewayService struct {
 	rateLimitService      *RateLimitService
 	billingCacheService   *BillingCacheService
 	userGroupRateResolver *userGroupRateResolver
+	groupRateTierRepo     GroupRateTierRepository
 	httpUpstream          HTTPUpstream
 	deferredService       *DeferredService
 	openAITokenProvider   *OpenAITokenProvider
@@ -367,10 +368,13 @@ type OpenAIGatewayService struct {
 	openaiOAuth429WindowStartUnixNano   atomic.Int64
 	openaiOAuth429WindowCount           atomic.Int64
 	openaiWSRetryMetrics                openAIWSRetryMetrics
+	openaiServiceTierHealth             sync.Map
 	responseHeaderFilter                *responseheaders.CompiledHeaderFilter
 	codexSnapshotThrottle               *accountWriteThrottle
 	openaiCompatSessionResponses        sync.Map
 	openaiCompatAnthropicDigestSessions sync.Map
+	openaiImagesPublicStoreOnce         sync.Once
+	openaiImagesPublicStore             *openAIImagesPublicStore
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService
@@ -381,6 +385,7 @@ func NewOpenAIGatewayService(
 	userRepo UserRepository,
 	userSubRepo UserSubscriptionRepository,
 	userGroupRateRepo UserGroupRateRepository,
+	groupRateTierRepo GroupRateTierRepository,
 	cache GatewayCache,
 	cfg *config.Config,
 	schedulerSnapshot *SchedulerSnapshotService,
@@ -419,6 +424,7 @@ func NewOpenAIGatewayService(
 			nil,
 			"service.openai_gateway",
 		),
+		groupRateTierRepo:     groupRateTierRepo,
 		httpUpstream:          httpUpstream,
 		deferredService:       deferredService,
 		openAITokenProvider:   openAITokenProvider,
@@ -468,10 +474,7 @@ func (s *OpenAIGatewayService) ResolveChannelMappingAndRestrict(ctx context.Cont
 	return s.channelService.ResolveChannelMappingAndRestrict(ctx, groupID, model)
 }
 
-func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled(ctx context.Context, account *Account, apiKey *APIKey) bool {
-	if override := account.CodexImageGenerationBridgeOverride(); override != nil {
-		return *override
-	}
+func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled(ctx context.Context, _ *Account, apiKey *APIKey) bool {
 	if s != nil && s.channelService != nil && apiKey != nil && apiKey.GroupID != nil {
 		ch, err := s.channelService.GetChannelForGroup(ctx, *apiKey.GroupID)
 		if err != nil {
@@ -543,6 +546,20 @@ func (s *OpenAIGatewayService) billingDeps() *billingDeps {
 		balanceNotifyService:  s.balanceNotifyService,
 		userPlatformQuotaRepo: s.userPlatformQuotaRepo,
 	}
+}
+
+func (s *OpenAIGatewayService) ensureOpenAIImagesPublicStore() *openAIImagesPublicStore {
+	if s == nil {
+		return newOpenAIImagesPublicStore(nil)
+	}
+	s.openaiImagesPublicStoreOnce.Do(func() {
+		s.openaiImagesPublicStore = newOpenAIImagesPublicStore(s.cfg)
+	})
+	return s.openaiImagesPublicStore
+}
+
+func (s *OpenAIGatewayService) ServePublicImage(c *gin.Context) {
+	s.ensureOpenAIImagesPublicStore().serve(c)
 }
 
 // CloseOpenAIWSPool 关闭 OpenAI WebSocket 连接池的后台 worker 和空闲连接。

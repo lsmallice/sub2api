@@ -32,6 +32,9 @@ type OpenAIRecordUsageInput struct {
 	RequestPayloadHash string
 	APIKeyService      APIKeyQuotaUpdater
 	QuotaPlatform      string // user×platform quota platform resolved by the handler before async billing.
+	RequestedTierKey   string // preferred/default custom service tier before fallback.
+	ActualTierKey      string // custom service tier actually selected for routing and billing.
+	TierRateMultiplier *float64
 	// CyberBlocked 为 true 时把该用量行标记为 cyber（request_type=cyber），计费逻辑不变。
 	CyberBlocked bool
 	ChannelUsageFields
@@ -148,6 +151,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		}
 		multiplier = resolver.Resolve(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
 	}
+	requestedTierKey := strings.TrimSpace(input.RequestedTierKey)
+	actualTierKey := strings.TrimSpace(input.ActualTierKey)
+	if input.TierRateMultiplier != nil {
+		multiplier = *input.TierRateMultiplier
+	}
 	// token 倍率叠加高峰因子（token 计费含图片 token，图片按次倍率不受影响）。高峰因子按请求时刻现算，
 	// 不并入上面的 Resolve，以免污染 user:group 倍率缓存。
 	baseMultiplier := multiplier
@@ -230,6 +238,8 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ReasoningEffort:     result.ReasoningEffort,
 		InboundEndpoint:     optionalTrimmedStringPtr(input.InboundEndpoint),
 		UpstreamEndpoint:    optionalTrimmedStringPtr(input.UpstreamEndpoint),
+		RequestedTierKey:    optionalTrimmedStringPtr(requestedTierKey),
+		ActualTierKey:       optionalTrimmedStringPtr(actualTierKey),
 		InputTokens:         actualInputTokens,
 		OutputTokens:        result.Usage.OutputTokens,
 		CacheCreationTokens: result.Usage.CacheCreationInputTokens,

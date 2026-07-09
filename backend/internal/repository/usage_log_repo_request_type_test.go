@@ -237,8 +237,8 @@ func TestBuildUsageLogBatchInsertQuery_IncludesTierColumns(t *testing.T) {
 	require.Contains(t, query, "\n\t\t\trequested_tier_key,\n\t\t\tactual_tier_key,")
 	require.Contains(t, query, "\n\t\t\t\trequested_tier_key,\n\t\t\t\tactual_tier_key,")
 	require.Len(t, args, len(prepared.args)+1)
-	require.Equal(t, sql.NullString{String: requestedTierKey, Valid: true}, args[1+48])
-	require.Equal(t, sql.NullString{String: actualTierKey, Valid: true}, args[1+49])
+	require.Equal(t, sql.NullString{String: requestedTierKey, Valid: true}, args[1+51])
+	require.Equal(t, sql.NullString{String: actualTierKey, Valid: true}, args[1+52])
 }
 
 func TestExecUsageLogInsertNoResult_PersistsRequestedModel(t *testing.T) {

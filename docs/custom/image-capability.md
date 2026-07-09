@@ -4,7 +4,7 @@ Last updated: 2026-07-08
 
 Current custom branch: `image-capability`
 
-Current upstream base at the time of this document: `0.1.146`
+Current upstream base at the time of this document: `0.1.147`
 
 ## Purpose
 
@@ -88,7 +88,7 @@ Current recognition rules:
 - `/v1/images/edits`, `/images/edits`: image generation or edit.
 - Dedicated image endpoints accept custom/non-`gpt-image-*` model IDs; the endpoint itself establishes image intent, and model mapping/upstream validation handle provider-specific names.
 - `/v1/responses`: image generation when `tool_choice` selects `image_generation`.
-- `/v1/responses`: a plain `tools` declaration for `{ "type": "image_generation" }` is not image intent by itself. Text requests that only declare this tool strip the declaration before upstream forwarding, which avoids blocking normal text traffic just because an earlier client context exposed image tools.
+- `/v1/responses`: a plain top-level `tools` declaration for `{ "type": "image_generation" }` or `{ "type": "namespace", "name": "image_gen" }` is not image intent by itself. Text requests that only declare these tools strip image-generation declarations before upstream forwarding, which avoids blocking normal text traffic just because an earlier client context exposed image tools.
 - `/v1/chat/completions`: image generation when `model` starts with an OpenAI image model prefix such as `gpt-image-`.
 - `/v1/chat/completions`: image generation when `modalities` contains `image`.
 - Any endpoint with an image-generation model in `requestedModel` or request body `model` is classified as `image_model`.
@@ -204,7 +204,7 @@ Expected behavior:
 
 - Account responses, backups, and import paths must not expose or accept `supports_image_generation`; keep it as a database compatibility column only.
 - Create, edit, bulk edit, import/export, and account list UI must not expose `supports_image_generation` as a user-facing switch, badge, or filter.
-- Account-level Codex image tool overrides (`codex_image_generation_bridge`, `codex_image_generation_bridge_enabled`, `codex_image_generation_explicit_tool_policy`) are legacy keys and must not affect routing. Account edit saves should remove these keys; channel/global bridge settings remain the supported control surface.
+- Account-level Codex image tool overrides (`codex_image_generation_bridge`, `codex_image_generation_bridge_enabled`, `codex_image_generation_explicit_tool_policy`) are legacy keys and must not affect routing. Account edit saves should remove these keys; official account capability checks plus channel/global bridge settings remain the supported control surface.
 - Image-capable Key eligibility for Canvas and Draw must use the same `SupportsOpenAIImageCapability` path as gateway scheduling.
 - Admin DTO responses must not expose raw secrets. Keep secret redaction behavior intact.
 

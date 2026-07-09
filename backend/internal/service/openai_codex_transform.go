@@ -622,11 +622,6 @@ func toolsContainImageGeneration(rawTools any) bool {
 	return false
 }
 
-func isImageGenNamespaceToolMap(tool map[string]any) bool {
-	return strings.TrimSpace(firstNonEmptyString(tool["type"])) == "namespace" &&
-		strings.TrimSpace(firstNonEmptyString(tool["name"])) == "image_gen"
-}
-
 func inputContainsImageGenNamespace(rawInput any) bool {
 	input, ok := rawInput.([]any)
 	if !ok {

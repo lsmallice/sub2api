@@ -98,17 +98,18 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	}
 
 	account := &Account{
-		Name:        input.Name,
-		Notes:       normalizeAccountNotes(input.Notes),
-		Platform:    input.Platform,
-		Type:        input.Type,
-		Credentials: input.Credentials,
-		Extra:       input.Extra,
-		ProxyID:     input.ProxyID,
-		Concurrency: normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
-		Priority:    input.Priority,
-		Status:      StatusActive,
-		Schedulable: true,
+		Name:           input.Name,
+		Notes:          normalizeAccountNotes(input.Notes),
+		Platform:       input.Platform,
+		Type:           input.Type,
+		Credentials:    input.Credentials,
+		Extra:          input.Extra,
+		ProxyID:        input.ProxyID,
+		Concurrency:    normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
+		Priority:       input.Priority,
+		ServiceTierKey: normalizeTierKey(input.ServiceTierKey),
+		Status:         StatusActive,
+		Schedulable:    true,
 	}
 	// 预计算固定时间重置的下次重置时间
 	if account.Extra != nil {
@@ -278,6 +279,9 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	// 只在指针非 nil 时更新 Priority（支持设置为 0）
 	if input.Priority != nil {
 		account.Priority = *input.Priority
+	}
+	if input.ServiceTierKey != nil {
+		account.ServiceTierKey = normalizeTierKey(*input.ServiceTierKey)
 	}
 	if input.RateMultiplier != nil {
 		if *input.RateMultiplier < 0 {
@@ -470,6 +474,10 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 	if input.Priority != nil {
 		repoUpdates.Priority = input.Priority
+	}
+	if input.ServiceTierKey != nil {
+		normalized := normalizeTierKey(*input.ServiceTierKey)
+		repoUpdates.ServiceTierKey = &normalized
 	}
 	if input.RateMultiplier != nil {
 		repoUpdates.RateMultiplier = input.RateMultiplier

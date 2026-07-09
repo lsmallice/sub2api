@@ -45,6 +45,8 @@ type AdminService interface {
 	GetGroupRateMultipliers(ctx context.Context, groupID int64) ([]UserGroupRateEntry, error)
 	ClearGroupRateMultipliers(ctx context.Context, groupID int64) error
 	BatchSetGroupRateMultipliers(ctx context.Context, groupID int64, entries []GroupRateMultiplierInput) error
+	GetGroupRateTiers(ctx context.Context, groupID int64) ([]GroupRateTier, error)
+	BatchSetGroupRateTiers(ctx context.Context, groupID int64, tiers []GroupRateTierInput) error
 	ClearGroupRPMOverrides(ctx context.Context, groupID int64) error
 	BatchSetGroupRPMOverrides(ctx context.Context, groupID int64, entries []GroupRPMOverrideInput) error
 	UpdateGroupSortOrders(ctx context.Context, updates []GroupSortOrderUpdate) error
@@ -307,6 +309,7 @@ type CreateAccountInput struct {
 	ProxyID            *int64
 	Concurrency        int
 	Priority           int
+	ServiceTierKey     string
 	RateMultiplier     *float64 // 账号计费倍率（>=0，允许 0）
 	LoadFactor         *int
 	GroupIDs           []int64
@@ -335,8 +338,9 @@ type UpdateAccountInput struct {
 	Credentials           map[string]any
 	Extra                 map[string]any
 	ProxyID               *int64
-	Concurrency           *int     // 使用指针区分"未提供"和"设置为0"
-	Priority              *int     // 使用指针区分"未提供"和"设置为0"
+	Concurrency           *int // 使用指针区分"未提供"和"设置为0"
+	Priority              *int // 使用指针区分"未提供"和"设置为0"
+	ServiceTierKey        *string
 	RateMultiplier        *float64 // 账号计费倍率（>=0，允许 0）
 	LoadFactor            *int
 	Status                string
@@ -354,6 +358,7 @@ type BulkUpdateAccountsInput struct {
 	ProxyID        *int64
 	Concurrency    *int
 	Priority       *int
+	ServiceTierKey *string
 	RateMultiplier *float64 // 账号计费倍率（>=0，允许 0）
 	LoadFactor     *int
 	Status         string
@@ -577,6 +582,7 @@ type adminServiceImpl struct {
 	apiKeyRepo           APIKeyRepository
 	redeemCodeRepo       RedeemCodeRepository
 	userGroupRateRepo    UserGroupRateRepository
+	groupRateTierRepo    GroupRateTierAdminRepository
 	userRPMCache         UserRPMCache
 	billingCacheService  *BillingCacheService
 	proxyProber          ProxyExitInfoProber
@@ -603,6 +609,7 @@ func NewAdminService(
 	apiKeyRepo APIKeyRepository,
 	redeemCodeRepo RedeemCodeRepository,
 	userGroupRateRepo UserGroupRateRepository,
+	groupRateTierRepo GroupRateTierAdminRepository,
 	userRPMCache UserRPMCache,
 	billingCacheService *BillingCacheService,
 	proxyProber ProxyExitInfoProber,
@@ -623,6 +630,7 @@ func NewAdminService(
 		apiKeyRepo:           apiKeyRepo,
 		redeemCodeRepo:       redeemCodeRepo,
 		userGroupRateRepo:    userGroupRateRepo,
+		groupRateTierRepo:    groupRateTierRepo,
 		userRPMCache:         userRPMCache,
 		billingCacheService:  billingCacheService,
 		proxyProber:          proxyProber,

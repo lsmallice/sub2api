@@ -63,11 +63,11 @@ func TestIsImageGenerationIntent(t *testing.T) {
 			want:     false,
 		},
 		{
-			name:     "namespace image_gen tool in top-level tools",
+			name:     "namespace image_gen declaration only",
 			endpoint: "/v1/responses",
 			model:    "gpt-5.5",
 			body:     []byte(`{"model":"gpt-5.5","tools":[{"type":"namespace","name":"image_gen","tools":[{"type":"function","name":"imagegen"}]}]}`),
-			want:     true,
+			want:     false,
 		},
 		{
 			name:     "namespace image_gen in input additional_tools (Responses Lite)",
@@ -145,11 +145,11 @@ func TestClassifyRequestCapabilityImageGenerationSource(t *testing.T) {
 			wantSource: ImageGenerationSourceNone,
 		},
 		{
-			name:       "namespace image_gen tool in top-level tools",
+			name:       "namespace image_gen declaration only",
 			endpoint:   "/v1/responses",
 			body:       []byte(`{"model":"gpt-5.5","tools":[{"type":"namespace","name":"image_gen","tools":[{"type":"function","name":"imagegen"}]}]}`),
-			wantIntent: true,
-			wantSource: ImageGenerationSourceResponsesTool,
+			wantIntent: false,
+			wantSource: ImageGenerationSourceNone,
 		},
 		{
 			name:       "namespace image_gen in input additional_tools",
@@ -176,7 +176,7 @@ func TestIsImageGenerationIntentMap_NamespaceImageGen(t *testing.T) {
 		want    bool
 	}{
 		{
-			name: "top-level namespace image_gen",
+			name: "top-level namespace image_gen declaration only",
 			reqBody: map[string]any{
 				"model": "gpt-5.5",
 				"tools": []any{
@@ -185,7 +185,7 @@ func TestIsImageGenerationIntentMap_NamespaceImageGen(t *testing.T) {
 					}},
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name: "additional_tools in input",

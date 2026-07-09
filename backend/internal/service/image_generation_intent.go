@@ -99,9 +99,6 @@ func ClassifyRequestCapabilityMap(endpoint string, requestedModel string, reqBod
 	if openAIAnyToolChoiceSelectsImageGeneration(reqBody["tool_choice"]) {
 		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
 	}
-	if openAIAnyToolsContainImageGenNamespace(reqBody["tools"]) {
-		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
-	}
 	if openAIAnyInputContainsImageGenTool(reqBody["input"]) {
 		return imageGenerationClassification(ImageGenerationSourceResponsesTool)
 	}
@@ -214,8 +211,8 @@ func openAIAnyInputContainsImageGenTool(input any) bool {
 }
 
 func isImageGenNamespaceToolMap(tool map[string]any) bool {
-	return firstNonEmptyString(tool["type"]) == "namespace" &&
-		firstNonEmptyString(tool["name"]) == "image_gen"
+	return strings.TrimSpace(firstNonEmptyString(tool["type"])) == "namespace" &&
+		strings.TrimSpace(firstNonEmptyString(tool["name"])) == "image_gen"
 }
 
 func normalizeImageGenerationEndpoint(endpoint string) string {
