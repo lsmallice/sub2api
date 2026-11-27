@@ -172,11 +172,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		if !stageFirstOutput || len(attemptResponseHeaders) == 0 || c.Writer.Written() {
 			return
 		}
-		for key, values := range attemptResponseHeaders {
-			for _, value := range values {
-				c.Writer.Header().Add(key, value)
-			}
-		}
+		responseheaders.WritePreparedHeaders(c.Writer.Header(), attemptResponseHeaders)
 		// 暂存头此刻才真正写给客户端：turn-state 溯源在这里记录（见
 		// noteStagedOpenAICodexTurnStateCommitted 的 failover 说明）。
 		s.noteStagedOpenAICodexTurnStateCommitted(c, account, attemptResponseHeaders)
@@ -2679,15 +2675,7 @@ func normalizeResponsesStreamingTerminalFrameOutput(frame openAISSEDataFrame, ac
 }
 
 func responsesStreamEventMayContributeToOutput(eventType string) bool {
-	switch eventType {
-	case "response.output_text.delta",
-		"response.output_item.added",
-		"response.function_call_arguments.delta",
-		"response.reasoning_summary_text.delta":
-		return true
-	default:
-		return false
-	}
+	return passthroughStreamEventContributesOutput(eventType)
 }
 
 // collectRawResponsesOutputItemsFromSSE 按到达顺序收集 SSE 流中

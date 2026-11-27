@@ -716,6 +716,9 @@ export interface AdminGroup extends Group {
   model_routing: Record<string, number[]> | null
   model_routing_enabled: boolean
 
+  // Claude 分组保存响应消息 ID（仅 anthropic 平台使用）
+  save_response_msg_id?: boolean
+
   // MCP XML 协议注入（仅 antigravity 平台使用）
   mcp_xml_inject: boolean
 
@@ -934,6 +937,23 @@ export interface ApiKeyPasskeyVerificationTicket {
   expires_in: number
 }
 
+export interface UserPersonalApiKeyStatus {
+  exists: boolean
+  key_prefix?: string
+  created_at?: string | null
+  updated_at?: string | null
+  last_used_at?: string | null
+  last_used_ip?: string
+  rate_limit_rpm: number
+  write_rate_limit_rpm: number
+}
+
+export interface CreateUserPersonalApiKeyResponse {
+  key: string
+  regenerated: boolean
+  status: UserPersonalApiKeyStatus
+}
+
 /** 二次查看授权回执：grant 只回一次，5 分钟一次性，随 GET secret-seal 头发送。 */
 export interface ApiKeyRevealGrant {
   grant: string
@@ -1069,6 +1089,7 @@ export interface CreateGroupRequest {
   profit_min_margin?: number
   profit_safety_buffer?: number
   claude_code_only?: boolean
+  save_response_msg_id?: boolean
   fallback_group_id?: number | null
   fallback_group_id_on_invalid_request?: number | null
   mcp_xml_inject?: boolean
@@ -1149,6 +1170,7 @@ export interface UpdateGroupRequest {
   profit_min_margin?: number
   profit_safety_buffer?: number
   claude_code_only?: boolean
+  save_response_msg_id?: boolean
   fallback_group_id?: number | null
   fallback_group_id_on_invalid_request?: number | null
   mcp_xml_inject?: boolean
@@ -2012,6 +2034,9 @@ export interface UsageLog {
   api_key_id: number
   account_id: number | null
   request_id: string
+  response_request_id?: string | null
+  client_request_id?: string | null
+  response_msg_id?: string | null
   model: string
   /** Conservatively associated semantic error; not a durable delivery outcome or wire status. */
   failure_status_code?: number | null

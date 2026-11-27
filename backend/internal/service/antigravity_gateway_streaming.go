@@ -910,16 +910,50 @@ func (s *AntigravityGatewayService) collectClaudeStreamResponse(c *gin.Context, 
 		intervalCh = intervalTicker.C
 	}
 
+	var meter geminiOutputMeter
+	var observedUsage *ClaudeUsage
+	defer func() { _ = resp.Body.Close() }()
+	var clientDoneCh <-chan struct{}
+	if c != nil && c.Request != nil && c.Request.Context().Done() != nil {
+		clientDoneCh = c.Request.Context().Done()
+		stopClose := context.AfterFunc(c.Request.Context(), func() { _ = resp.Body.Close() })
+		defer stopClose()
+	}
+	disconnectResult := func() *antigravityStreamResult {
+		u := observedUsage
+		if u == nil {
+			u = &ClaudeUsage{}
+		}
+		return &antigravityStreamResult{
+			usage:            u,
+			firstTokenMs:     firstTokenMs,
+			clientDisconnect: true,
+			outputTokens:     meter.tokens(),
+		}
+	}
+
 	for {
+		if geminiClientGone(c) {
+			return nil, disconnectResult(), nil
+		}
 		select {
+		case <-clientDoneCh:
+			_ = resp.Body.Close()
+			return nil, disconnectResult(), nil
 		case ev, ok := <-events:
 			if !ok {
+				if geminiClientGone(c) {
+					return nil, disconnectResult(), nil
+				}
 				// 流结束，转换并返回响应
 				goto returnResponse
 			}
 			if ev.err != nil {
 				if errors.Is(ev.err, bufio.ErrTooLong) {
 					logger.LegacyPrintf("service.antigravity_gateway", "SSE line too long (antigravity claude non-stream): max_size=%d error=%v", maxLineSize, ev.err)
+				}
+				if geminiClientGone(c) {
+					return nil, disconnectResult(), nil
 				}
 				return nil, nil, ev.err
 			}
@@ -940,6 +974,10 @@ func (s *AntigravityGatewayService) collectClaudeStreamResponse(c *gin.Context, 
 			inner, parseErr := s.unwrapV1InternalResponse([]byte(payload))
 			if parseErr != nil {
 				continue
+			}
+			meter.observe(inner)
+			if u := extractGeminiUsage(inner); u != nil {
+				observedUsage = u
 			}
 			upstreamResponseModelObserverFromContext(c).ObserveGemini(inner)
 
@@ -1045,6 +1083,12 @@ func (s *AntigravityGatewayService) handleClaudeStreamToNonStreaming(c *gin.Cont
 		}
 
 		return nil, s.writeClaudeError(c, http.StatusBadGateway, errType, errMsg)
+	}
+	if streamRes != nil && streamRes.clientDisconnect {
+		return streamRes, nil
+	}
+	if obs := upstreamResponseModelObserverFromContext(c); obs != nil {
+		obs.ObserveMessageID(firstValidTrimmedGJSONString(claudeResp, "id"))
 	}
 	c.Data(http.StatusOK, "application/json", claudeResp)
 	return streamRes, nil
@@ -1172,6 +1216,7 @@ func (s *AntigravityGatewayService) handleClaudeStreamingResponse(c *gin.Context
 	// The client leaving ends the stream at once and hangs up on the upstream (no drain
 	// window); the caller bills what was observed plus the estimates.
 	var meter geminiOutputMeter
+	msgIDObserved := false
 	defer func() { _ = resp.Body.Close() }()
 
 	for {
@@ -1217,6 +1262,21 @@ func (s *AntigravityGatewayService) handleClaudeStreamingResponse(c *gin.Context
 			// 处理 SSE 行，转换为 Claude 格式
 			claudeEvents := processor.ProcessLine(strings.TrimRight(ev.line, "\r\n"))
 			if len(claudeEvents) > 0 {
+				if !msgIDObserved {
+					if obs := upstreamResponseModelObserverFromContext(c); obs != nil {
+						for _, claudeLine := range strings.Split(string(claudeEvents), "\n") {
+							if data, ok := extractAnthropicSSEDataLine(claudeLine); ok {
+								if id := firstValidTrimmedGJSONString([]byte(strings.TrimSpace(data)), "message.id", "id"); id != "" {
+									obs.ObserveMessageID(id)
+									msgIDObserved = true
+									break
+								}
+							}
+						}
+					} else {
+						msgIDObserved = true
+					}
+				}
 				if firstTokenMs == nil {
 					ms := int(time.Since(startTime).Milliseconds())
 					firstTokenMs = &ms
