@@ -220,6 +220,8 @@ func inspectLegacyInstallationSecrets(ctx context.Context, client *ent.Client, k
 			_, err := encryptor.Decrypt(value)
 			valid = err == nil
 		case "payment":
+			// Current provider writes wrap the same authenticated envelope in v2:.
+			value = strings.TrimPrefix(value, payment.ProviderConfigCipherPrefix)
 			// The legacy decoder assumes a 12-byte nonce. Validate its framing
 			// first so malformed data cannot panic during startup validation.
 			parts := strings.Split(value, ":")

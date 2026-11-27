@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -14,6 +15,37 @@ import (
 )
 
 var paymentConfigTestKey = []byte("0123456789abcdef0123456789abcdef")
+
+func TestPaymentConfigLegacyEnvelopeRemainsReadableByOfficial(t *testing.T) {
+	t.Setenv("SUB2API_PAYMENT_LEGACY_ENVELOPE", "true")
+	client := newPaymentConfigServiceTestClient(t)
+	svc := NewPaymentConfigService(client, nil, paymentConfigTestKey)
+	created := createEncryptionTestProviderInstance(t, svc)
+	saved, err := client.PaymentProviderInstance.Get(t.Context(), created.ID)
+	require.NoError(t, err)
+	require.False(t, strings.HasPrefix(saved.Config, payment.ProviderConfigCipherPrefix))
+	require.True(t, payment.IsEncryptedProviderConfig(saved.Config))
+	require.NotContains(t, saved.Config, "sk_live_super_secret")
+	plain, err := payment.Decrypt(saved.Config, paymentConfigTestKey)
+	require.NoError(t, err, "official 0.2.25 uses this unversioned decoder")
+	var decoded map[string]string
+	require.NoError(t, json.Unmarshal([]byte(plain), &decoded))
+	require.Equal(t, "sk_live_super_secret", decoded["secretKey"])
+	current, err := svc.decryptConfig(saved.Config)
+	require.NoError(t, err)
+	require.Equal(t, decoded, current)
+	_, err = payment.Decrypt(saved.Config, []byte(strings.Repeat("f", 32)))
+	require.Error(t, err, "compatibility must retain authenticated encryption")
+
+	legacy, err := client.PaymentProviderInstance.Create().SetProviderKey("fixture").
+		SetConfig(`{"secretKey":"fixture-plaintext"}`).Save(t.Context())
+	require.NoError(t, err)
+	svc.MigrateLegacyProviderConfigs(t.Context())
+	migrated, err := client.PaymentProviderInstance.Get(t.Context(), legacy.ID)
+	require.NoError(t, err)
+	_, err = payment.Decrypt(migrated.Config, paymentConfigTestKey)
+	require.NoError(t, err, "lazy migration must preserve official readability too")
+}
 
 func newPaymentConfigEncryptionTestService(client *dbent.Client, key []byte) *PaymentConfigService {
 	return &PaymentConfigService{entClient: client, encryptionKey: key}

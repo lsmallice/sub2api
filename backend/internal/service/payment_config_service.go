@@ -269,6 +269,8 @@ type PaymentConfigService struct {
 	entClient     *dbent.Client
 	settingRepo   SettingRepository
 	encryptionKey []byte
+	// legacyEnvelope preserves the authenticated ciphertext format read by 0.2.25.
+	legacyEnvelope bool
 	// legacyMigrateOnce runs the plaintext→encrypted provider config migration
 	// at most once per process on the first read that can trigger it.
 	legacyMigrateOnce sync.Once
@@ -276,7 +278,9 @@ type PaymentConfigService struct {
 
 // NewPaymentConfigService creates a new PaymentConfigService.
 func NewPaymentConfigService(entClient *dbent.Client, settingRepo SettingRepository, encryptionKey []byte) *PaymentConfigService {
-	return &PaymentConfigService{entClient: entClient, settingRepo: settingRepo, encryptionKey: encryptionKey}
+	legacyEnvelope, _ := strconv.ParseBool(os.Getenv("SUB2API_PAYMENT_LEGACY_ENVELOPE"))
+	return &PaymentConfigService{entClient: entClient, settingRepo: settingRepo, encryptionKey: encryptionKey,
+		legacyEnvelope: legacyEnvelope}
 }
 
 // IsPaymentEnabled returns whether the payment system is enabled.

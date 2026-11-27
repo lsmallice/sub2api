@@ -100,6 +100,11 @@ export default {
           hideUserRankingHint:
             '开启后，用户端渠道监控 V2 不再显示「用户排行」页，用户 API 也不返回排行数据。管理员仍可查看。',
         },
+        infiniteCanvas: {
+          title: '无限画布',
+          description: '默认隐藏入口。关闭后仍可通过原链接访问，已有画布和密钥不受影响。',
+          enabled: '显示无限画布入口',
+        },
         availableChannels: {
           title: '可用渠道',
           description: '向已登录用户展示他们能访问的渠道、模型和定价聚合视图。默认关闭。',

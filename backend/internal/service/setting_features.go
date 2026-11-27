@@ -547,7 +547,7 @@ func (s *SettingService) ResolveAuthSourceGrantSettings(ctx context.Context, sig
 }
 
 func (s *SettingService) UpdateAuthSourceDefaultSettings(ctx context.Context, settings *AuthSourceDefaultSettings) error {
-	updates, err := s.buildAuthSourceDefaultUpdates(ctx, settings)
+	updates, err := s.buildAuthSourceDefaultUpdates(ctx, settings, nil)
 	if err != nil {
 		return err
 	}

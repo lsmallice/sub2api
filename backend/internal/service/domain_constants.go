@@ -537,6 +537,9 @@ const (
 	// sidebar entry is hidden. Defaults to false (opt-in feature).
 	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
 
+	// Controls navigation visibility only; direct canvas access is unchanged.
+	SettingKeyInfiniteCanvasMenuEnabled = "infinite_canvas_menu_enabled"
+
 	// SettingKeyCryptoConfig holds the built-in crypto deposit channel's JSON
 	// config. The service package reads only its enabled flag for public
 	// settings; the cryptopay package owns the full schema. Duplicated as a

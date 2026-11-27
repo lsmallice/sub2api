@@ -332,7 +332,8 @@ type SystemSettings struct {
 	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
 
 	// Available Channels feature switch (user-facing aggregate view)
-	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled  bool `json:"available_channels_enabled"`
+	InfiniteCanvasMenuEnabled bool `json:"infinite_canvas_menu_enabled"`
 
 	// Model Plaza feature (public group/model pricing showcase)
 	ModelPlazaEnabled       bool   `json:"model_plaza_enabled"`
@@ -439,7 +440,8 @@ type PublicSettings struct {
 	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
 	ChannelMonitorHideUserRanking        bool   `json:"channel_monitor_hide_user_ranking"`
 
-	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled  bool `json:"available_channels_enabled"`
+	InfiniteCanvasMenuEnabled bool `json:"infinite_canvas_menu_enabled"`
 
 	ModelPlazaEnabled       bool `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth   bool `json:"model_plaza_require_auth"`

@@ -19,11 +19,12 @@ import (
 
 func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
-		service.SettingKeySiteName:         "Example Gateway",
-		service.SettingKeySiteSubtitle:     "Example Gateway Platform",
-		service.SettingKeySMTPHost:         "smtp.example.com",
-		service.SettingKeySMTPFrom:         "noreply@example.com",
-		service.SettingKeyTurnstileEnabled: "true",
+		service.SettingKeySiteName:                  "Example Gateway",
+		service.SettingKeySiteSubtitle:              "Example Gateway Platform",
+		service.SettingKeySMTPHost:                  "smtp.example.com",
+		service.SettingKeySMTPFrom:                  "noreply@example.com",
+		service.SettingKeyTurnstileEnabled:          "true",
+		service.SettingKeyInfiniteCanvasMenuEnabled: "true",
 		// 已启用的人机验证必须有完整的 site/secret，否则整次保存会被参数校验拒绝，
 		// 与本用例要验证的「未提交字段保持原值」无关。
 		service.SettingKeyTurnstileSiteKey:   "site-key",
@@ -41,6 +42,69 @@ func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	require.Equal(t, "smtp.example.com", repo.values[service.SettingKeySMTPHost])
 	require.Equal(t, "noreply@example.com", repo.values[service.SettingKeySMTPFrom])
 	require.Equal(t, "true", repo.values[service.SettingKeyTurnstileEnabled])
+	require.Equal(t, "true", repo.values[service.SettingKeyInfiniteCanvasMenuEnabled])
+}
+
+func TestUpdateSettingsInfiniteCanvasMenu(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{})
+	public, err := h.settingService.GetPublicSettings(t.Context())
+	require.NoError(t, err)
+	require.False(t, public.InfiniteCanvasMenuEnabled)
+	for _, enabled := range []bool{true, false} {
+		rec := doUpdateSettings(t, h, map[string]any{"infinite_canvas_menu_enabled": enabled}, nil)
+		require.Equal(t, http.StatusOK, rec.Code)
+		expected := "false"
+		if enabled {
+			expected = "true"
+		}
+		require.Equal(t, expected, repo.values[service.SettingKeyInfiniteCanvasMenuEnabled])
+		require.Contains(t, rec.Body.String(), `"infinite_canvas_menu_enabled":`+expected)
+		public, err := h.settingService.GetPublicSettings(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, enabled, public.InfiniteCanvasMenuEnabled)
+		injected, err := h.settingService.GetPublicSettingsForInjection(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, enabled, injected.(*service.PublicSettingsInjectionPayload).InfiniteCanvasMenuEnabled)
+	}
+}
+
+func TestUpdateSettingsPreservesOmittedForeignPlatformQuotas(t *testing.T) {
+	const quotas = `{"openai":{"daily":5},"opencode_go":{"weekly":12}}`
+	seed := map[string]string{service.SettingKeyDefaultPlatformQuotas: quotas}
+	keys := []string{service.SettingKeyDefaultPlatformQuotas}
+	for _, source := range []string{"email", "linuxdo", "oidc", "wechat", "github", "google", "dingtalk"} {
+		seed[service.SettingKeyAuthSourcePlatformQuotas(source)] = quotas
+		keys = append(keys, service.SettingKeyAuthSourcePlatformQuotas(source))
+	}
+	h, repo := newStepUpSwitchTestHandler(t, seed)
+	rec := doUpdateSettings(t, h, map[string]any{
+		"infinite_canvas_menu_enabled": true,
+		"custom_menu_items": []map[string]any{{
+			"id": "community", "label": "Community", "url": "https://example.com/community",
+			"visibility": "user", "sort_order": 0,
+		}},
+	}, nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, "true", repo.values[service.SettingKeyInfiniteCanvasMenuEnabled])
+	for _, key := range keys {
+		require.Equal(t, quotas, repo.values[key], "unsent quota %s must remain byte-for-byte unchanged", key)
+	}
+}
+
+func TestUpdateSettingsRejectsExplicitForeignPlatformQuotas(t *testing.T) {
+	for _, key := range []string{service.SettingKeyDefaultPlatformQuotas, service.SettingKeyAuthSourcePlatformQuotas("email")} {
+		t.Run(key, func(t *testing.T) {
+			h, repo := newStepUpSwitchTestHandler(t, map[string]string{key: `{"openai":{"daily":5}}`})
+			rec := doUpdateSettings(t, h, map[string]any{
+				key:         map[string]any{"opencode_go": map[string]any{"daily": 10}},
+				"site_name": "Must not be saved",
+			}, nil)
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+			require.Contains(t, rec.Body.String(), "opencode_go")
+			require.Equal(t, `{"openai":{"daily":5}}`, repo.values[key])
+			require.NotEqual(t, "Must not be saved", repo.values[service.SettingKeySiteName])
+		})
+	}
 }
 
 // A full payload keeps whole-document semantics: fields explicitly set to their

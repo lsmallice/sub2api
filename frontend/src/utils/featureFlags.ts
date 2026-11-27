@@ -104,6 +104,11 @@ export const FeatureFlags = {
     mode: 'opt-in',
     label: 'Available Channels',
   }),
+  infiniteCanvasMenu: defineFlag({
+    key: 'infinite_canvas_menu_enabled',
+    mode: 'opt-in',
+    label: 'Infinite Canvas Menu',
+  }),
   modelPlaza: defineFlag({
     key: 'model_plaza_enabled',
     mode: 'opt-in',

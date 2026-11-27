@@ -7,6 +7,7 @@ import { isRestrictedInSimpleMode } from '@/router/simpleMode'
 const canUseBatchImage = ref(false)
 const refreshBatchImageAccess = vi.fn()
 const isSimpleMode = ref(false)
+const canvasMenuEnabled = ref<boolean | undefined>(undefined)
 
 vi.mock('vue-i18n', async (original) => ({
   ...await original<typeof import('vue-i18n')>(),
@@ -18,6 +19,9 @@ vi.mock('@/composables/useBatchImageAccess', () => ({
 // `isSimpleMode` stays reactive so the component's filter follows the auth store.
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({ get isSimpleMode() { return isSimpleMode.value } }),
+}))
+vi.mock('@/stores/app', () => ({
+  useAppStore: () => ({ get cachedPublicSettings() { return { infinite_canvas_menu_enabled: canvasMenuEnabled.value } } }),
 }))
 
 import UserDashboardQuickActions from '../UserDashboardQuickActions.vue'
@@ -41,13 +45,14 @@ beforeEach(() => {
   vi.clearAllMocks()
   canUseBatchImage.value = false
   isSimpleMode.value = false
+  canvasMenuEnabled.value = undefined
 })
 
 describe('user dashboard quick actions', () => {
   it('navigates to every quick action and loads the batch-image gate on mount', async () => {
     const { router, wrapper } = await mountActions()
     expect(refreshBatchImageAccess).toHaveBeenCalledOnce()
-    expect(hrefs(wrapper)).toEqual(['/keys', '/infinite-canvas', '/usage', '/redeem'])
+    expect(hrefs(wrapper)).toEqual(['/keys', '/usage', '/redeem'])
 
     const links = wrapper.findAll('a[href]')
     for (const [index, link] of links.entries()) {
@@ -62,7 +67,7 @@ describe('user dashboard quick actions', () => {
     canUseBatchImage.value = true
     const { wrapper } = await mountActions()
 
-    expect(hrefs(wrapper)).toEqual(['/keys', '/infinite-canvas', '/usage', '/batch-image', '/redeem'])
+    expect(hrefs(wrapper)).toEqual(['/keys', '/usage', '/batch-image', '/redeem'])
     wrapper.unmount()
   })
 
@@ -73,7 +78,7 @@ describe('user dashboard quick actions', () => {
     // The guard redirects /redeem to /dashboard in simple mode and the sidebar hides it, so a
     // card pointing there would be a dead click (#400).
     expect(refreshBatchImageAccess).toHaveBeenCalledOnce()
-    expect(hrefs(wrapper)).toEqual(['/keys', '/infinite-canvas', '/usage'])
+    expect(hrefs(wrapper)).toEqual(['/keys', '/usage'])
     for (const href of hrefs(wrapper)) expect(isRestrictedInSimpleMode(href ?? '')).toBe(false)
     wrapper.unmount()
   })
@@ -85,7 +90,21 @@ describe('user dashboard quick actions', () => {
 
     // /batch-image is absent from the simple sidebar but the guard still allows it, so the card
     // keeps working; only guard-blocked destinations are removed.
-    expect(hrefs(wrapper)).toEqual(['/keys', '/infinite-canvas', '/usage', '/batch-image'])
+    expect(hrefs(wrapper)).toEqual(['/keys', '/usage', '/batch-image'])
+    wrapper.unmount()
+  })
+
+  it.each([false, true])('follows the saved canvas menu switch in simple mode %s', async (simpleMode) => {
+    isSimpleMode.value = simpleMode
+    const { wrapper } = await mountActions()
+    expect(hrefs(wrapper)).not.toContain('/infinite-canvas')
+    canvasMenuEnabled.value = true
+    await flushPromises()
+    expect(hrefs(wrapper)).toContain('/infinite-canvas')
+    canvasMenuEnabled.value = false
+    await flushPromises()
+    expect(hrefs(wrapper)).not.toContain('/infinite-canvas')
+    expect(hrefs(wrapper)).toContain('/keys')
     wrapper.unmount()
   })
 })

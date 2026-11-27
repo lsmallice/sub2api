@@ -251,6 +251,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorShowQuota,
 		SettingKeyChannelMonitorHideUserRanking,
 		SettingKeyAvailableChannelsEnabled,
+		SettingKeyInfiniteCanvasMenuEnabled,
 		SettingKeyModelPlazaEnabled,
 		SettingKeyModelPlazaRequireAuth,
 		SettingKeyPluginManagementEnabled,
@@ -388,7 +389,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ChannelMonitorShowQuota:              settings[SettingKeyChannelMonitorShowQuota] == "true",
 		ChannelMonitorHideUserRanking:        isTrueSettingValue(settings[SettingKeyChannelMonitorHideUserRanking]),
 
-		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
+		AvailableChannelsEnabled:  settings[SettingKeyAvailableChannelsEnabled] == "true",
+		InfiniteCanvasMenuEnabled: settings[SettingKeyInfiniteCanvasMenuEnabled] == "true",
 
 		ModelPlazaEnabled:       settings[SettingKeyModelPlazaEnabled] == "true",
 		ModelPlazaRequireAuth:   settings[SettingKeyModelPlazaRequireAuth] == "true",
@@ -661,6 +663,7 @@ type PublicSettingsInjectionPayload struct {
 	ChannelMonitorHideUserRanking bool `json:"channel_monitor_hide_user_ranking"`
 	ChannelMonitorShowQuota       bool `json:"channel_monitor_show_quota"`
 	AvailableChannelsEnabled      bool `json:"available_channels_enabled"`
+	InfiniteCanvasMenuEnabled     bool `json:"infinite_canvas_menu_enabled"`
 	ModelPlazaEnabled             bool `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth         bool `json:"model_plaza_require_auth"`
 	PluginManagementEnabled       bool `json:"plugin_management_enabled"`
@@ -752,6 +755,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
 		ChannelMonitorHideUserRanking:        settings.ChannelMonitorHideUserRanking,
 		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
+		InfiniteCanvasMenuEnabled:            settings.InfiniteCanvasMenuEnabled,
 		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
 		PluginManagementEnabled:              settings.PluginManagementEnabled,

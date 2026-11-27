@@ -100,6 +100,11 @@ export default {
           hideUserRankingHint:
             'When on, the user Channel Monitor V2 page hides the user ranking tab and the user API returns no ranking rows. Admins still see the ranking.',
         },
+        infiniteCanvas: {
+          title: 'Infinite Canvas',
+          description: 'Hidden by default. Direct links, existing canvases and keys remain available when hidden.',
+          enabled: 'Show Infinite Canvas navigation',
+        },
         availableChannels: {
           title: 'Available Channels',
           description: 'Show logged-in users an aggregate view of the channels, models and pricing they can access. Disabled by default.',

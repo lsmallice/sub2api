@@ -95,6 +95,33 @@ afterEach(() => {
 })
 
 describe('console frame (Nuxt UI dashboard)', () => {
+  it('opens the migrated tutorial menu in the current site without an external iframe', async () => {
+    const { app } = await renderShell('/keys')
+    app.docUrl = 'https://smallice.xyz/docs/'
+    app.cachedPublicSettings!.custom_menu_items = [{
+      id: 'tutorial', label: 'Tutorial', url: 'https://smallice.xyz/docs/docs/guide/smallice-ai.html?v=old',
+      visibility: 'user', sort_order: 1, icon_svg: '',
+    }]
+    await flushPromises()
+    const link = wrapper!.findAll('.console-sidebar a').find(item => item.text().includes('Tutorial'))
+    expect(link?.attributes('href')).toBe('/docs?page=quick-start')
+    expect(wrapper!.find('.console-sidebar a[href="/custom/tutorial"]').exists()).toBe(false)
+    expect(wrapper!.find('a[href="https://smallice.xyz/docs/"]').exists()).toBe(false)
+  })
+
+  it.each(['user', 'admin'] as const)('updates canvas navigation visibility for %s', async (role) => {
+    const { app } = await renderShell('/keys', role)
+    const canvasLink = () => wrapper!.find('.console-sidebar a[href="/infinite-canvas"]')
+    expect(canvasLink().exists()).toBe(false)
+    app.cachedPublicSettings!.infinite_canvas_menu_enabled = true
+    await flushPromises()
+    expect(canvasLink().exists()).toBe(true)
+    app.cachedPublicSettings!.infinite_canvas_menu_enabled = false
+    await flushPromises()
+    expect(canvasLink().exists()).toBe(false)
+    expect(wrapper!.find('.console-sidebar a[href="/keys"]').exists()).toBe(true)
+  })
+
   it.each([...userPaths, '/keys?search=test#active', '/keys/'])('opts in %s and names the page once, in the navbar', async (path) => {
     await renderShell(path)
     expect(frame().classes()).toContain('console-signal')

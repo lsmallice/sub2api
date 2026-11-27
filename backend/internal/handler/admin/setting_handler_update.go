@@ -353,7 +353,8 @@ type UpdateSettingsRequest struct {
 	GrokDefaultBaseURLMode         *string `json:"grok_default_base_url_mode"`
 
 	// Available Channels feature switch (user-facing)
-	AvailableChannelsEnabled *bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled  *bool `json:"available_channels_enabled"`
+	InfiniteCanvasMenuEnabled *bool `json:"infinite_canvas_menu_enabled"`
 
 	// Model Plaza feature switches + description
 	ModelPlazaEnabled     *bool   `json:"model_plaza_enabled"`
@@ -2063,6 +2064,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.AvailableChannelsEnabled
 		}(),
+		InfiniteCanvasMenuEnabled: func() bool {
+			if req.InfiniteCanvasMenuEnabled != nil {
+				return *req.InfiniteCanvasMenuEnabled
+			}
+			return previousSettings.InfiniteCanvasMenuEnabled
+		}(),
 		ModelPlazaEnabled: func() bool {
 			if req.ModelPlazaEnabled != nil {
 				return *req.ModelPlazaEnabled
@@ -2517,7 +2524,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		GrokCrossClientModelMapEnabled: updatedSettings.GrokCrossClientModelMapEnabled,
 		GrokDefaultBaseURLMode:         updatedSettings.GrokDefaultBaseURLMode,
 
-		AvailableChannelsEnabled: updatedSettings.AvailableChannelsEnabled,
+		AvailableChannelsEnabled:  updatedSettings.AvailableChannelsEnabled,
+		InfiniteCanvasMenuEnabled: updatedSettings.InfiniteCanvasMenuEnabled,
 
 		ModelPlazaEnabled:       updatedSettings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:   updatedSettings.ModelPlazaRequireAuth,

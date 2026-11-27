@@ -661,5 +661,8 @@ func (s *PaymentConfigService) encryptConfig(cfg map[string]string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("encrypt payment provider config: %w", err)
 	}
+	if s.legacyEnvelope {
+		return strings.TrimPrefix(encrypted, payment.ProviderConfigCipherPrefix), nil
+	}
 	return encrypted, nil
 }

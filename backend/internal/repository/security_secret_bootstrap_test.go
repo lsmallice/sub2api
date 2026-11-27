@@ -101,6 +101,14 @@ func legacyInstallationCiphertextFixtures() map[string]func(*testing.T, *dbent.C
 		"audit_node_token": settingFixture("prompt_audit_config", func(value string) any {
 			return map[string]any{"endpoints": []map[string]string{{"token_ciphertext": value}}}
 		}),
+		"versioned_payment_config": func(t *testing.T, client *dbent.Client, keyHex, _ string) {
+			key, err := hex.DecodeString(keyHex)
+			require.NoError(t, err)
+			encrypted, err := payment.EncryptProviderConfig(`{"key":"fixture-only"}`, key)
+			require.NoError(t, err)
+			_, err = client.PaymentProviderInstance.Create().SetProviderKey("fixture").SetConfig(encrypted).Save(t.Context())
+			require.NoError(t, err)
+		},
 		"legacy_payment_config": func(t *testing.T, client *dbent.Client, keyHex, _ string) {
 			key, err := hex.DecodeString(keyHex)
 			require.NoError(t, err)

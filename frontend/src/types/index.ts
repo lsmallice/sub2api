@@ -316,6 +316,7 @@ export interface PublicSettings {
   /** When true, user monitor hides the user ranking tab and /users payload. */
   channel_monitor_hide_user_ranking?: boolean
   available_channels_enabled: boolean
+  infinite_canvas_menu_enabled?: boolean
   model_plaza_enabled: boolean
   model_plaza_require_auth: boolean
   plugin_management_enabled: boolean

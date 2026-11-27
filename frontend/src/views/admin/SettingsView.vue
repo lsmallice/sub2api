@@ -5783,6 +5783,23 @@
           </SettingPanel>
         </SettingsSection>
 
+        <SettingsSection
+          :title="t('admin.settings.features.infiniteCanvas.title')"
+          :description="t('admin.settings.features.infiniteCanvas.description')"
+        >
+          <SettingPanel hide-summary>
+            <SettingGroup>
+              <SettingRow
+                :label="t('admin.settings.features.infiniteCanvas.enabled')"
+                :on="form.infinite_canvas_menu_enabled">
+                <template #control>
+                  <Toggle v-model="form.infinite_canvas_menu_enabled" />
+                </template>
+              </SettingRow>
+            </SettingGroup>
+          </SettingPanel>
+        </SettingsSection>
+
         <SettingsSection :title="t('admin.settings.features.availableChannels.title')">
           <template #description>
             <span class="block">
@@ -8211,6 +8228,7 @@ const form = reactive<SettingsForm>({
   channel_monitor_hide_user_ranking: false,
   // Available Channels feature switch
   available_channels_enabled: false,
+  infinite_canvas_menu_enabled: false,
   // Model Plaza feature switches + description
   model_plaza_enabled: false,
   model_plaza_require_auth: false,
@@ -9842,6 +9860,7 @@ function buildSettingsPayload(): UpdateSettingsRequest {
       channel_monitor_hide_user_ranking: Boolean(form.channel_monitor_hide_user_ranking),
       // Available Channels feature switch
       available_channels_enabled: form.available_channels_enabled,
+      infinite_canvas_menu_enabled: form.infinite_canvas_menu_enabled,
       // Model Plaza feature switches + description
       model_plaza_enabled: form.model_plaza_enabled,
       model_plaza_require_auth: form.model_plaza_require_auth,

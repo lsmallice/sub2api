@@ -65,7 +65,7 @@ func (s *SettingService) UpdateSettingsWithAuthSourceDefaultsOmitting(ctx contex
 		return err
 	}
 
-	authSourceUpdates, err := s.buildAuthSourceDefaultUpdates(ctx, authDefaults)
+	authSourceUpdates, err := s.buildAuthSourceDefaultUpdates(ctx, authDefaults, omitted)
 	if err != nil {
 		return err
 	}
@@ -454,6 +454,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 
 	// Available channels feature switch
 	updates[SettingKeyAvailableChannelsEnabled] = strconv.FormatBool(settings.AvailableChannelsEnabled)
+	updates[SettingKeyInfiniteCanvasMenuEnabled] = strconv.FormatBool(settings.InfiniteCanvasMenuEnabled)
 
 	// Model plaza feature switches + description
 	updates[SettingKeyModelPlazaEnabled] = strconv.FormatBool(settings.ModelPlazaEnabled)
@@ -666,7 +667,7 @@ func validateDefaultPlatformQuotaMap(m map[string]*DefaultPlatformQuotaSetting) 
 	return nil
 }
 
-func (s *SettingService) buildAuthSourceDefaultUpdates(ctx context.Context, settings *AuthSourceDefaultSettings) (map[string]string, error) {
+func (s *SettingService) buildAuthSourceDefaultUpdates(ctx context.Context, settings *AuthSourceDefaultSettings, omitted OmittedSettingKeys) (map[string]string, error) {
 	if settings == nil {
 		return nil, nil
 	}
@@ -698,6 +699,11 @@ func (s *SettingService) buildAuthSourceDefaultUpdates(ctx context.Context, sett
 		{"google", settings.Google.PlatformQuotas},
 		{"dingtalk", settings.DingTalk.PlatformQuotas},
 	} {
+		// Unsent quotas may contain platforms from another kernel sharing this DB.
+		// Preserve them without revalidating; explicit quota edits still validate.
+		if _, skip := omitted[SettingKeyAuthSourcePlatformQuotas(pgs.name)]; skip {
+			continue
+		}
 		if pgs.pq != nil {
 			if err := validateDefaultPlatformQuotaMap(pgs.pq); err != nil {
 				return nil, err

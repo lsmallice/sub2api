@@ -124,7 +124,7 @@ import VersionBadge from '@/components/common/VersionBadge.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { sanitizeUrl } from '@/utils/url'
-import { isExternalDocsUrl, resolveDocsUrl } from '@/utils/docsUrl'
+import { INTERNAL_DOCS_URL, isExternalDocsUrl, isLegacySiteDocsUrl, resolveDocsUrl } from '@/utils/docsUrl'
 import { FeatureFlags, isFeatureFlagEnabled, makeSidebarFlag } from '@/utils/featureFlags'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 import { SIDEBAR_TOUR_ANCHORS, SIDEBAR_TOUR_SELECTORS } from '@/components/Guide/steps'
@@ -199,6 +199,7 @@ const flagChannelMonitor = makeSidebarFlag(FeatureFlags.channelMonitor)
 const flagPayment = makeSidebarFlag(FeatureFlags.payment)
 const flagCrypto = makeSidebarFlag(FeatureFlags.crypto)
 const flagAvailableChannels = makeSidebarFlag(FeatureFlags.availableChannels)
+const flagInfiniteCanvasMenu = makeSidebarFlag(FeatureFlags.infiniteCanvasMenu)
 const flagAffiliate = makeSidebarFlag(FeatureFlags.affiliate)
 const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagPluginManagement = makeSidebarFlag(FeatureFlags.pluginManagement)
@@ -221,7 +222,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   }
   items.push(
     { path: '/keys', label: t('nav.apiKeys'), icon: 'i-lucide-key-round' },
-    { path: '/infinite-canvas', label: t('nav.infiniteCanvas'), icon: 'i-lucide-frame' },
+    { path: '/infinite-canvas', label: t('nav.infiniteCanvas'), icon: 'i-lucide-frame', featureFlag: flagInfiniteCanvasMenu },
     { path: '/batch-image', label: t('nav.batchImage'), icon: 'i-lucide-images', hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
     { path: '/usage', label: t('nav.usage'), icon: 'i-lucide-chart-column', hideInSimpleMode: true },
     { path: '/available-channels', label: t('nav.availableChannels'), icon: 'i-lucide-layers', hideInSimpleMode: true, featureFlag: flagAvailableChannels },
@@ -235,7 +236,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/profile', label: t('nav.profile'), icon: 'i-lucide-user' },
     { path: '/security', label: locale.value === 'zh' ? '安全记录' : 'Security records', icon: 'i-lucide-shield-check' },
     ...customMenuItemsForUser.value.map((item): NavItem => ({
-      path: `/custom/${item.id}`,
+      path: isLegacySiteDocsUrl(item.url) ? INTERNAL_DOCS_URL : `/custom/${item.id}`,
       label: item.label,
       icon: 'i-lucide-file-text',
       iconSvg: item.icon_svg,

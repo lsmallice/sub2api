@@ -993,6 +993,30 @@ describe("admin SettingsView payment visible method controls", () => {
     wrapper.unmount();
   });
 
+  it("loads and saves the canvas menu switch without resubmitting unrelated settings", async () => {
+    getSettings.mockResolvedValueOnce({ ...baseSettingsResponse, infinite_canvas_menu_enabled: true });
+    const wrapper = mountView();
+    await flushPromises();
+    const tab = wrapper.findAll("button").find((node) => node.text().includes("admin.settings.tabs.features"));
+    await tab!.trigger("mousedown");
+    await flushPromises();
+    const section = wrapper.findAll(".settings-section")
+      .find((node) => node.text().includes("admin.settings.features.infiniteCanvas.title"));
+    expect(section).toBeDefined();
+    const toggle = section!.get<HTMLInputElement>('input[type="checkbox"]');
+    expect(toggle.element.checked).toBe(true);
+    await toggle.setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings).toHaveBeenLastCalledWith({ infinite_canvas_menu_enabled: false });
+    expect(toggle.element.checked).toBe(false);
+    await toggle.setValue(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings).toHaveBeenLastCalledWith({ infinite_canvas_menu_enabled: true });
+    wrapper.unmount();
+  });
+
   it("submits the compact home page toggle", async () => {
     const wrapper = mountView();
     await flushPromises();

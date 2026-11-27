@@ -179,10 +179,10 @@ describe('SIGNAL dashboard accounting and access contracts', () => {
     const wrapper = mount(Actions)
     const destinations = () => wrapper.findAllComponents({ name: 'RouterLink' }).map(link => link.props('to'))
     expect(refreshBatchImageAccess).toHaveBeenCalledOnce()
-    expect(destinations()).toEqual(['/keys', '/infinite-canvas', '/usage', '/redeem'])
+    expect(destinations()).toEqual(['/keys', '/usage', '/redeem'])
     canUseBatchImage.value = true
     await flushPromises()
-    expect(destinations()).toEqual(['/keys', '/infinite-canvas', '/usage', '/batch-image', '/redeem'])
+    expect(destinations()).toEqual(['/keys', '/usage', '/batch-image', '/redeem'])
     wrapper.unmount()
   })
 
