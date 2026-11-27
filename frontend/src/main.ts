@@ -8,6 +8,7 @@ import { useAppStore } from '@/stores/app'
 import { applySiteTheme } from '@/composables/useSiteTheme'
 import { updateFavicon } from '@/utils/branding'
 import { applyDocumentTitle } from '@/router/documentTitle'
+import { resolveDocumentTitle } from '@/router/title'
 import './styles/fonts.css'
 import './style.css'
 
@@ -25,9 +26,7 @@ async function bootstrap() {
   applySiteTheme(appStore.cachedPublicSettings, { colorMode: true })
 
   // Set document title immediately after config is loaded
-  if (appStore.siteName && appStore.siteName !== 'Sub2API') {
-    document.title = `${appStore.siteName} - AI API Gateway`
-  }
+  document.title = resolveDocumentTitle(undefined, appStore.siteName)
   updateFavicon(appStore.siteLogo)
 
   // The locale messages and the first route's component chunk are two independent downloads. They used to run one after

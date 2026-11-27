@@ -2,7 +2,7 @@
 
 **Last updated: 22 September 2026**
 
-The operator of this website ("we", "us", "our") takes your privacy seriously. This Privacy Policy explains how we collect, use, store and disclose personal data when you use this website (including kedaya.ai and other domains we actually use to provide the service, the "Website") and our API relay / aggregation service (the "Service"), and the choices available to you. Capitalised terms not defined here have the meanings given in the Terms of Service.
+The operator of this website ("we", "us", "our") takes your privacy seriously. This Privacy Policy explains how we collect, use, store and disclose personal data when you use this website (including smallice.xyz and other domains we actually use to provide the service, the "Website") and our API relay / aggregation service (the "Service"), and the choices available to you. Capitalised terms not defined here have the meanings given in the Terms of Service.
 
 This Privacy Policy applies to personal data collected through:
 

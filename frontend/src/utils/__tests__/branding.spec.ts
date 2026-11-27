@@ -19,4 +19,14 @@ describe('updateFavicon', () => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
     expect(link?.getAttribute('href')).toBe('/logo.svg')
   })
+
+  it('lets the browser detect the configured image format from /site-logo', () => {
+    document.head.innerHTML = '<link rel="icon" type="image/svg+xml" href="/logo.svg">'
+
+    updateFavicon('/site-logo')
+
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    expect(link?.getAttribute('href')).toBe('/site-logo')
+    expect(link?.hasAttribute('type')).toBe(false)
+  })
 })

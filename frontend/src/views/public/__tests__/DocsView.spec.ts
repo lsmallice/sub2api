@@ -8,7 +8,7 @@ import type { DocsPage } from '@/data/apiDocs'
 
 const mocks = vi.hoisted(() => ({
   copy: vi.fn().mockResolvedValue(true),
-  settings: { publicSettingsLoaded: true, siteName: 'Example gateway', siteLogo: '', cachedPublicSettings: null },
+  settings: { publicSettingsLoaded: true, siteName: 'Example gateway', siteLogo: '', apiBaseUrl: '', cachedPublicSettings: null },
   auth: { isAuthenticated: false, isAdmin: false, isAdminObserver: false },
   docs: null as null | (() => unknown),
 }))
@@ -99,6 +99,8 @@ describe('public API documentation page', () => {
   beforeEach(() => {
     mocks.copy.mockClear()
     mocks.docs = null
+    mocks.settings.apiBaseUrl = ''
+    mocks.settings.siteName = 'Example gateway'
     mocks.auth.isAuthenticated = false
     mocks.auth.isAdmin = false
     mocks.auth.isAdminObserver = false
@@ -129,6 +131,24 @@ describe('public API documentation page', () => {
     await flushPromises()
     expect(mocks.copy.mock.calls[0][0]).toContain('import requests')
     expect(mocks.copy.mock.calls[0][0]).toContain('/v1/chat/completions')
+    wrapper.unmount()
+  })
+
+  it('uses the configured name and gateway domain in copied API examples', async () => {
+    mocks.settings.siteName = 'AI2Jarvis'
+    mocks.settings.apiBaseUrl = 'https://api.smallice.xyz/v1/'
+
+    const { wrapper, router } = await openDocs()
+    expect(wrapper.text()).toContain('AI2Jarvis')
+    expect(document.title).toContain('AI2Jarvis')
+    await wrapper.get('[data-testid="docs-copy-first-request"]').trigger('click')
+    await flushPromises()
+    expect(mocks.copy.mock.calls[0][0]).toContain('https://api.smallice.xyz/v1/chat/completions')
+    expect(mocks.copy.mock.calls[0][0]).not.toContain('/v1/v1/')
+    await router.push('/docs?page=key-self-service')
+    await flushPromises()
+    await wrapper.get('[data-testid="docs-copy-endpoint-key-info-account"]').trigger('click')
+    expect(mocks.copy.mock.calls[1][0]).toBe('https://api.smallice.xyz/v1/sub2api/account')
     wrapper.unmount()
   })
 

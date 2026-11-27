@@ -100,7 +100,7 @@
         <div class="grid gap-3 sm:grid-cols-2">
           <label class="text-xs text-muted">
             {{ text('名称', 'Name') }}
-            <UInput v-model="form.name" class="mt-1 w-full" :placeholder="text('例如 sub.kedaya.xyz', 'e.g. sub.kedaya.xyz')" />
+            <UInput v-model="form.name" class="mt-1 w-full" :placeholder="text('例如 主力上游', 'e.g. Primary upstream')" />
           </label>
           <label class="text-xs text-muted">
             {{ text('站点地址', 'Site URL') }}

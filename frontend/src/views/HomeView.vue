@@ -218,12 +218,12 @@
 
     <!-- Main Content -->
     <main class="relative z-10 flex-1 px-4 sm:px-6">
-      <!-- Hero: one sentence, two ways in. -->
+      <!-- Hero: site identity, configured subtitle, and entry links. -->
       <section data-testid="home-hero" class="mx-auto max-w-4xl pt-16 text-center sm:pt-28">
         <h1
           class="text-balance text-4xl font-semibold leading-[1.1] tracking-[-0.03em] text-highlighted sm:text-5xl md:text-[54px]"
         >
-          {{ t('home.heroSubtitle') }}
+          {{ siteName }}
         </h1>
         <p class="mx-auto mt-6 max-w-2xl text-pretty text-[17px] leading-[1.68] text-muted sm:text-[19px]">
           {{ heroDescription }}
@@ -599,9 +599,7 @@ const registrationEnabled = computed(() => appStore.cachedPublicSettings?.regist
 // Current year for footer
 const currentYear = computed(() => new Date().getFullYear())
 
-// Hero copy: the product promise is the heading, and the admin-configured subtitle carries the
-// detail. When the subtitle repeats the promise verbatim (a copy/paste in site settings), fall
-// back to the generic one-liner instead of printing the same sentence twice.
+// Keep the existing subtitle fallback for sites using the default promotional copy.
 const heroDescription = computed(() => {
   const subtitle = siteSubtitle.value.trim()
   if (subtitle && subtitle !== t('home.heroSubtitle')) return subtitle

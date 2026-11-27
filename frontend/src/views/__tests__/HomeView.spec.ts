@@ -244,14 +244,19 @@ describe('HomeView default home structure', () => {
   })
 
   it('lays out hero, then figures, then the three-step guide, then the footer', async () => {
-    const wrapper = await mountHome()
+    const wrapper = await mountHome({
+      site_name: 'AI2Jarvis',
+      site_subtitle: 'Just A Rather Very Intelligent System',
+      compact_home_enabled: false,
+    })
     const text = wrapper.text()
 
     expect(wrapper.find('[data-testid="home-hero"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="home-status"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="home-quickstart"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="home-agent-setup"]').exists()).toBe(true)
-    expect(text).toContain('home.heroSubtitle')
+    expect(wrapper.get('h1').text()).toBe('AI2Jarvis')
+    expect(byTestId(wrapper, 'home-hero').text()).toContain('Just A Rather Very Intelligent System')
     expect(text).toContain('home.providers.title')
     expect(text).toContain('home.quickStart.title')
     expect(text).toContain('home.quickStart.createKey.title')

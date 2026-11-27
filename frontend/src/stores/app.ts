@@ -13,6 +13,7 @@ import {
   type ReleaseInfo
 } from '@/api/admin/system'
 import { getPublicSettings as fetchPublicSettingsAPI } from '@/api/auth'
+import { DEFAULT_SITE_NAME } from '@/utils/branding'
 
 export const useAppStore = defineStore('app', () => {
   // ==================== State ====================
@@ -36,7 +37,7 @@ export const useAppStore = defineStore('app', () => {
   const publicSettingsNeedsRevalidate = computed(
     () => publicSettingsFromInjection.value && !publicSettingsRevalidated
   )
-  const siteName = ref<string>('Sub2API')
+  const siteName = ref<string>(DEFAULT_SITE_NAME)
   const siteLogo = ref<string>('')
   const siteVersion = ref<string>('')
   const contactInfo = ref<string>('')
@@ -326,7 +327,7 @@ export const useAppStore = defineStore('app', () => {
       window.__APP_CONFIG__ = { ...normalizedConfig }
     }
     cachedPublicSettings.value = normalizedConfig
-    siteName.value = normalizedConfig.site_name || 'Sub2API'
+    siteName.value = normalizedConfig.site_name || DEFAULT_SITE_NAME
     siteLogo.value = normalizedConfig.site_logo || ''
     siteVersion.value = normalizedConfig.version || ''
     contactInfo.value = normalizedConfig.contact_info || ''

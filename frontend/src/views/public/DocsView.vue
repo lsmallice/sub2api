@@ -309,7 +309,7 @@ const { t, locale } = useI18n()
 const { copyToClipboard } = useClipboard()
 const origin = resolveDocsOrigin(typeof window !== 'undefined' ? window.location.origin : '')
 const agentSetupOrigin = computed(() => resolveAgentGatewayOrigin(appStore.apiBaseUrl || appStore.cachedPublicSettings?.api_base_url, origin))
-const pages = computed(() => getApiDocs(locale.value, origin))
+const pages = computed(() => getApiDocs(locale.value, agentSetupOrigin.value))
 const page = computed(() => resolveDocsPage(pages.value, route.query.page))
 const isAgentSetupPage = computed(() => page.value.id === 'agent-setup')
 const selectedAgentId = computed(() => (typeof route.query.agent === 'string' ? route.query.agent : ''))
@@ -545,7 +545,7 @@ async function copyExample(section: DocsSection) {
 
 async function copyEndpoint(section: DocsSection) {
   if (!section.endpoint) return
-  if (!await copyToClipboard(`${origin}${section.endpoint.path}`, t('docs.copied'))) return
+  if (!await copyToClipboard(`${agentSetupOrigin.value}${section.endpoint.path}`, t('docs.copied'))) return
   copiedEndpoint.value = section.id
   if (copiedEndpointTimer) clearTimeout(copiedEndpointTimer)
   copiedEndpointTimer = setTimeout(() => { copiedEndpoint.value = '' }, 2000)

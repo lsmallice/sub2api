@@ -1,5 +1,7 @@
 import { sanitizeUrl } from '@/utils/url'
 
+export const DEFAULT_SITE_NAME = 'AI2Jarvis'
+
 export function updateFavicon(logoUrl: string): void {
   if (typeof document === 'undefined') return
   const sanitizedLogoUrl = sanitizeUrl(logoUrl, {
@@ -17,6 +19,7 @@ export function updateFavicon(logoUrl: string): void {
     document.head.appendChild(link)
   }
 
-  link.type = sanitizedLogoUrl.endsWith('.svg') ? 'image/svg+xml' : 'image/x-icon'
+  // /site-logo serves the configured image format, including JPEG and PNG.
+  link.removeAttribute('type')
   link.href = sanitizedLogoUrl
 }
